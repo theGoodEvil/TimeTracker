@@ -48,7 +48,7 @@ services:
       - AI_TIMEOUT_SECONDS=${AI_TIMEOUT_SECONDS:-60}
       - AI_CONTEXT_LIMIT=${AI_CONTEXT_LIMIT:-40}
     ports:
-      - "8080:8080"
+      - "8090:8080"
     volumes:
       - app_data:/data
       - app_uploads:/app/app/static/uploads
