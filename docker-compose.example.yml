@@ -83,7 +83,6 @@ services:
       # - PEPPOL_BRIDGE_PROVIDER=peppyrus
       # - PEPPYRUS_BASE_URL=${PEPPYRUS_BASE_URL:-https://api.peppyrus.be/v1}
       # - PEPPYRUS_API_KEY=${PEPPYRUS_API_KEY:?Set PEPPYRUS_API_KEY}
-    ports: []
     restart: unless-stopped
 
   db:
