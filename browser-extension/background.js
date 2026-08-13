@@ -128,8 +128,26 @@ async function beginIdleGrace(stopAtMs) {
   }
 }
 
+async function sendServerHeartbeat() {
+  const { server_url, api_token, logged_out, last_timer_status } = await chrome.storage.local.get([
+    'server_url',
+    'api_token',
+    'logged_out',
+    'last_timer_status',
+  ]);
+  if (!server_url || !api_token || logged_out) return;
+  if (!last_timer_status?.active) return;
+  const client = new ApiClient(server_url, api_token);
+  try {
+    await client.sendHeartbeat();
+  } catch (error) {
+    console.debug('[TimeTracker] heartbeat failed:', error);
+  }
+}
+
 async function confirmStillWorking() {
   await clearIdleGraceState();
+  await sendServerHeartbeat();
 }
 
 async function stopTimerForIdle({ stopAtMs = null } = {}) {
@@ -173,6 +191,25 @@ async function refreshTimerStatus({ force = false } = {}) {
 
     if (active) {
       setRunningUi(status.timer);
+      // Only refresh server heartbeat while the OS reports the user as active.
+      // Heartbeating during idle/locked would defeat the server-side safety net.
+      const { idle_grace_active } = await chrome.storage.local.get('idle_grace_active');
+      if (!idle_grace_active) {
+        try {
+          const idleState = await new Promise((resolve) => {
+            try {
+              chrome.idle.queryState(MIN_IDLE_DETECTION_SECONDS, resolve);
+            } catch (_) {
+              resolve('active');
+            }
+          });
+          if (idleState === 'active') {
+            await client.sendHeartbeat();
+          }
+        } catch (hbErr) {
+          console.debug('[TimeTracker] poll heartbeat failed:', hbErr);
+        }
+      }
     } else {
       setIdleUi();
       await clearIdleGraceState();
@@ -253,10 +290,26 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   return false;
 });
 
+/** While the popup is open, keep the service worker alive and refresh the badge every 15s.
+ *  Packaged MV3 extensions clamp chrome.alarms to ≥1 minute; this port holds the SW
+ *  and provides a faster badge tick for the duration of the popup session.
+ */
+chrome.runtime.onConnect.addListener((port) => {
+  if (port.name !== 'popup-keepalive') return;
+  const intervalId = setInterval(() => {
+    refreshTimerStatus().catch(() => {});
+  }, 15_000);
+  port.onDisconnect.addListener(() => {
+    clearInterval(intervalId);
+  });
+});
+
 chrome.idle.onStateChanged.addListener(async (newState) => {
   if (newState === 'active') {
-    // User returned before grace expired — cancel pending auto-stop.
+    // User returned before grace expired — cancel pending auto-stop and
+    // tell the server so the server-side grace window also resets.
     await clearIdleGraceState();
+    await sendServerHeartbeat();
     return;
   }
   if (newState !== 'idle' && newState !== 'locked') {

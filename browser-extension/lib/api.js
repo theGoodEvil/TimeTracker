@@ -227,10 +227,22 @@ export class ApiClient {
     return this.request('POST', '/api/v1/timer/start', body);
   }
 
+  pauseTimer() {
+    return this.request('POST', '/api/v1/timer/pause');
+  }
+
+  resumeTimer() {
+    return this.request('POST', '/api/v1/timer/resume');
+  }
+
   stopTimer({ stopTime = null } = {}) {
     const body = {};
     if (stopTime) body.stop_time = stopTime;
     return this.request('POST', '/api/v1/timer/stop', Object.keys(body).length ? body : undefined);
+  }
+
+  sendHeartbeat() {
+    return this.request('POST', '/api/v1/timer/heartbeat');
   }
 
   getProjects(params = {}) {
@@ -243,8 +255,28 @@ export class ApiClient {
     return this.request('GET', `/api/v1/projects${q ? `?${q}` : ''}`);
   }
 
-  createProject({ name, clientId, description }) {
-    const body = { name, client_id: clientId };
+  /** Fetch every page of projects matching the given filters. */
+  async getAllProjects(params = {}) {
+    const perPage = params.per_page || 100;
+    let page = 1;
+    const byId = new Map();
+    while (true) {
+      const resp = await this.getProjects({ ...params, per_page: perPage, page });
+      for (const p of resp?.projects || []) {
+        if (p && p.id != null && !byId.has(p.id)) {
+          byId.set(p.id, p);
+        }
+      }
+      const pages = resp?.pagination?.pages ?? 1;
+      if (page >= pages) break;
+      page += 1;
+    }
+    return { projects: Array.from(byId.values()) };
+  }
+
+  createProject({ name, clientId = null, description }) {
+    const body = { name };
+    if (clientId) body.client_id = clientId;
     if (description) body.description = description;
     return this.request('POST', '/api/v1/projects', body);
   }
