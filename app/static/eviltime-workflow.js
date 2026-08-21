@@ -71,8 +71,17 @@
       if (weekActual) weekActual.textContent = formatHoursMinutes(liveWeekSeconds);
       if (weekToday) weekToday.textContent = formatHoursMinutes(baseWeekToday + (running ? elapsed : 0));
       if (weekProgress) {
-        var progress = expectedWeekSeconds > 0 ? Math.min(100, liveWeekSeconds / expectedWeekSeconds * 100) : 0;
-        weekProgress.style.width = progress + '%';
+        var overtimeProgress = document.getElementById('eviltime-week-progress-overtime');
+        var progressRaw = expectedWeekSeconds > 0 ? (liveWeekSeconds / expectedWeekSeconds * 100) : 0;
+        
+        if (progressRaw > 100) {
+            var normalWidth = (100 / progressRaw) * 100;
+            weekProgress.style.width = normalWidth + '%';
+            if (overtimeProgress) overtimeProgress.style.width = (100 - normalWidth) + '%';
+        } else {
+            weekProgress.style.width = progressRaw + '%';
+            if (overtimeProgress) overtimeProgress.style.width = '0%';
+        }
       }
       if (timeBalance) {
         var liveBalance = baseTimeBalance + (running && balanceLive ? elapsed : 0);

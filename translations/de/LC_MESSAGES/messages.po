@@ -26146,7 +26146,7 @@ msgid "Breaks today"
 msgstr "Pausen heute"
 
 msgid "Break reminders"
-msgstr "Pausenerinnerungen"
+msgstr "Pausenalarm"
 
 msgid "Get a browser notification after a 30-minute break."
 msgstr "Browser-Benachrichtigung nach 30 Minuten Pause erhalten."

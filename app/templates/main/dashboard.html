@@ -131,7 +131,10 @@
           <div><p class="text-xs text-slate-500">{{ _('Actual hours') }}</p><p id="eviltime-week-actual" data-seconds="{{ (current_week.actual_hours * 3600)|round|int }}" data-live="{{ 'false' if current_week.actual_hours_override is not none else 'true' }}" class="mt-0.5 text-2xl font-semibold tabular-nums text-slate-950 dark:text-white">{{ current_week.actual_hours|hours_minutes }}</p></div>
           <div class="text-right"><p class="text-xs text-slate-500">{{ _('Expected hours') }}</p><p class="mt-0.5 text-lg font-semibold tabular-nums text-slate-700 dark:text-slate-200">{{ current_week.expected_hours|hours_minutes }}</p></div>
         </div>
-        <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div id="eviltime-week-progress" data-expected-seconds="{{ (current_week.expected_hours * 3600)|round|int }}" class="h-full rounded-full bg-primary transition-all" style="width: {{ 100 if week_progress > 100 else week_progress }}%"></div></div>
+        <div class="mt-3 h-1.5 flex overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+          <div id="eviltime-week-progress" data-expected-seconds="{{ (current_week.expected_hours * 3600)|round|int }}" class="h-full bg-primary transition-all" style="width: {{ (10000 / week_progress) if week_progress > 100 else week_progress }}%"></div>
+          <div id="eviltime-week-progress-overtime" class="h-full bg-rose-500 transition-all" style="width: {{ (100 - (10000 / week_progress)) if week_progress > 100 else 0 }}%"></div>
+        </div>
         {% endif %}
       </div>
       <div class="mt-6 grid gap-1.5 {% if current_week_days|length == 5 %}grid-cols-5{% elif current_week_days|length == 6 %}grid-cols-6{% else %}grid-cols-7{% endif %}">
