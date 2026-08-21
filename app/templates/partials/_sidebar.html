@@ -3,7 +3,7 @@
         <aside id="sidebar" class="sidebar-scrollbar-hover w-64 bg-card-light dark:bg-card-dark text-text-light dark:text-text-dark p-4 flex-col hidden md:flex transition-all duration-200 ease-in-out fixed top-0 left-0 h-screen overflow-y-auto z-10" aria-label="{{ _('Main navigation') }}">
             <div class="sidebar-header flex items-center mb-8 gap-1">
                 <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="Logo" class="h-10 w-10 mr-2 shrink-0">
-                <h1 class="text-2xl font-bold text-primary sidebar-header-title min-w-0"><a href="{{ url_for('main.dashboard') }}" class="no-underline">TimeTracker</a></h1>
+                <h1 class="text-2xl font-bold text-primary sidebar-header-title min-w-0"><a href="{{ url_for('main.dashboard') }}" class="no-underline">EvilTime</a></h1>
                 <button id="sidebarCollapseBtn" type="button" class="ml-auto shrink-0 p-1.5 rounded hover:bg-background-light dark:hover:bg-background-dark" aria-label="{{ _('Toggle sidebar') }}" title="{{ _('Toggle sidebar') }}">
                     <i id="sidebarCollapseIcon" class="fas fa-angles-left"></i>
                 </button>
@@ -740,7 +740,7 @@
                     <li class="mt-2">
                         <button type="button" class="sidebar-nav-item w-full text-left flex items-center p-2 rounded-lg bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 hover:from-amber-500/20 hover:to-orange-500/20 hover:border-amber-500/30 transition-all duration-200 group js-open-support-modal" title="{{ _('Open support options') }}">
                             <i class="fas fa-heart w-6 text-center group-hover:scale-110 transition-transform" aria-hidden="true"></i>
-                            <span class="ml-3 sidebar-label font-medium">{{ _('Support TimeTracker') }}</span>
+                            <span class="ml-3 sidebar-label font-medium">{{ _('Support EvilTime') }}</span>
                         </button>
                     </li>
                     {% endif %}

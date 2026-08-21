@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Support TimeTracker') }}{% endblock %}
+{% block title %}{{ _('Support EvilTime') }}{% endblock %}
 
 {% block content %}
 <div class="max-w-4xl mx-auto">
@@ -14,12 +14,12 @@
     <div class="bg-gradient-to-br from-amber-500 via-orange-500 to-amber-600 p-5 sm:p-8 rounded-lg shadow-lg text-white mb-6">
         <div class="text-center">
             <i class="fas fa-mug-saucer text-4xl sm:text-6xl mb-4"></i>
-            <h1 class="text-2xl sm:text-4xl font-bold mb-4">{{ _('Support TimeTracker Development') }}</h1>
+            <h1 class="text-2xl sm:text-4xl font-bold mb-4">{{ _('Support EvilTime Development') }}</h1>
             <p class="text-xl opacity-90 mb-6">
                 {% if (support_ab_variant|default('control')) == 'cta_alt' %}
                 {{ _('Donate to support development — or get a key to remove prompts') }}
                 {% else %}
-                {{ _('Support updates and keep TimeTracker free for everyone') }}
+                {{ _('Support updates and keep EvilTime free for everyone') }}
                 {% endif %}
             </p>
             <div class="flex flex-wrap gap-3 justify-center">
@@ -60,7 +60,7 @@
         </h2>
         <div class="space-y-4 text-text-light dark:text-text-dark">
             <p class="text-lg">
-                {{ _('TimeTracker is a free, open-source project built with passion and dedication. Your donations directly support:') }}
+                {{ _('EvilTime is a free, open-source project built with passion and dedication. Your donations directly support:') }}
             </p>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
@@ -69,7 +69,7 @@
                     <div>
                         <h3 class="font-semibold mb-1">{{ _('Server Infrastructure') }}</h3>
                         <p class="text-sm text-text-muted-light dark:text-text-muted-dark">
-                            {{ _('Hosting, databases, and CDN costs to keep TimeTracker fast and reliable') }}
+                            {{ _('Hosting, databases, and CDN costs to keep EvilTime fast and reliable') }}
                         </p>
                     </div>
                 </div>
@@ -99,7 +99,7 @@
                     <div>
                         <h3 class="font-semibold mb-1">{{ _('Internationalization') }}</h3>
                         <p class="text-sm text-text-muted-light dark:text-text-muted-dark">
-                            {{ _('Translation support, localization, and making TimeTracker accessible worldwide') }}
+                            {{ _('Translation support, localization, and making EvilTime accessible worldwide') }}
                         </p>
                     </div>
                 </div>
@@ -145,14 +145,14 @@
     <div class="bg-card-light dark:bg-card-dark p-4 sm:p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm mb-6">
         <h2 class="text-xl sm:text-2xl font-semibold mb-4">
             <i class="fas fa-chart-line text-primary mr-2"></i>
-            {{ _('Your TimeTracker Journey') }}
+            {{ _('Your EvilTime Journey') }}
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             {% if days_since_signup > 0 %}
             <div class="text-center p-4 bg-background-light dark:bg-background-dark rounded-lg">
                 <div class="text-3xl font-bold text-primary">{{ days_since_signup }}</div>
                 <div class="text-sm text-text-muted-light dark:text-text-muted-dark mt-1">
-                    {{ _('Days using TimeTracker') }}
+                    {{ _('Days using EvilTime') }}
                 </div>
             </div>
             {% endif %}
@@ -176,7 +176,7 @@
             {% endif %}
         </div>
         <p class="text-center mt-4 text-text-muted-light dark:text-text-muted-dark">
-            {{ _('Thank you for being part of the TimeTracker community!') }}
+            {{ _('Thank you for being part of the EvilTime community!') }}
         </p>
     </div>
     {% endif %}
@@ -188,7 +188,7 @@
             {{ _('How to Support') }}
         </h2>
         <p class="mb-6 text-text-light dark:text-text-dark">
-            {{ _('Every contribution, no matter the size, makes a difference. Your support helps ensure TimeTracker remains free and continues to evolve.') }}
+            {{ _('Every contribution, no matter the size, makes a difference. Your support helps ensure EvilTime remains free and continues to evolve.') }}
         </p>
         
         <div class="text-center">
@@ -229,7 +229,7 @@
             </li>
             <li class="flex items-start gap-2">
                 <i class="fas fa-check-circle text-green-600 dark:text-green-400 mt-1"></i>
-                <span>{{ _('Keeps TimeTracker free and accessible for everyone') }}</span>
+                <span>{{ _('Keeps EvilTime free and accessible for everyone') }}</span>
             </li>
         </ul>
     </div>
@@ -241,8 +241,8 @@
             {{ _('Other Ways to Help') }}
         </h2>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <a href="https://github.com/drytrix/TimeTracker" 
-               target="_blank" 
+            <a href="https://github.com/drytrix/TimeTracker"
+               target="_blank"
                rel="noopener noreferrer"
                class="flex items-center gap-3 p-4 bg-background-light dark:bg-background-dark rounded-lg hover:bg-background-hover-light dark:hover:bg-background-hover-dark transition-colors">
                 <i class="fab fa-github text-2xl text-text-light dark:text-text-dark"></i>
@@ -304,4 +304,3 @@ function trackDonationClick(source) {
 }
 </script>
 {% endblock %}
-

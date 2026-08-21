@@ -188,6 +188,12 @@ class TimeTrackingService:
                 stop_at = now_local
 
         # Stop the timer
+        if entry.paused_at:
+            paused_at = entry._naive_dt(entry.paused_at)
+            stop_naive = entry._naive_dt(stop_at)
+            if paused_at and stop_naive and stop_naive > paused_at:
+                entry.break_seconds = (entry.break_seconds or 0) + int((stop_naive - paused_at).total_seconds())
+            entry.paused_at = None
         entry.end_time = stop_at
         entry.calculate_duration()
 
@@ -203,6 +209,63 @@ class TimeTrackingService:
         fire_time_logged_workflow(entry, user_id)
 
         return {"success": True, "message": "Timer stopped successfully", "entry": entry}
+
+    def switch_timer(self, user_id: int, project_id: int) -> Dict[str, Any]:
+        """Stop the current entry and start another project in one transaction."""
+        current = self.time_entry_repo.get_active_timer(user_id)
+        if not current:
+            return {"success": False, "message": "No active timer found", "error": "no_active_timer"}
+
+        project = self.project_repo.get_by_id(project_id)
+        if not project or project.status != "active":
+            return {"success": False, "message": "Invalid or inactive project", "error": "invalid_project"}
+        if self._is_locked_period(user_id, local_now()):
+            return {
+                "success": False,
+                "message": "Timesheet period is closed for this date",
+                "error": "timesheet_period_locked",
+            }
+
+        settings = Settings.get_settings()
+        err = validate_time_entry_requirements(
+            settings, project_id=project_id, client_id=None, task_id=None, notes=None
+        )
+        if err:
+            return err
+
+        switched_at = local_now()
+        if current.paused_at:
+            paused_at = current._naive_dt(current.paused_at)
+            if paused_at and switched_at > paused_at:
+                current.break_seconds = (current.break_seconds or 0) + int((switched_at - paused_at).total_seconds())
+            current.paused_at = None
+        current.end_time = switched_at
+        current.calculate_duration()
+        timer = self.time_entry_repo.create_timer(user_id=user_id, project_id=project_id)
+
+        if not safe_commit(
+            "switch_timer",
+            {"user_id": user_id, "from_entry_id": current.id, "to_project_id": project_id},
+        ):
+            return {
+                "success": False,
+                "message": "Could not switch projects due to a database error",
+                "error": "database_error",
+            }
+
+        from app.utils.workflow_bridge import fire_time_logged_workflow
+
+        fire_time_logged_workflow(current, user_id)
+        emit_event(
+            WebhookEvent.TIME_ENTRY_CREATED.value,
+            {"entry_id": timer.id, "user_id": user_id, "project_id": project_id},
+        )
+        return {
+            "success": True,
+            "message": "Project switched successfully",
+            "entry": current,
+            "timer": timer,
+        }
 
     def pause_timer(self, user_id: int) -> Dict[str, Any]:
         """Pause the active timer for a user. Clock stops; break accumulates on resume."""

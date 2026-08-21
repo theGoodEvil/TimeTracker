@@ -2895,7 +2895,7 @@
         if (error.code === "ECONNREFUSED") {
           return {
             code: "REFUSED",
-            message: "Connection refused. Check the host, port, and that the TimeTracker server is running."
+            message: "Connection refused. Check the host, port, and that the EvilTime server is running."
           };
         }
         if (error.code === "ENETUNREACH" || error.code === "EHOSTUNREACH") {
@@ -2908,12 +2908,12 @@
         if (!error.response) {
           return {
             code: "UNKNOWN",
-            message: "Server not reachable. Check the URL, VPN, firewall, and that the TimeTracker server is running."
+            message: "Server not reachable. Check the URL, VPN, firewall, and that the EvilTime server is running."
           };
         }
         return { code: "UNKNOWN", message: msg };
       }
-      function isTimeTrackerInfoPayload(data) {
+      function isEvilTimeInfoPayload(data) {
         return data !== null && typeof data === "object" && !Array.isArray(data) && data.api_version === "v1" && typeof data.endpoints === "object";
       }
       var { attachIdempotentRetryInterceptors } = require_request_policy();
@@ -2981,7 +2981,7 @@
           return u;
         }
         /**
-         * Unauthenticated check: reachable TimeTracker JSON at GET /api/v1/info.
+         * Unauthenticated check: reachable EvilTime JSON at GET /api/v1/info.
          * @param {string} baseUrl
          * @returns {Promise<ValidationResult>}
          */
@@ -3014,18 +3014,18 @@
               };
             }
             const data = response.data;
-            if (!isTimeTrackerInfoPayload(data)) {
+            if (!isEvilTimeInfoPayload(data)) {
               return {
                 ok: false,
                 code: "NOT_TIMETRACKER",
-                message: "This address did not return a TimeTracker API response. Check the URL (base URL only, no path) and port."
+                message: "This address did not return a EvilTime API response. Check the URL (base URL only, no path) and port."
               };
             }
             if (data.setup_required === true) {
               return {
                 ok: false,
                 code: "SETUP_REQUIRED",
-                message: "TimeTracker is not fully set up yet. Open this server URL in a browser, complete initial setup, then try again."
+                message: "EvilTime is not fully set up yet. Open this server URL in a browser, complete initial setup, then try again."
               };
             }
             const appVersion = typeof data.app_version === "string" ? data.app_version : null;
@@ -3095,7 +3095,7 @@
               return {
                 ok: false,
                 code: "INVALID_RESPONSE",
-                message: "Server response was not a valid TimeTracker user payload."
+                message: "Server response was not a valid EvilTime user payload."
               };
             }
             return { ok: true };
@@ -3300,7 +3300,7 @@
       if (typeof module !== "undefined" && module.exports) {
         module.exports = ApiClient2;
         module.exports.classifyAxiosError = classifyAxiosError2;
-        module.exports.isTimeTrackerInfoPayload = isTimeTrackerInfoPayload;
+        module.exports.isEvilTimeInfoPayload = isEvilTimeInfoPayload;
       }
     }
   });
@@ -4248,7 +4248,7 @@
       return;
     }
     const ver = pub.app_version ? ` (server version ${pub.app_version})` : "";
-    showSuccess(`TimeTracker server detected${ver}. Continue to sign in.`);
+    showSuccess(`EvilTime server detected${ver}. Continue to sign in.`);
     if (contServer) contServer.disabled = false;
   }
   async function handleLoginWizardContinue() {

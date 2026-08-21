@@ -31,305 +31,48 @@ main_bp = Blueprint("main", __name__)
 @main_bp.route("/dashboard")
 @login_required
 def dashboard():
-    """Main dashboard showing active timer and recent entries - REFACTORED to use services and fix N+1 queries"""
-    # Track dashboard page view
+    """Fast, unified EvilTime project-work dashboard."""
     track_page_view("dashboard")
-
-    # Update user segments periodically (cached, not every request)
-    update_user_segments_if_needed(current_user.id, current_user)
-
-    # Do not cache dashboard template_data: it contains ORM objects (active_timer,
-    # recent_entries, top_projects, templates, etc.) that become detached when
-    # served in a different request, causing "Instance not bound to a Session"
-    # and "Database Error" on second visit (Issue #549).
-
-    # Get user's active timer
     active_timer = current_user.active_timer
 
-    # Get recent entries for the user (using repository to avoid N+1)
     from app.repositories import TimeEntryRepository
+    from app.utils.scope_filter import get_active_clockable_projects_for_user
+    from app.services.weekly_work_service import WeeklyWorkService
 
-    time_entry_repo = TimeEntryRepository()
-    recent_entries = time_entry_repo.get_by_user(user_id=current_user.id, limit=10, include_relations=True)
+    recent_entries = TimeEntryRepository().get_by_user(user_id=current_user.id, limit=10, include_relations=True)
+    active_projects = get_active_clockable_projects_for_user(current_user)
+    weekly_rows = WeeklyWorkService.rows(current_user, limit=12)
 
-    # Get active projects and clients for timer dropdown (scoped for subcontractors)
-    from app.utils.scope_filter import apply_client_scope_to_model, apply_project_scope_to_model
-
-    projects_query = Project.query.filter_by(status="active").order_by(Project.name)
-    scope_p = apply_project_scope_to_model(Project, current_user)
-    if scope_p is not None:
-        projects_query = projects_query.filter(scope_p)
-    active_projects = projects_query.all()
-    clients_query = Client.query.filter_by(status="active").order_by(Client.name)
-    scope_c = apply_client_scope_to_model(Client, current_user)
-    if scope_c is not None:
-        clients_query = clients_query.filter(scope_c)
-    active_clients = clients_query.all()
-    only_one_client = len(active_clients) == 1
-    single_client = active_clients[0] if only_one_client else None
-
-    # Get user statistics and dashboard aggregations (cached 90s to reduce DB load)
-    from app.services import AnalyticsService
-    from app.utils.cache import get_cache
-    from app.utils.overtime import calculate_period_overtime, get_overtime_ytd, get_week_start_for_date
-
-    dashboard_stats_key = f"dashboard:stats:{current_user.id}"
-    dashboard_chart_key = f"dashboard:chart:{current_user.id}"
-    cache = get_cache()
-    stats = cache.get(dashboard_stats_key)
-    chart_data = cache.get(dashboard_chart_key)
-
-    if stats is None or chart_data is None:
-        analytics_service = AnalyticsService()
-        if stats is None:
-            stats = analytics_service.get_dashboard_stats(user_id=current_user.id)
-            try:
-                cache.set(dashboard_stats_key, stats, ttl=90)
-            except Exception:
-                # Cache is best-effort; a miss just means recomputing next request.
-                current_app.logger.debug("Could not cache dashboard stats", exc_info=True)
-        if chart_data is None:
-            chart_data = analytics_service.get_time_by_project_chart(current_user.id, days=7, limit=10)
-            try:
-                cache.set(dashboard_chart_key, chart_data, ttl=90)
-            except Exception:
-                current_app.logger.debug("Could not cache dashboard chart data", exc_info=True)
-
-    today_hours = stats["time_tracking"]["today_hours"]
-    week_hours = stats["time_tracking"]["week_hours"]
-    month_hours = stats["time_tracking"]["month_hours"]
-    workday_today_hours = stats.get("workday_hours", {}).get("today", 0.0)
-    workday_week_hours = stats.get("workday_hours", {}).get("week", 0.0)
-    workday_month_hours = stats.get("workday_hours", {}).get("month", 0.0)
-
-    from app.services.attendance_compliance_service import AttendanceComplianceService
-    from app.services.workday_session_service import WorkdaySessionService
-    from app.services.working_time_limit_service import WorkingTimeLimitService
-
-    workday_svc = WorkdaySessionService()
-    active_workday_session = workday_svc.get_active_session(current_user.id)
-    attendance_status = AttendanceComplianceService().get_status(current_user.id)
-    attendance_break_active = attendance_status.get("break_active", False)
-    overnight_open_workday = workday_svc.is_overnight_open_session(active_workday_session)
-    suggested_leave_time = (
-        workday_svc.suggested_leave_datetime_local(active_workday_session, current_user)
-        if overnight_open_workday and active_workday_session
-        else None
+    # Include the live entry. The browser then advances these values locally,
+    # while Socket.IO events trigger an immediate refresh after state changes.
+    today_local = local_now().date()
+    today_entries = TimeEntry.query.filter(
+        TimeEntry.user_id == current_user.id,
+        TimeEntry.start_time >= datetime.combine(today_local, datetime.min.time()),
+        TimeEntry.start_time <= datetime.combine(today_local, datetime.max.time()),
+    ).all()
+    today_work_seconds = sum(
+        entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
+        for entry in today_entries
     )
-    auto_closed_workday_session = (
-        None if overnight_open_workday else workday_svc.get_unconfirmed_auto_closed_session(current_user.id)
-    )
-    auto_closed_suggested_leave_time = (
-        workday_svc.suggested_leave_datetime_local(auto_closed_workday_session, current_user)
-        if auto_closed_workday_session
-        else None
-    )
-    auto_closed_max_leave_time = (
-        auto_closed_workday_session.end_time.strftime("%Y-%m-%dT%H:%M")
-        if auto_closed_workday_session and auto_closed_workday_session.end_time
-        else None
-    )
-    pending_violations = WorkingTimeLimitService().get_violations_needing_justification(current_user.id)
-
-    # Overtime for dashboard cards (today and week)
-    today_dt = datetime.utcnow().date()
-    week_start_dt = get_week_start_for_date(today_dt, current_user)
-    today_overtime = calculate_period_overtime(current_user, today_dt, today_dt)
-    week_overtime = calculate_period_overtime(current_user, week_start_dt, today_dt)
-    overtime_ytd = get_overtime_ytd(current_user)
-    standard_hours_per_day = float(getattr(current_user, "standard_hours_per_day", 8.0) or 8.0)
-
-    # Top projects (last 30 days) - not cached (contains ORM refs for template links)
-    analytics_service = AnalyticsService()
-    top_projects = analytics_service.get_dashboard_top_projects(current_user.id, days=30, limit=5)
-    time_by_project_7d = chart_data["series"]
-    chart_labels_7d = chart_data["chart_labels"]
-    chart_hours_7d = chart_data["chart_hours"]
-
-    # Get current week goal
-    current_week_goal = WeeklyTimeGoal.get_current_week_goal(current_user.id)
-    if current_week_goal:
-        current_week_goal.update_status()
-
-    # Get user's time entry templates (most recently used first)
-    from sqlalchemy import desc
-    from sqlalchemy.orm import joinedload
-
-    templates = (
-        TimeEntryTemplate.query.options(joinedload(TimeEntryTemplate.project), joinedload(TimeEntryTemplate.task))
-        .filter_by(user_id=current_user.id)
-        .order_by(desc(TimeEntryTemplate.last_used_at))
-        .limit(5)
-        .all()
-    )
-
-    # Get recent activities for activity feed widget
-    recent_activities = Activity.get_recent(user_id=None if current_user.is_admin else current_user.id, limit=10)
-
-    # Recent tags for Start Timer modal autocomplete (distinct from user's time entries)
-    recent_tags = []
-    tag_rows = (
-        db.session.query(TimeEntry.tags)
-        .filter(
-            TimeEntry.user_id == current_user.id,
-            TimeEntry.tags.isnot(None),
-            TimeEntry.tags != "",
+    today_break_seconds = sum(
+        (entry.break_seconds or 0)
+        + (
+            int((local_now() - entry._naive_dt(entry.paused_at)).total_seconds())
+            if entry.end_time is None and entry.paused_at
+            else 0
         )
-        .order_by(TimeEntry.updated_at.desc())
-        .limit(200)
-        .all()
+        for entry in today_entries
     )
-    tags_seen = set()
-    for (tags_str,) in tag_rows:
-        if tags_str:
-            for part in tags_str.split(","):
-                t = part.strip()
-                if t and t not in tags_seen:
-                    tags_seen.add(t)
-                    recent_tags.append(t)
-                    if len(recent_tags) >= 30:
-                        break
-        if len(recent_tags) >= 30:
-            break
-
-    # Last timer context: most recent completed time entry for "Repeat last" / quick start
-    last_entry = (
-        TimeEntry.query.options(
-            joinedload(TimeEntry.project),
-            joinedload(TimeEntry.client),
-        )
-        .filter(
-            TimeEntry.user_id == current_user.id,
-            TimeEntry.end_time.isnot(None),
-        )
-        .order_by(TimeEntry.end_time.desc())
-        .limit(1)
-        .first()
+    return render_template(
+        "main/dashboard.html",
+        active_timer=active_timer,
+        active_projects=active_projects,
+        recent_entries=recent_entries,
+        weekly_rows=weekly_rows,
+        today_work_seconds=today_work_seconds,
+        today_break_seconds=today_break_seconds,
     )
-    last_timer_context = None
-    if last_entry and (last_entry.project_id or last_entry.client_id):
-        last_timer_context = {
-            "project_id": last_entry.project_id,
-            "task_id": last_entry.task_id,
-            "client_id": last_entry.client_id,
-            "notes": (last_entry.notes or "").strip(),
-            "tags": (last_entry.tags or "").strip(),
-            "project_name": last_entry.project.name if last_entry.project else None,
-            "client_name": last_entry.client.name if last_entry.client else None,
-        }
-
-    # Post-timer toast data (show "Logged Xh on Project" + link to time entries)
-    timer_stopped_toast = session.pop("timer_stopped_toast", None)
-    if timer_stopped_toast:
-        timer_stopped_toast["time_entries_url"] = url_for("timer.time_entries_overview")
-
-    # Get user stats for smart banner and donation widget
-    support_banner_suppressed_dashboard = False
-    try:
-        from app.models import DonationInteraction
-
-        user_stats = DonationInteraction.get_user_engagement_metrics(current_user.id)
-        support_banner_suppressed_dashboard = DonationInteraction.has_recent_donation_click(current_user.id, days=30)
-    except Exception:
-        # Fallback if table doesn't exist yet. Log it: any *other* database fault lands
-        # here too, and silently degrading made a real error look like a slow dashboard.
-        current_app.logger.warning("Donation engagement metrics unavailable; using fallback stats", exc_info=True)
-        days_since_signup = (datetime.utcnow() - current_user.created_at).days if current_user.created_at else 0
-        time_entries_count = TimeEntry.query.filter_by(user_id=current_user.id).count()
-        total_hours = current_user.total_hours if hasattr(current_user, "total_hours") else 0.0
-        user_stats = {
-            "days_since_signup": days_since_signup,
-            "time_entries_count": time_entries_count,
-            "total_hours": total_hours,
-        }
-
-    # Get donation widget stats (separate from user_stats for clarity)
-    time_entries_count = user_stats.get("time_entries_count", 0)
-    total_hours = user_stats.get("total_hours", 0.0)
-
-    settings_obj = Settings.get_settings()
-    from app.services.support_prompt_service import SupportPromptService
-    from app.services.usage_stats_service import UsageStatsService
-
-    usage_support_stats = UsageStatsService.get_for_user(current_user.id, month_hours=float(month_hours or 0))
-    is_supporter = is_license_activated(settings_obj)
-    ui_show_donate = getattr(current_user, "ui_show_donate", True)
-    support_dashboard_prompt = SupportPromptService.pick_dashboard_prompt(
-        session,
-        user_stats,
-        ui_show_donate=ui_show_donate,
-        is_supporter=is_supporter,
-        support_banner_suppressed=support_banner_suppressed_dashboard,
-        today_hours=float(today_hours or 0),
-    )
-    if support_dashboard_prompt:
-        SupportPromptService.mark_prompt_shown(session, support_dashboard_prompt["variant"])
-        v = support_dashboard_prompt.get("variant")
-        if v == SupportPromptService.VARIANT_SEVEN_DAY:
-            support_dashboard_prompt = {
-                **support_dashboard_prompt,
-                "message": _(
-                    "You have been using TimeTracker for a week or more. If it fits your workflow, "
-                    "consider supporting continued development."
-                ),
-            }
-        elif v == SupportPromptService.VARIANT_ACTIVE_TODAY:
-            support_dashboard_prompt = {
-                **support_dashboard_prompt,
-                "message": _(
-                    "You have tracked a solid amount of time today. If TimeTracker makes your day easier, "
-                    "you can support the project in a click."
-                ),
-            }
-
-    # Prepare template data
-    template_data = {
-        "active_timer": active_timer,
-        "active_workday_session": active_workday_session,
-        "attendance_break_active": attendance_break_active,
-        "overnight_open_workday": overnight_open_workday,
-        "suggested_leave_time": suggested_leave_time,
-        "auto_closed_workday_session": auto_closed_workday_session,
-        "auto_closed_suggested_leave_time": auto_closed_suggested_leave_time,
-        "auto_closed_max_leave_time": auto_closed_max_leave_time,
-        "workday_today_hours": workday_today_hours,
-        "workday_week_hours": workday_week_hours,
-        "workday_month_hours": workday_month_hours,
-        "pending_violations": pending_violations,
-        "recent_entries": recent_entries,
-        "active_projects": active_projects,
-        "active_clients": active_clients,
-        "only_one_client": only_one_client,
-        "single_client": single_client,
-        "today_hours": today_hours,
-        "week_hours": week_hours,
-        "month_hours": month_hours,
-        "standard_hours_per_day": standard_hours_per_day,
-        "today_regular_hours": today_overtime["regular_hours"],
-        "today_overtime_hours": today_overtime["overtime_hours"],
-        "week_regular_hours": week_overtime["regular_hours"],
-        "week_overtime_hours": week_overtime["overtime_hours"],
-        "overtime_ytd_hours": overtime_ytd["overtime_hours"],
-        "overtime_ytd_regular": overtime_ytd["regular_hours"],
-        "top_projects": top_projects,
-        "time_by_project_7d": time_by_project_7d,
-        "chart_labels_7d": chart_labels_7d,
-        "chart_hours_7d": chart_hours_7d,
-        "current_week_goal": current_week_goal,
-        "templates": templates,
-        "recent_activities": recent_activities,
-        "last_timer_context": last_timer_context,
-        "recent_tags": recent_tags,
-        "user_stats": user_stats,  # For smart banner
-        "time_entries_count": time_entries_count,  # For donation widget
-        "total_hours": total_hours,  # For donation widget
-        "timer_stopped_toast": timer_stopped_toast,
-        "usage_support_stats": usage_support_stats,
-        "support_dashboard_prompt": support_dashboard_prompt,
-        "is_supporter_instance": is_supporter,
-    }
-
-    return render_template("main/dashboard.html", **template_data)
 
 
 @main_bp.route("/dashboard/productivity")

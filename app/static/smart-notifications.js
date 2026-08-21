@@ -193,8 +193,7 @@ class SmartNotificationManager {
 
     /**
      * Smart notifications based on user activity.
-     * Idle timeout / "Still working?" auto-stop lives in idle.js — do not
-     * duplicate a hardcoded idle loop here.
+     * Timer liveness heartbeats live in idle.js; this file only shows reminders.
      */
 
     // Check upcoming deadlines
@@ -792,5 +791,4 @@ class NotificationCenter {
 // Initialize
 window.smartNotifications = new SmartNotificationManager();
 window.notificationCenter = new NotificationCenter(window.smartNotifications);
-
 

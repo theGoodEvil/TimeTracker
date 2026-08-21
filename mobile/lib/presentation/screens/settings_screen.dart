@@ -164,7 +164,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     if (!infoResult.ok) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(infoResult.message ?? 'Invalid TimeTracker server')),
+        SnackBar(content: Text(infoResult.message ?? 'Invalid EvilTime server')),
       );
       return;
     }
@@ -301,7 +301,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   void _showAboutDialog() {
     showAboutDialog(
       context: context,
-      applicationName: 'TimeTracker',
+      applicationName: 'EvilTime',
       applicationVersion: _version,
       applicationIcon: const Icon(Icons.timer),
     );

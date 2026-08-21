@@ -8,7 +8,7 @@ from flask_babel import gettext as _
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import Activity, Settings, User
+from app.models import Activity, Project, Settings, User
 from app.utils.db import safe_commit
 from app.utils.donate_hide_code import system_id_log_prefix, verify_supporter_code
 from app.utils.license_utils import is_license_activated
@@ -188,6 +188,20 @@ def settings():
             if time_rounding_minimum is not None and time_rounding_minimum in [0, 5, 10, 15, 30, 60]:
                 current_user.time_rounding_minimum_minutes = time_rounding_minimum
 
+            # Unified tracking preference
+            default_project_id = request.form.get("default_project_id", type=int)
+            if default_project_id:
+                default_project = Project.query.filter_by(id=default_project_id, status="active").first()
+                from app.utils.scope_filter import get_clockable_project_ids
+
+                allowed_ids = get_clockable_project_ids(current_user)
+                if not default_project or (allowed_ids is not None and default_project_id not in allowed_ids):
+                    flash(_("Select an active project you can access."), "error")
+                    return redirect(url_for("user.settings"))
+                current_user.default_project_id = default_project.id
+            else:
+                current_user.default_project_id = None
+
             # Overtime settings
             standard_hours_per_day = request.form.get("standard_hours_per_day", type=float)
             if standard_hours_per_day is not None:
@@ -213,6 +227,24 @@ def settings():
                 elif getattr(current_user, "overtime_calculation_mode", "daily") == "weekly":
                     # Allow clearing to use derived default (daily * 5)
                     current_user.standard_hours_per_week = None
+
+            effective_week_raw = (request.form.get("weekly_hours_effective_from") or "").strip()
+            if effective_week_raw and standard_hours_per_week is not None:
+                from datetime import datetime
+
+                from app.services.weekly_work_service import WeeklyWorkService
+
+                try:
+                    effective_date = datetime.strptime(effective_week_raw, "%Y-%m-%d").date()
+                except ValueError:
+                    flash(_("Invalid effective week."), "error")
+                    return redirect(url_for("user.settings"))
+                WeeklyWorkService.upsert_adjustment(
+                    current_user,
+                    effective_date,
+                    standard_hours_per_week,
+                    notes="Weekly schedule change from user settings",
+                )
 
             # Working time limit overrides (empty = use global settings)
             if hasattr(current_user, "daily_hour_limit_override"):
@@ -291,6 +323,14 @@ def settings():
     rounding_methods = get_available_rounding_methods()
     rounding_minimums = get_available_minimum_durations()
 
+    from app.utils.scope_filter import apply_clockable_project_scope_to_model
+
+    projects_query = Project.query.filter_by(status="active").order_by(Project.name)
+    project_scope = apply_clockable_project_scope_to_model(Project, current_user)
+    if project_scope is not None:
+        projects_query = projects_query.filter(project_scope)
+    active_projects = projects_query.all()
+
     return render_template(
         "user/settings.html",
         user=current_user,
@@ -299,6 +339,7 @@ def settings():
         rounding_intervals=rounding_intervals,
         rounding_methods=rounding_methods,
         rounding_minimums=rounding_minimums,
+        active_projects=active_projects,
     )
 
 
@@ -327,7 +368,7 @@ def license():
         settings_obj.donate_ui_hidden = True
         if safe_commit(db.session):
             current_app.logger.info("License activated (system_id_prefix=%s)", sid_prefix)
-            flash(_("License activated. Thank you for supporting TimeTracker!"), "success")
+            flash(_("License activated. Thank you for supporting EvilTime!"), "success")
         else:
             current_app.logger.warning("License verify failed: save_error (system_id_prefix=%s)", sid_prefix)
             flash(_("Error saving settings."), "error")

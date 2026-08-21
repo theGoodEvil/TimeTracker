@@ -5530,7 +5530,7 @@ def test_email():
     current_app.logger.info(f"[EMAIL TEST API] Test email request from user {current_user.username} to {recipient}")
 
     # Send test email
-    sender_name = current_user.username or "TimeTracker Admin"
+    sender_name = current_user.username or "EvilTime Admin"
     success, message = send_test_email(recipient, sender_name)
 
     # Log the test

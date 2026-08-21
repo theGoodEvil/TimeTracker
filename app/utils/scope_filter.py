@@ -21,6 +21,24 @@ def get_allowed_project_ids(user=None):
     return u.get_allowed_project_ids()
 
 
+def get_clockable_project_ids(user=None):
+    """Return project IDs allowed for work tracking, or None for all projects.
+
+    Project administration permissions are intentionally stricter than the timer:
+    a regular employee must be able to book time to company projects they did not
+    create. Client-portal users and scope-restricted subcontractors still only see
+    their assigned project scope.
+    """
+    u = user or (current_user if current_user.is_authenticated else None)
+    if not u:
+        return []
+    if u.is_admin:
+        return None
+    if u.is_client_portal_user or u.is_scope_restricted:
+        return u.get_allowed_project_ids()
+    return None
+
+
 def apply_client_scope(Client, query, user=None):
     """Apply client scope to a Client query. Returns query with scope filter applied if restricted."""
     scope = apply_client_scope_to_model(Client, user)
@@ -63,6 +81,14 @@ def apply_project_scope_to_model(Project, user=None):
     return Project.id.in_(allowed_projects)
 
 
+def apply_clockable_project_scope_to_model(Project, user=None):
+    """Return the project filter used by project timer selectors."""
+    allowed_projects = get_clockable_project_ids(user)
+    if allowed_projects is None:
+        return None
+    return Project.id.in_(allowed_projects)
+
+
 def user_can_access_client(user, client_id):
     """Return True if user may access this client (for direct ID checks / 403)."""
     if not user:
@@ -85,6 +111,25 @@ def user_can_access_project(user, project_id):
     if allowed is None:
         return True
     return project_id in allowed
+
+
+def user_can_clock_project(user, project_id):
+    """Whether a user may start/switch a timer for a project."""
+    if not user:
+        return False
+    allowed = get_clockable_project_ids(user)
+    return allowed is None or project_id in allowed
+
+
+def get_active_clockable_projects_for_user(user, *, status="active"):
+    """Return projects offered in EvilTime's clock-in controls."""
+    from app.models import Project
+
+    query = Project.query.filter_by(status=status).order_by(Project.name)
+    scope = apply_clockable_project_scope_to_model(Project, user)
+    if scope is not None:
+        query = query.filter(scope)
+    return query.all()
 
 
 def get_active_clients_for_user(user, *, status="active"):

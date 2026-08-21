@@ -94,6 +94,14 @@ class User(UserMixin, db.Model):
         db.String(10), default="daily", nullable=False
     )  # 'daily' | 'weekly': overtime by daily cap vs weekly cap
     standard_hours_per_week = db.Column(db.Float, nullable=True)  # Used when overtime_calculation_mode is 'weekly'
+    # Project used by one-click and Slack ``/in`` when no project name is supplied.
+    # This is deliberately user-configured: EvilTime never hardcodes a catch-all project.
+    default_project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Per-user overrides for working time limits (null = use global Settings)
     daily_hour_limit_override = db.Column(db.Float, nullable=True)
@@ -215,6 +223,7 @@ class User(UserMixin, db.Model):
         lazy="dynamic",
         backref=db.backref("favorited_by", lazy="dynamic"),
     )
+    default_project = db.relationship("Project", foreign_keys=[default_project_id])
     roles = db.relationship("Role", secondary="user_roles", lazy="joined", backref=db.backref("users", lazy="dynamic"))
     client = db.relationship(
         "Client",
@@ -410,6 +419,11 @@ class User(UserMixin, db.Model):
             "time_format": resolved_time,
             "timezone": resolved_timezone,
             "standard_hours_per_day": float(getattr(self, "standard_hours_per_day", 8.0) or 8.0),
+            "standard_hours_per_week": (
+                float(self.standard_hours_per_week) if self.standard_hours_per_week is not None else None
+            ),
+            "default_project_id": self.default_project_id,
+            "default_project_name": self.default_project.name if self.default_project else None,
             "overtime_include_weekends": getattr(self, "overtime_include_weekends", True),
         }
 

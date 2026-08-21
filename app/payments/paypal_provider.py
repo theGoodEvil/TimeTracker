@@ -72,7 +72,7 @@ class PayPalProvider(PaymentProvider):
             "application_context": {
                 "return_url": success_url,
                 "cancel_url": cancel_url,
-                "brand_name": "TimeTracker",
+                "brand_name": "EvilTime",
                 "user_action": "PAY_NOW",
             },
         }

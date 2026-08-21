@@ -11,36 +11,55 @@ from app.utils.api_responses import error_response, success_response
 @api_v1_bp.route("/attendance/status", methods=["GET"])
 @require_api_token("read:time_entries")
 def api_attendance_status():
-    status = AttendanceComplianceService().get_status(g.api_user.id)
+    timer = g.api_user.active_timer
+    status = {
+        "active": timer is not None,
+        "work_active": timer is not None,
+        "on_break": bool(timer and timer.is_paused),
+        "timer": timer.to_dict() if timer else None,
+        "work_period": timer.to_dict() if timer else None,
+    }
     return success_response(data=status)
 
 
 @api_v1_bp.route("/attendance/break/start", methods=["POST"])
 @require_api_token("write:time_entries")
 def api_attendance_break_start():
-    data = request.get_json(silent=True) or {}
-    break_type = (data.get("break_type") or "rest").strip()
-    result = AttendanceComplianceService().start_break(g.api_user.id, break_type=break_type)
+    from app.services.time_tracking_service import TimeTrackingService
+
+    result = TimeTrackingService().pause_timer(g.api_user.id)
     if not result["success"]:
         return error_response(
             message=result.get("message", "Could not start break"),
             status_code=400,
             error_code=result.get("error"),
         )
-    return success_response(data={"break": result["break"].to_dict()}, message=result["message"])
+    from app.utils.realtime import emit_timer_state
+
+    emit_timer_state("timer_paused", result["entry"])
+    return success_response(
+        data={"break": result["entry"].to_dict(), "timer": result["entry"].to_dict()}, message=result["message"]
+    )
 
 
 @api_v1_bp.route("/attendance/break/end", methods=["POST"])
 @require_api_token("write:time_entries")
 def api_attendance_break_end():
-    result = AttendanceComplianceService().end_break(g.api_user.id)
+    from app.services.time_tracking_service import TimeTrackingService
+
+    result = TimeTrackingService().resume_timer(g.api_user.id)
     if not result["success"]:
         return error_response(
             message=result.get("message", "Could not end break"),
             status_code=400,
             error_code=result.get("error"),
         )
-    return success_response(data={"break": result["break"].to_dict()}, message=result["message"])
+    from app.utils.realtime import emit_timer_state
+
+    emit_timer_state("timer_resumed", result["entry"])
+    return success_response(
+        data={"break": result["entry"].to_dict(), "timer": result["entry"].to_dict()}, message=result["message"]
+    )
 
 
 @api_v1_bp.route("/attendance/history", methods=["GET"])

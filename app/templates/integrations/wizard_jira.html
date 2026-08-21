@@ -100,17 +100,17 @@
                 <select id="sync_direction" name="sync_direction"
                         class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark">
                     <option value="jira_to_timetracker" {% if current_config.get('sync_direction', 'jira_to_timetracker') == 'jira_to_timetracker' %}selected{% endif %}>
-                        {{ _('Jira → TimeTracker (Import only)') }}
+                        {{ _('Jira → EvilTime (Import only)') }}
                     </option>
                     <option value="timetracker_to_jira" {% if current_config.get('sync_direction') == 'timetracker_to_jira' %}selected{% endif %}>
-                        {{ _('TimeTracker → Jira (Export only)') }}
+                        {{ _('EvilTime → Jira (Export only)') }}
                     </option>
                     <option value="bidirectional" {% if current_config.get('sync_direction') == 'bidirectional' %}selected{% endif %}>
                         {{ _('Bidirectional (Two-way sync)') }}
                     </option>
                 </select>
                 <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('Choose how data flows between Jira and TimeTracker') }}
+                    {{ _('Choose how data flows between Jira and EvilTime') }}
                 </p>
             </div>
             
@@ -193,7 +193,7 @@
                 </label>
             </div>
             <p class="text-xs text-text-muted-light dark:text-text-muted-dark ml-6">
-                {{ _('Automatically create projects in TimeTracker from Jira projects') }}
+                {{ _('Automatically create projects in EvilTime from Jira projects') }}
             </p>
         </div>
     </div>

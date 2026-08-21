@@ -1,8 +1,8 @@
 """
 Workspace-level Slack attendance connector.
 
-Employees run /in, /brb, /back, and /out in a dedicated Slack channel to
-record clock-in/out and breaks via AttendanceComplianceService.
+Employees run /in [project], /switch [project], /brb, /back, and /out. The
+commands operate on the same project timer as the EvilTime web app.
 """
 
 from __future__ import annotations
@@ -32,6 +32,7 @@ SLACK_REQUEST_MAX_AGE = 60 * 5
 
 ATTENDANCE_COMMANDS = {
     "/in": "clock_in",
+    "/switch": "switch",
     "/brb": "start_break",
     "/back": "end_break",
     "/out": "clock_out",
@@ -65,8 +66,8 @@ def _dec(value: Optional[str]) -> str:
 class SlackAttendanceConnector(BaseConnector):
     """Global Slack integration for workspace attendance slash commands."""
 
-    display_name = "Slack Attendance"
-    description = "Clock in/out and breaks from Slack with /in, /brb, /back, /out"
+    display_name = "EvilTime Slack"
+    description = "Track project work from Slack with /in, /switch, /brb, /back, /out"
     icon = "slack"
 
     def __init__(self, integration=None, credentials=None):
@@ -163,12 +164,12 @@ class SlackAttendanceConnector(BaseConnector):
         channel_id = (form.get("channel_id") or "").strip()
         allowed_channel = (self._cfg().get("attendance_channel_id") or "").strip()
         if allowed_channel and channel_id and channel_id != allowed_channel:
-            return self._ephemeral("This command can only be used in the configured attendance channel.")
+            return self._ephemeral("This command can only be used in the configured EvilTime channel.")
 
         command = (form.get("command") or "").strip().lower()
         action = ATTENDANCE_COMMANDS.get(command)
         if not action:
-            return self._ephemeral("Unknown command. Available: `/in`, `/brb`, `/back`, `/out`.")
+            return self._ephemeral("Unknown command. Available: `/in`, `/switch`, `/brb`, `/back`, `/out`.")
 
         slack_user_id = (form.get("user_id") or "").strip()
         if not slack_user_id:
@@ -177,12 +178,12 @@ class SlackAttendanceConnector(BaseConnector):
         user = self.resolve_user(slack_user_id)
         if not user:
             return self._ephemeral(
-                "Your Slack account is not linked to TimeTracker. "
+                "Your Slack account is not linked to EvilTime. "
                 "Add your Slack user ID in User Settings, or ensure your Slack "
-                "profile email matches your TimeTracker email."
+                "profile email matches your EvilTime email."
             )
 
-        return self._dispatch_action(action, user)
+        return self._dispatch_action(action, user, (form.get("text") or "").strip())
 
     def resolve_user(self, slack_user_id: str):
         from app import db
@@ -232,44 +233,116 @@ class SlackAttendanceConnector(BaseConnector):
         email = (profile.get("email") or "").strip()
         return email or None
 
-    def _dispatch_action(self, action: str, user) -> Dict[str, Any]:
-        from app.services.attendance_compliance_service import AttendanceComplianceService
-        from app.services.workday_session_service import WorkdaySessionService
+    def _resolve_project(self, user, query: str):
+        from app import db
+        from app.models import Project
+
+        if not query:
+            project = getattr(user, "default_project", None)
+            return project if project and project.status == "active" else None
+
+        from app.utils.scope_filter import get_clockable_project_ids
+
+        allowed = get_clockable_project_ids(user)
+        candidates = Project.query.filter(Project.status == "active")
+        if allowed is not None:
+            candidates = candidates.filter(Project.id.in_(allowed))
+        exact = candidates.filter(
+            db.or_(db.func.lower(Project.name) == query.lower(), db.func.lower(Project.code) == query.lower())
+        ).first()
+        if exact:
+            return exact
+        partial = candidates.filter(db.func.lower(Project.name).like(f"%{query.lower()}%"))
+        matches = partial.limit(2).all()
+        return matches[0] if len(matches) == 1 else None
+
+    def _dispatch_action(self, action: str, user, project_query: str = "") -> Dict[str, Any]:
+        from app import socketio
+        from app.services.time_tracking_service import TimeTrackingService
 
         display = getattr(user, "display_name", None) or user.username or "User"
         now = datetime.now()
+        service = TimeTrackingService()
 
-        if action == "clock_in":
-            result = WorkdaySessionService().start_workday(user.id, source="slack")
+        if action in ("clock_in", "switch"):
+            project = self._resolve_project(user, project_query)
+            if not project:
+                if project_query:
+                    return self._ephemeral(
+                        f'No unique active project matches "{project_query}". Use the exact project name or code.'
+                    )
+                return self._ephemeral(
+                    "No default project is configured. Use `/in Project name` or set one in EvilTime."
+                )
+
+            active = user.active_timer
+            if action == "clock_in" and active:
+                return self._ephemeral(f"You are already working on {active.project.name}.")
+            if action == "switch" and not active:
+                return self._ephemeral("You are clocked out. Use `/in Project name` to start.")
+            if action == "switch" and active:
+                result = service.switch_timer(user.id, project.id)
+            else:
+                result = service.start_timer(user.id, project.id)
             if result.get("success"):
-                session = result.get("session")
-                at = getattr(session, "start_time", now)
-                return self._in_channel(f":white_check_mark: *{display}* clocked in at {self._format_time(at)}")
+                timer = result.get("timer")
+                at = getattr(timer, "start_time", now)
+                event = "switched to" if action == "switch" else "clocked in to"
+                socketio.emit(
+                    "timer_started",
+                    {
+                        "user_id": user.id,
+                        "timer_id": timer.id,
+                        "project_name": project.name,
+                        "start_time": at.isoformat(),
+                    },
+                    room=f"user_{user.id}",
+                )
+                return self._in_channel(
+                    f":white_check_mark: *{display}* {event} *{project.name}* at {self._format_time(at)}"
+                )
             return self._ephemeral(result.get("message") or "Could not clock in.")
 
         if action == "clock_out":
-            result = WorkdaySessionService().end_workday(user.id)
+            result = service.stop_timer(user.id)
             if result.get("success"):
-                session = result.get("session")
-                at = getattr(session, "end_time", now)
-                return self._in_channel(f":door: *{display}* clocked out at {self._format_time(at)}")
+                entry = result.get("entry")
+                at = getattr(entry, "end_time", now)
+                socketio.emit(
+                    "timer_stopped",
+                    {"user_id": user.id, "timer_id": entry.id, "duration": entry.duration_formatted},
+                    room=f"user_{user.id}",
+                )
+                return self._in_channel(
+                    f":door: *{display}* clocked out of *{entry.project.name}* at {self._format_time(at)}"
+                )
             return self._ephemeral(result.get("message") or "Could not clock out.")
 
-        compliance = AttendanceComplianceService()
         if action == "start_break":
-            result = compliance.start_break(user.id)
+            result = service.pause_timer(user.id)
             if result.get("success"):
-                brk = result.get("break")
-                at = getattr(brk, "start_time", now)
-                return self._in_channel(f":coffee: *{display}* started a break at {self._format_time(at)}")
+                entry = result.get("entry")
+                at = getattr(entry, "paused_at", now)
+                socketio.emit(
+                    "timer_paused",
+                    {"user_id": user.id, "timer_id": entry.id, "paused_at": at.isoformat()},
+                    room=f"user_{user.id}",
+                )
+                return self._in_channel(
+                    f":coffee: *{display}* started a break from *{entry.project.name}* at {self._format_time(at)}"
+                )
             return self._ephemeral(result.get("message") or "Could not start break.")
 
         if action == "end_break":
-            result = compliance.end_break(user.id)
+            result = service.resume_timer(user.id)
             if result.get("success"):
-                brk = result.get("break")
-                at = getattr(brk, "end_time", now)
-                return self._in_channel(f":arrow_forward: *{display}* is back at {self._format_time(at)}")
+                entry = result.get("entry")
+                socketio.emit(
+                    "timer_resumed",
+                    {"user_id": user.id, "timer_id": entry.id, "break_seconds": entry.break_seconds or 0},
+                    room=f"user_{user.id}",
+                )
+                return self._in_channel(f":arrow_forward: *{display}* is back on *{entry.project.name}*")
             return self._ephemeral(result.get("message") or "Could not end break.")
 
         return self._ephemeral("Unknown action.")
@@ -294,7 +367,7 @@ class SlackAttendanceConnector(BaseConnector):
         channel = self._cfg().get("attendance_channel_id")
         if not channel:
             return {"ok": False, "error": "Attendance channel ID is required for test messages"}
-        ok = self._post(channel, ":wave: TimeTracker Slack attendance test message.")
+        ok = self._post(channel, ":wave: EvilTime Slack project tracking test message.")
         return {"ok": bool(ok)}
 
     def _post(self, channel: Optional[str], text: str) -> bool:
@@ -336,7 +409,7 @@ class SlackAttendanceConnector(BaseConnector):
         integration = Integration.query.filter_by(provider=PROVIDER_KEY, is_global=True).first()
         if not integration:
             integration = Integration(
-                name="Slack Attendance",
+                name="EvilTime Slack",
                 provider=PROVIDER_KEY,
                 user_id=None,
                 is_global=True,

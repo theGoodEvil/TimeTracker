@@ -165,7 +165,7 @@ class TimeTrackingRepository {
     }
   }
 
-  /// Record activity so the server idle enforcer does not auto-stop the timer.
+  /// Record best-effort client liveness without changing timer state.
   Future<void> sendHeartbeat() async {
     if (apiClient == null) return;
     try {

@@ -43,12 +43,12 @@
 @layer base {
   :root {
     /* Brand (brand-colors.css) */
-    --brand-primary: #4F46E5;
-    --brand-primary-dark: #4338ca;
-    --brand-secondary: #50E3C2;
-    --brand-secondary-dark: #06b6d4;
-    --brand-gradient: linear-gradient(135deg, #4F46E5 0%, #50E3C2 100%);
-    --brand-gradient-horizontal: linear-gradient(to right, #4F46E5 0%, #50E3C2 100%);
+    --brand-primary: #64b376;
+    --brand-primary-dark: #4e965f;
+    --brand-secondary: #9bd0a7;
+    --brand-secondary-dark: #64b376;
+    --brand-gradient: linear-gradient(135deg, #64b376 0%, #9bd0a7 100%);
+    --brand-gradient-horizontal: linear-gradient(to right, #64b376 0%, #9bd0a7 100%);
 
     /* Semantic */
     --color-success: #10b981;
@@ -71,7 +71,7 @@
     --color-text-dark-muted: #64748b;
     --color-border-dark: #334155;
     /* Aliases for keyboard-shortcuts.css */
-    --color-primary: #4F46E5;
+    --color-primary: #64b376;
     --color-card-light: #FFFFFF;
     --color-background-light: #f8fafc;
     --color-background-dark: #0b1220;

@@ -1,18 +1,18 @@
 /**
- * TimeTracker Brand Colors - Desktop App
+ * EvilTime Brand Colors - Desktop App
  * Shared brand color definitions matching web application
  */
 
 :root {
   /* Primary Brand Colors */
-  --brand-primary: #4A90E2;
-  --brand-primary-dark: #3b82f6;
-  --brand-secondary: #50E3C2;
-  --brand-secondary-dark: #06b6d4;
+  --brand-primary: #64b376;
+  --brand-primary-dark: #4e965f;
+  --brand-secondary: #9bd0a7;
+  --brand-secondary-dark: #64b376;
 
   /* Gradient */
-  --brand-gradient: linear-gradient(135deg, #4A90E2 0%, #50E3C2 100%);
-  --brand-gradient-horizontal: linear-gradient(to right, #4A90E2 0%, #50E3C2 100%);
+  --brand-gradient: linear-gradient(135deg, #64b376 0%, #9bd0a7 100%);
+  --brand-gradient-horizontal: linear-gradient(to right, #64b376 0%, #9bd0a7 100%);
 
   /* Status Colors */
   --color-success: #4CAF50;

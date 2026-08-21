@@ -229,7 +229,7 @@ def register_context_processors(app):
                     v = layout_support_prompt.get("variant")
                     if v == SupportPromptService.VARIANT_AFTER_REPORT:
                         lp_message = _(
-                            "That report was quick to generate. If TimeTracker saves you time, "
+                            "That report was quick to generate. If EvilTime saves you time, "
                             "consider supporting its development."
                         )
 
@@ -259,7 +259,7 @@ def register_context_processors(app):
                             "shareFail": _("Could not copy link"),
                             "supportAction": _("Support"),
                             "longSessionToast": _(
-                                "You have been using TimeTracker actively for a while. "
+                                "You have been using EvilTime actively for a while. "
                                 "If it helps your work, consider supporting its development."
                             ),
                         },
@@ -272,7 +272,7 @@ def register_context_processors(app):
                 support_usage_stats_modal = None
 
         return {
-            "app_name": "Time Tracker",
+            "app_name": "EvilTime",
             "app_version": version_value,
             "is_admin_user": is_admin_user,
             "timezone": timezone_name,

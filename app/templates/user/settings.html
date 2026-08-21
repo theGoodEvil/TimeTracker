@@ -16,14 +16,14 @@
             <i class="fas fa-chevron-down text-gray-400 transition-transform group-open:rotate-180 md:hidden"></i>
         </summary>
         <div class="px-6 pb-6 space-y-4 text-sm text-text-light dark:text-text-dark">
-            <p class="text-text-muted-light dark:text-text-muted-dark">{{ _('TimeTracker is free and open source. Funding comes from optional donations and supporter licenses — never from locking features.') }}</p>
+            <p class="text-text-muted-light dark:text-text-muted-dark">{{ _('EvilTime is free and open source. Funding comes from optional donations and supporter licenses — never from locking features.') }}</p>
             {% if is_license_activated %}
             <p>{{ _('This instance already has a supporter license. Thank you — you can still donate or share the app anytime.') }}</p>
             {% else %}
             <p>{{ _('If the app saves you time, you can donate or buy a supporter license (€25). A license shows a Supporter badge; it does not change what you can use.') }}</p>
             {% endif %}
             <div class="flex flex-wrap gap-2">
-                <button type="button" class="btn btn-primary js-open-support-modal">{{ _('Support TimeTracker') }}</button>
+                <button type="button" class="btn btn-primary js-open-support-modal">{{ _('Support EvilTime') }}</button>
                 <a href="{{ url_for('user.license') }}" class="btn btn-secondary inline-flex items-center gap-2"><i class="fas fa-key" aria-hidden="true"></i>{{ _('License & supporter key') }}</a>
                 <a href="{{ support_purchase_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">{{ _('Checkout on timetracker.drytrix.com') }} <i class="fas fa-external-link-alt text-xs" aria-hidden="true"></i></a>
             </div>
@@ -32,6 +32,22 @@
 
     <form method="POST" class="space-y-8">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
+
+        <details class="bg-card-light dark:bg-card-dark rounded-lg shadow-md group" open>
+            <summary class="flex items-center justify-between p-6 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+                <h2 class="text-xl font-semibold text-gray-900 dark:text-white"><i class="fas fa-play-circle mr-2 text-primary"></i>{{ _('Work tracking') }}</h2>
+            </summary>
+            <div class="px-6 pb-6">
+                <label for="default_project_id" class="form-label">{{ _('Default project') }}</label>
+                <select id="default_project_id" name="default_project_id" class="form-input">
+                    <option value="">{{ _('No default project') }}</option>
+                    {% for project in active_projects %}
+                    <option value="{{ project.id }}" {% if user.default_project_id == project.id %}selected{% endif %}>{{ project.name }}</option>
+                    {% endfor %}
+                </select>
+                <p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Used for one-click clock-in and /in in Slack when no project is supplied. EvilTime never creates or hardcodes a general project.') }}</p>
+            </div>
+        </details>
         
         <!-- Profile Information -->
         <details class="bg-card-light dark:bg-card-dark rounded-lg shadow-md group" open>
@@ -442,6 +458,11 @@
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ _('e.g. 20 for a part-time week, 40 for full-time') }}</p>
                 </div>
+                <div>
+                    <label for="weekly_hours_effective_from" class="form-label">{{ _('Effective from week') }}</label>
+                    <input type="date" id="weekly_hours_effective_from" name="weekly_hours_effective_from" class="form-input">
+                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ _('Stored for that calendar week and inherited by later weeks until changed again.') }}</p>
+                </div>
             </div>
                 
             <div class="flex items-center bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md mt-4" id="overtime-how-daily" style="display: {% if getattr(user, 'overtime_calculation_mode', 'daily') != 'weekly' %}block{% else %}none{% endif %};">
@@ -768,4 +789,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

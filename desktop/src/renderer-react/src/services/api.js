@@ -56,7 +56,7 @@ export function classifyAxiosError(error) {
   return {
     ok: false,
     code: 'UNKNOWN',
-    message: 'Server not reachable. Check the URL, VPN, firewall, and that TimeTracker is running.',
+    message: 'Server not reachable. Check the URL, VPN, firewall, and that EvilTime is running.',
   };
 }
 
@@ -104,14 +104,14 @@ export class ApiClient {
         return {
           ok: false,
           code: 'NOT_TIMETRACKER',
-          message: 'This address did not return a TimeTracker API response. Use the base URL only.',
+          message: 'This address did not return an EvilTime API response. Use the base URL only.',
         };
       }
       if (response.data.setup_required === true) {
         return {
           ok: false,
           code: 'SETUP_REQUIRED',
-          message: 'TimeTracker is not fully set up yet. Finish setup in a browser first.',
+          message: 'EvilTime is not fully set up yet. Finish setup in a browser first.',
         };
       }
       return { ok: true, app_version: response.data.app_version || null, timezone: response.data.timezone || null };

@@ -53,7 +53,7 @@ ConnectionDiagnostics diagnoseDioFailure(
   }
 
   final report = StringBuffer()
-    ..writeln('TimeTracker mobile connection diagnostics')
+    ..writeln('EvilTime mobile connection diagnostics')
     ..writeln('Phase: ${phase ?? 'unknown'}')
     ..writeln('Attempted base URL: $attemptedBaseUrl')
     ..writeln('Request URL: $uri')

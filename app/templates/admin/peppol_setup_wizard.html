@@ -20,7 +20,7 @@
   <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
     <h2 class="text-lg font-semibold mb-2">1) Deploy the Peppol Bridge</h2>
     <p class="text-sm text-text-muted-light dark:text-text-muted-dark mb-4">
-      TimeTracker sends UBL XML to a local bridge. The bridge forwards it to your Access Point provider (e.g. Peppyrus or e-invoice.be).
+      EvilTime sends UBL XML to a local bridge. The bridge forwards it to your Access Point provider (e.g. Peppyrus or e-invoice.be).
     </p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -40,7 +40,7 @@
         <label class="form-label" for="wizardBridgeAuthToken">Bridge auth token (recommended)</label>
         <input id="wizardBridgeAuthToken" type="password" class="form-input" placeholder="Set a token to protect /send and /test">
         <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
-          This token is used by TimeTracker as <code>PEPPOL_ACCESS_POINT_TOKEN</code>.
+          This token is used by EvilTime as <code>PEPPOL_ACCESS_POINT_TOKEN</code>.
         </p>
       </div>
     </div>
@@ -55,14 +55,14 @@
   </div>
 
   <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
-    <h2 class="text-lg font-semibold mb-2">2) Connect TimeTracker to the Bridge</h2>
+    <h2 class="text-lg font-semibold mb-2">2) Connect EvilTime to the Bridge</h2>
     <p class="text-sm text-text-muted-light dark:text-text-muted-dark mb-4">
       These settings enable the existing Generic Peppol transport and point it at the bridge.
     </p>
 
     <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div>
-        <label class="form-label" for="wizardBridgeBaseUrl">Bridge base URL (from TimeTracker container)</label>
+        <label class="form-label" for="wizardBridgeBaseUrl">Bridge base URL (from EvilTime container)</label>
         <input id="wizardBridgeBaseUrl" type="text" class="form-input" value="http://peppol-bridge:8088" />
         <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
           If your bridge runs as a compose service named <code>peppol-bridge</code>, this works out of the box.

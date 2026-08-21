@@ -45,13 +45,13 @@ test('tray menu supports pause and resume actions', () => {
   assert.match(traySource, /isTimerPaused/);
 });
 
-test('main shell wires reports, kanban, crm, finance, and workday views', () => {
+test('main shell wires reports, kanban, crm, finance, and unified project timers', () => {
   assert.match(mainJsx, /ReportsView/);
   assert.match(mainJsx, /KanbanView/);
   assert.match(mainJsx, /CrmView/);
   assert.match(mainJsx, /FinanceExtraView/);
   assert.match(mainJsx, /pauseTimer/);
-  assert.match(mainJsx, /handleAttendanceAction/);
+  assert.doesNotMatch(mainJsx, /handleAttendanceAction/);
   assert.match(mainJsx, /from '\.\/views\//);
 });
 

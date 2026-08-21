@@ -1,10 +1,10 @@
-# TimeTracker
+# EvilTime
 
 <div align="center">
 
-### Professional Time Tracking & Project Management for Teams
+### Project-based time tracking for The Good Evil GmbH
 
-**Track time. Manage projects. Generate invoices. All in one place.**
+**Clock into a project. Take a break. Know your weekly balance.**
 
 [🆕 What's New](#-whats-new) • [📥 Download & Install](#-download--install) • [🚀 Quick Start](#-quick-start) • [✨ Features](#-features) • [📸 Screenshots](#-screenshots) • [📖 Getting Started](docs/GETTING_STARTED.md) • [📚 Documentation](docs/) • [🗑️ Uninstall](UNINSTALL.md) • [📋 Changelog](CHANGELOG.md) • [🐳 Deploy](#-deployment)
 
@@ -12,9 +12,15 @@
 
 </div>
 
-## 🎯 What is TimeTracker?
+## 🎯 What is EvilTime?
 
-TimeTracker is a **self-hosted, web-based time tracking application** designed for freelancers, teams, and businesses who need professional time management with complete control over their data.
+EvilTime is The Good Evil GmbH's self-hosted work tracker. It uses project
+timers as the single source of truth for attendance and worked hours: users
+clock into a project, pause that timer for breaks, and clock out when done.
+
+This repository is a company customization of the upstream TimeTracker
+project. Existing deployment names and upstream URLs are retained where they
+are required for compatibility.
 
 **Perfect for:**
 - 💼 **Freelancers** tracking billable hours across multiple clients

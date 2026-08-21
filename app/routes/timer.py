@@ -16,7 +16,7 @@ from app.services.time_tracking_service import TimeTrackingService
 from app.utils.db import safe_commit
 from app.utils.error_handling import safe_log
 from app.utils.posthog_funnels import track_onboarding_first_time_entry, track_onboarding_first_timer
-from app.utils.scope_filter import user_can_access_client, user_can_access_project
+from app.utils.scope_filter import user_can_access_client, user_can_access_project, user_can_clock_project
 from app.utils.timezone import parse_local_datetime, parse_user_local_datetime, utc_to_local
 
 _project_service = ProjectService()
@@ -128,11 +128,15 @@ def start_timer():
             template.record_usage()
             db.session.commit()
 
-    # Require either project or client
+    # EvilTime uses project timers as the single work/attendance state. A bare
+    # clock-in resolves the user's default; client-only timers remain legacy data.
     if not project_id and not client_id:
-        flash(_("Either a project or a client is required"), "error")
-        current_app.logger.warning("Start timer failed: missing project_id and client_id")
+        project_id = getattr(current_user, "default_project_id", None)
+    if not project_id:
+        flash(_("Choose a project, or configure a default project in your settings."), "error")
+        current_app.logger.warning("Start timer failed: project required")
         return redirect(url_for("main.dashboard"))
+    client_id = None
 
     project = None
     client = None
@@ -191,7 +195,7 @@ def start_timer():
             return redirect(url_for("main.dashboard"))
 
     # Subcontractor scope: only allow starting timer on assigned project/client
-    if project_id and not user_can_access_project(current_user, project_id):
+    if project_id and not user_can_clock_project(current_user, project_id):
         flash(_("You do not have access to this project"), "error")
         current_app.logger.warning("Start timer denied: user has no access to project_id=%s", project_id)
         return redirect(url_for("main.dashboard"))
@@ -331,7 +335,7 @@ def start_timer():
         if task:
             payload["task_id"] = task.id
             payload["task_name"] = task.name
-        socketio.emit("timer_started", payload)
+        socketio.emit("timer_started", payload, room=f"user_{current_user.id}")
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_started: %s", e)
 
@@ -388,7 +392,7 @@ def start_timer_from_template(template_id):
         flash(_("Cannot start timer for this project"), "error")
         return redirect(url_for("time_entry_templates.list_templates"))
 
-    if not user_can_access_project(current_user, template.project_id):
+    if not user_can_clock_project(current_user, template.project_id):
         flash(_("You do not have access to this project"), "error")
         current_app.logger.warning(
             "Start timer from template denied: user has no access to project_id=%s", template.project_id
@@ -481,7 +485,7 @@ def start_timer_for_project(project_id):
         current_app.logger.warning("Start timer (GET) failed: project_id=%s is not active", project_id)
         return redirect(url_for("main.dashboard"))
 
-    if not user_can_access_project(current_user, project_id):
+    if not user_can_clock_project(current_user, project_id):
         flash(_("You do not have access to this project"), "error")
         current_app.logger.warning("Start timer (GET) denied: user has no access to project_id=%s", project_id)
         return redirect(url_for("main.dashboard"))
@@ -535,6 +539,7 @@ def start_timer_for_project(project_id):
                 "task_id": task_id,
                 "start_time": new_timer.start_time.isoformat(),
             },
+            room=f"user_{current_user.id}",
         )
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_started (GET): %s", e)
@@ -555,6 +560,39 @@ def start_timer_for_project(project_id):
     else:
         flash(f"Timer started for {project.name}", "success")
 
+    return redirect(url_for("main.dashboard"))
+
+
+@timer_bp.route("/timer/switch", methods=["POST"])
+@login_required
+def switch_timer():
+    """Atomically switch the user's work state to another active project."""
+    project_id = request.form.get("project_id", type=int)
+    project = Project.query.filter_by(id=project_id, status="active").first() if project_id else None
+    if not project or not user_can_clock_project(current_user, project.id):
+        flash(_("Select an active project you can access."), "error")
+        return redirect(url_for("main.dashboard"))
+    active = current_user.active_timer
+    if not active:
+        flash(_("No active project to switch."), "error")
+        return redirect(url_for("main.dashboard"))
+    service = TimeTrackingService()
+    switched = service.switch_timer(current_user.id, project.id)
+    if not switched.get("success"):
+        flash(_(switched.get("message") or "Could not switch projects."), "error")
+        return redirect(url_for("main.dashboard"))
+    timer = switched["timer"]
+    socketio.emit(
+        "timer_started",
+        {
+            "user_id": current_user.id,
+            "timer_id": timer.id,
+            "project_name": project.name,
+            "start_time": timer.start_time.isoformat(),
+        },
+        room=f"user_{current_user.id}",
+    )
+    flash(_("Switched to %(project)s", project=project.name), "success")
     return redirect(url_for("main.dashboard"))
 
 
@@ -639,6 +677,7 @@ def stop_timer():
             socketio.emit(
                 "timer_stopped",
                 {"user_id": current_user.id, "timer_id": active_timer.id, "duration": active_timer.duration_formatted},
+                room=f"user_{current_user.id}",
             )
         except Exception as e:
             current_app.logger.warning("Socket emit failed for timer_stopped: %s", e)
@@ -696,6 +735,11 @@ def pause_timer():
         return redirect(url_for("main.dashboard"))
     try:
         active_timer.pause_timer()
+        socketio.emit(
+            "timer_paused",
+            {"user_id": current_user.id, "timer_id": active_timer.id, "paused_at": active_timer.paused_at.isoformat()},
+            room=f"user_{current_user.id}",
+        )
         flash(_("Timer paused"), "success")
     except ValueError as e:
         flash(_(str(e)), "error")
@@ -721,6 +765,11 @@ def resume_timer():
         return redirect(url_for("main.dashboard"))
     try:
         active_timer.resume_timer()
+        socketio.emit(
+            "timer_resumed",
+            {"user_id": current_user.id, "timer_id": active_timer.id, "break_seconds": active_timer.break_seconds or 0},
+            room=f"user_{current_user.id}",
+        )
         flash(_("Timer resumed"), "success")
     except ValueError as e:
         flash(_(str(e)), "error")
@@ -2213,7 +2262,7 @@ def resume_timer_by_id(timer_id):
             if task:
                 payload["task_id"] = task_id
                 payload["task_name"] = task.name
-        socketio.emit("timer_started", payload)
+        socketio.emit("timer_started", payload, room=f"user_{current_user.id}")
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_resumed: %s", e)
 

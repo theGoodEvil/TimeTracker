@@ -52,9 +52,7 @@ def test_end_workday_with_leave_time_for_overnight_session(authenticated_client,
         start = svc.start_workday(user.id, source="manual")
         assert start["success"] is True
         session = start["session"]
-        yesterday_start = (local_now() - timedelta(days=1)).replace(
-            hour=9, minute=0, second=0, microsecond=0
-        )
+        yesterday_start = (local_now() - timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
         session.start_time = yesterday_start
         period = AttendanceWorkPeriod.query.filter_by(workday_session_id=session.id).first()
         period.start_time = yesterday_start
@@ -80,16 +78,14 @@ def test_end_workday_with_leave_time_for_overnight_session(authenticated_client,
 
 
 @pytest.mark.routes
-def test_dashboard_shows_overnight_clock_out_modal(authenticated_client, app, user):
+def test_dashboard_ignores_legacy_overnight_attendance(authenticated_client, app, user):
     with app.app_context():
         user = db.session.merge(user)
         svc = WorkdaySessionService()
         start = svc.start_workday(user.id, source="manual")
         assert start["success"] is True
         session = start["session"]
-        yesterday_start = (local_now() - timedelta(days=1)).replace(
-            hour=9, minute=0, second=0, microsecond=0
-        )
+        yesterday_start = (local_now() - timedelta(days=1)).replace(hour=9, minute=0, second=0, microsecond=0)
         session.start_time = yesterday_start
         period = AttendanceWorkPeriod.query.filter_by(workday_session_id=session.id).first()
         period.start_time = yesterday_start
@@ -98,12 +94,12 @@ def test_dashboard_shows_overnight_clock_out_modal(authenticated_client, app, us
     response = authenticated_client.get("/dashboard")
     assert response.status_code == 200
     body = response.data.decode("utf-8", errors="replace")
-    assert "overnightClockOutModal" in body
-    assert "overnightLeaveTime" in body
+    assert "overnightClockOutModal" not in body
+    assert "Clocking into a project starts your workday" in body
 
 
 @pytest.mark.routes
-def test_dashboard_shows_auto_closed_clock_out_modal(authenticated_client, app, user):
+def test_dashboard_ignores_legacy_auto_closed_attendance(authenticated_client, app, user):
     from app.models import WorkdaySession
 
     with app.app_context():
@@ -124,5 +120,5 @@ def test_dashboard_shows_auto_closed_clock_out_modal(authenticated_client, app, 
     response = authenticated_client.get("/dashboard")
     assert response.status_code == 200
     body = response.data.decode("utf-8", errors="replace")
-    assert "autoClosedClockOutModal" in body
-    assert "autoClosedLeaveTime" in body
+    assert "autoClosedClockOutModal" not in body
+    assert "Clocking into a project starts your workday" in body

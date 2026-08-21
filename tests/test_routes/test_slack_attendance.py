@@ -1,4 +1,4 @@
-"""Tests for Slack attendance slash-command integration."""
+"""Tests for EvilTime's Slack project-work commands."""
 
 import hashlib
 import hmac
@@ -13,11 +13,7 @@ from app.integrations.slack_attendance_connector import (
     PROVIDER_KEY,
     SlackAttendanceConnector,
 )
-from app.models import Integration, User
-from app.models.attendance_compliance import AttendanceBreak, AttendanceWorkPeriod, DailyAttendanceRecord
-from app.models.workday_session import WorkdaySession
-from app.services.attendance_compliance_service import AttendanceComplianceService
-
+from app.models import Client, Integration, Project, Role, TimeEntry, User
 
 SIGNING_SECRET = "test-signing-secret"
 BOT_TOKEN = "xoxb-test-token"
@@ -72,13 +68,22 @@ def linked_user(app):
         )
         user.slack_user_id = "U_SLACK_1"
         user.set_password("test")
+        user.roles.append(Role.query.filter_by(name="user").one())
         db.session.add(user)
+        client = Client(name="The Good Evil GmbH")
+        db.session.add(client)
+        db.session.flush()
+        default_project = Project(name="EvilTime", client_id=client.id, status="active")
+        second_project = Project(name="General", client_id=client.id, status="active")
+        db.session.add_all([default_project, second_project])
+        db.session.flush()
+        user.default_project_id = default_project.id
         db.session.commit()
         yield user
-        AttendanceBreak.query.filter_by(user_id=user.id).delete()
-        AttendanceWorkPeriod.query.filter_by(user_id=user.id).delete()
-        DailyAttendanceRecord.query.filter_by(user_id=user.id).delete()
-        WorkdaySession.query.filter_by(user_id=user.id).delete()
+        user.default_project_id = None
+        TimeEntry.query.filter_by(user_id=user.id).delete()
+        Project.query.filter(Project.id.in_([default_project.id, second_project.id])).delete(synchronize_session=False)
+        db.session.delete(client)
         db.session.delete(user)
         db.session.commit()
 
@@ -119,8 +124,9 @@ class TestSlackAttendanceConnector:
             body = result["body"]
             assert body["response_type"] == "in_channel"
             assert "clocked in" in body["text"].lower()
-            assert AttendanceComplianceService().get_active_work_period(linked_user.id) is not None
-            AttendanceComplianceService().clock_out(linked_user.id)
+            assert linked_user.active_timer is not None
+            assert linked_user.active_timer.project.name == "EvilTime"
+            connector.handle_slash_command(_slash_form("/out"))
 
     def test_break_flow(self, app, slack_attendance_integration, linked_user):
         with app.app_context():
@@ -136,13 +142,29 @@ class TestSlackAttendanceConnector:
 
             connector.handle_slash_command(_slash_form("/out"))
 
+    def test_named_project_and_switch(self, app, slack_attendance_integration, linked_user):
+        with app.app_context():
+            connector = SlackAttendanceConnector.for_global()
+            form = _slash_form("/in")
+            form["text"] = "EvilTime"
+            started = connector.handle_slash_command(form)
+            assert started["body"]["response_type"] == "in_channel", started
+
+            switch = _slash_form("/switch")
+            switch["text"] = "General"
+            switched = connector.handle_slash_command(switch)
+            assert switched["body"]["response_type"] == "in_channel"
+            assert "switched" in switched["body"]["text"].lower()
+            assert linked_user.active_timer.project.name == "General"
+            connector.handle_slash_command(_slash_form("/out"))
+
     def test_double_clock_in_error(self, app, slack_attendance_integration, linked_user):
         with app.app_context():
             connector = SlackAttendanceConnector.for_global()
             connector.handle_slash_command(_slash_form("/in"))
             again = connector.handle_slash_command(_slash_form("/in"))
             assert again["body"]["response_type"] == "ephemeral"
-            assert "active" in again["body"]["text"].lower()
+            assert "already working" in again["body"]["text"].lower()
             connector.handle_slash_command(_slash_form("/out"))
 
     def test_break_without_clock_in_error(self, app, slack_attendance_integration, linked_user):
@@ -150,7 +172,7 @@ class TestSlackAttendanceConnector:
             connector = SlackAttendanceConnector.for_global()
             result = connector.handle_slash_command(_slash_form("/brb"))
             assert result["body"]["response_type"] == "ephemeral"
-            assert "start work" in result["body"]["text"].lower()
+            assert "no active timer" in result["body"]["text"].lower()
 
     def test_unknown_slack_user(self, app, slack_attendance_integration):
         with app.app_context():
@@ -163,11 +185,9 @@ class TestSlackAttendanceConnector:
     def test_wrong_channel_rejected(self, app, slack_attendance_integration, linked_user):
         with app.app_context():
             connector = SlackAttendanceConnector.for_global()
-            result = connector.handle_slash_command(
-                _slash_form("/in", channel_id="C_OTHER")
-            )
+            result = connector.handle_slash_command(_slash_form("/in", channel_id="C_OTHER"))
             assert result["body"]["response_type"] == "ephemeral"
-            assert "attendance channel" in result["body"]["text"].lower()
+        assert "eviltime channel" in result["body"]["text"].lower()
 
 
 class TestSlackAttendanceRoutes:
@@ -203,7 +223,8 @@ class TestSlackAttendanceRoutes:
         assert data["response_type"] == "in_channel"
 
         with app.app_context():
-            AttendanceComplianceService().clock_out(linked_user.id)
+            connector = SlackAttendanceConnector.for_global()
+            connector.handle_slash_command(_slash_form("/out"))
 
     def test_admin_config_requires_admin(self, client, user):
         with client.session_transaction() as sess:

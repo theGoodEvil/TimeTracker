@@ -18,14 +18,14 @@ class ServerInfoResult {
   final bool setupRequired;
 }
 
-bool isTimeTrackerInfoPayload(dynamic data) {
+bool isEvilTimeInfoPayload(dynamic data) {
   if (data is! Map) return false;
   final apiVersion = data['api_version'];
   final endpoints = data['endpoints'];
   return apiVersion == 'v1' && endpoints is Map;
 }
 
-/// Unauthenticated check: reachable TimeTracker JSON at GET /api/v1/info.
+/// Unauthenticated check: reachable EvilTime JSON at GET /api/v1/info.
 Future<ServerInfoResult> probeServerInfo(
   String baseUrl, {
   Set<String>? trustedInsecureHosts,
@@ -85,12 +85,12 @@ Future<ServerInfoResult> probeServerInfo(
       );
     }
     final data = response.data;
-    if (!isTimeTrackerInfoPayload(data)) {
+    if (!isEvilTimeInfoPayload(data)) {
       return const ServerInfoResult(
         ok: false,
         code: 'NOT_TIMETRACKER',
         message:
-            'This address did not return a TimeTracker API response. Check the URL (base URL only) and port.',
+            'This address did not return a EvilTime API response. Check the URL (base URL only) and port.',
       );
     }
     final setupRequired = data?['setup_required'] == true;
@@ -100,7 +100,7 @@ Future<ServerInfoResult> probeServerInfo(
         code: 'SETUP_REQUIRED',
         setupRequired: true,
         message:
-            'TimeTracker is not fully set up yet. Open this server URL in a browser, complete initial setup, then try again.',
+            'EvilTime is not fully set up yet. Open this server URL in a browser, complete initial setup, then try again.',
       );
     }
     final appVersion = data?['app_version']?.toString();

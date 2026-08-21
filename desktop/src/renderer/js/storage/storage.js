@@ -3,9 +3,9 @@
 
 const Dexie = require('dexie');
 
-class TimeTrackerDB extends Dexie {
+class EvilTimeDB extends Dexie {
   constructor() {
-    super('TimeTrackerDB');
+    super('EvilTimeDB');
     
     this.version(1).stores({
       timeEntries: 'id, startTime, projectId, userId',
@@ -16,7 +16,7 @@ class TimeTrackerDB extends Dexie {
   }
 }
 
-const db = new TimeTrackerDB();
+const db = new EvilTimeDB();
 
 // Storage service
 const StorageService = {

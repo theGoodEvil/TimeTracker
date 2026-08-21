@@ -79,7 +79,7 @@ def ai_test_connection():
 @api_bp.route("/api/ai/chat", methods=["POST"])
 @login_required
 def ai_chat():
-    """Chat with the AI helper using server-built TimeTracker context."""
+    """Chat with the AI helper using server-built EvilTime context."""
     data = request.get_json(silent=True) or {}
     try:
         result = LLMService().chat(current_user, data.get("prompt") or "", data.get("history") or [])
@@ -333,6 +333,9 @@ def timer_status():
                 "start_time": active_timer.start_time.isoformat(),
                 "current_duration": active_timer.current_duration_seconds,
                 "duration_formatted": active_timer.duration_formatted,
+                "paused": active_timer.is_paused,
+                "paused_at": active_timer.paused_at.isoformat() if active_timer.paused_at else None,
+                "break_seconds": active_timer.break_seconds or 0,
                 "idle_notified": bool(active_timer.idle_notified_at),
                 "last_heartbeat_at": (
                     active_timer.last_heartbeat_at.isoformat() if active_timer.last_heartbeat_at else None
@@ -346,7 +349,7 @@ def timer_status():
 @login_required
 @deprecated_session_api("/api/v1/timer/heartbeat")
 def api_timer_heartbeat():
-    """Record activity for the active timer (idle timeout safety net)."""
+    """Record a liveness hint without changing the authoritative timer state."""
     active_timer = current_user.active_timer
     if not active_timer:
         return jsonify({"error": "No active timer"}), 400
@@ -588,56 +591,13 @@ def api_stop_timer():
     return jsonify({"success": True, "duration": entry.duration_formatted, "duration_hours": entry.duration_hours})
 
 
-# --- Idle control: stop at specific time ---
+# --- Retired idle control endpoint ---
 @api_bp.route("/api/timer/stop_at", methods=["POST"])
 @login_required
 @deprecated_session_api("/api/v1/timer/stop")
 def api_stop_timer_at():
-    """Stop the active timer at a specific timestamp (idle adjustment)."""
-    active_timer = current_user.active_timer
-    if not active_timer:
-        return jsonify({"error": "No active timer to stop"}), 400
-
-    data = request.get_json() or {}
-    stop_time_str = data.get("stop_time")  # ISO string
-    if not stop_time_str:
-        return jsonify({"error": "stop_time is required"}), 400
-
-    try:
-        # Accept ISO; handle trailing Z
-        ts = stop_time_str.strip()
-        if ts.endswith("Z"):
-            ts = ts[:-1] + "+00:00"
-        parsed = datetime.fromisoformat(ts)
-        # Convert to local naive for storage consistency
-        if parsed.tzinfo is not None:
-            parsed_local_aware = utc_to_local(parsed)
-            stop_time_local = parsed_local_aware.replace(tzinfo=None)
-        else:
-            stop_time_local = parsed
-    except Exception:
-        return jsonify({"error": "Invalid stop_time format"}), 400
-
-    if stop_time_local <= active_timer.start_time:
-        return jsonify({"error": "stop_time must be after start time"}), 400
-
-    # Do not allow stopping in the future
-    now_local = local_now()
-    if stop_time_local > now_local:
-        stop_time_local = now_local
-
-    try:
-        active_timer.stop_timer(end_time=stop_time_local)
-    except Exception as e:
-        current_app.logger.warning("Failed to stop timer at specific time: %s", e)
-        return jsonify({"error": "Failed to stop timer"}), 500
-
-    socketio.emit(
-        "timer_stopped",
-        {"user_id": current_user.id, "timer_id": active_timer.id, "duration": active_timer.duration_formatted},
-    )
-
-    return jsonify({"success": True, "duration": active_timer.duration_formatted})
+    """Never let old idle clients mutate persisted timer state."""
+    return jsonify({"error": "Backdated timer stops are disabled in EvilTime"}), 410
 
 
 # --- Resume last timer/project ---
@@ -1546,7 +1506,7 @@ def calendar_export():
         ical_lines = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
-            "PRODID:-//TimeTracker//Calendar Export//EN",
+            "PRODID:-//EvilTime//Calendar Export//EN",
             "CALSCALE:GREGORIAN",
             "METHOD:PUBLISH",
         ]

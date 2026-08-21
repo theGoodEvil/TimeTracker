@@ -790,9 +790,9 @@ def create_app(config=None):
 
     # Log analytics status (for transparency)
     if has_analytics_configured():
-        app.logger.info("TimeTracker with analytics configured (telemetry opt-in via admin dashboard)")
+        app.logger.info("EvilTime with analytics configured (telemetry opt-in via admin dashboard)")
     else:
-        app.logger.info("TimeTracker build without analytics configuration")
+        app.logger.info("EvilTime build without analytics configuration")
 
     # Initialize Sentry for error monitoring
     # Priority: Env var > Built-in default > Disabled

@@ -1,7 +1,7 @@
 {
-  "name": "timetracker-frontend",
+  "name": "eviltime-frontend",
   "version": "1.0.0",
-  "description": "Frontend assets for TimeTracker",
+  "description": "Frontend assets for EvilTime by The Good Evil GmbH",
   "main": "index.js",
   "scripts": {
     "generate:icons": "node scripts/generate-icons.js",

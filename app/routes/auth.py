@@ -268,7 +268,7 @@ def forgot_password():
 
                 from app.utils.email import send_email
 
-                subject = _("Reset your TimeTracker password")
+                subject = _("Reset your EvilTime password")
                 text_body = _(
                     "A password reset was requested for your account.\n\n"
                     "Use this link to set a new password:\n"
@@ -745,7 +745,7 @@ def two_factor_setup():
             import pyotp
 
             provisioning_uri = pyotp.totp.TOTP(secret).provisioning_uri(
-                name=current_user.username, issuer_name="TimeTracker"
+                name=current_user.username, issuer_name="EvilTime"
             )
         except Exception:
             provisioning_uri = ""

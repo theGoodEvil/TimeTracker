@@ -5,7 +5,7 @@ Tests settings page rendering, form validation, preference updates, and API endp
 
 import pytest
 from flask import url_for
-from app.models import User
+from app.models import User, WeeklyTimeGoal
 from app import db
 import pytz
 
@@ -359,6 +359,36 @@ class TestUserSettingsUpdate:
         db.session.refresh(user)
         assert getattr(user, "overtime_calculation_mode", "daily") == "weekly"
         assert getattr(user, "standard_hours_per_week", None) == 20.0
+
+    def test_update_default_project(self, client, user, project):
+        """Employees can choose a company project they did not create."""
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user.id)
+
+        response = client.post("/settings", data={"default_project_id": str(project.id)}, follow_redirects=True)
+
+        assert response.status_code == 200
+        db.session.refresh(user)
+        assert user.default_project_id == project.id
+
+    def test_weekly_hours_effective_date_creates_schedule_change(self, client, user):
+        with client.session_transaction() as sess:
+            sess["_user_id"] = str(user.id)
+
+        response = client.post(
+            "/settings",
+            data={
+                "overtime_calculation_mode": "weekly",
+                "standard_hours_per_week": "32",
+                "weekly_hours_effective_from": "2026-08-17",
+            },
+            follow_redirects=True,
+        )
+
+        assert response.status_code == 200
+        goal = WeeklyTimeGoal.query.filter_by(user_id=user.id).one()
+        assert goal.target_hours == 32
+        assert goal.actual_hours_override is None
 
     def test_update_standard_hours_per_week_validation(self, client, user):
         """Test validation of standard hours per week (must be between 1 and 168)."""

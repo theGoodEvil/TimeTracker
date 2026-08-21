@@ -1,5 +1,5 @@
 name: timetracker_mobile
-description: TimeTracker mobile app for Android and iOS
+description: EvilTime mobile app by The Good Evil GmbH
 publish_to: 'none'
 version: 5.11.4+1
 
@@ -67,5 +67,5 @@ flutter_launcher_icons:
   # because the iOS project files (Runner.xcodeproj) may not exist on Windows.
   ios: false
   image_path: "assets/icon/app_icon.png"
-  adaptive_icon_background: "#4A90E2"
+  adaptive_icon_background: "#64B376"
   adaptive_icon_foreground: "assets/icon/app_icon.png"

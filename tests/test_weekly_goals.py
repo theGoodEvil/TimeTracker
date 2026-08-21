@@ -9,7 +9,6 @@ from app.models import WeeklyTimeGoal, TimeEntry, User, Project
 from app import db
 from factories import TimeEntryFactory
 
-
 # ============================================================================
 # WeeklyTimeGoal Model Tests
 # ============================================================================
@@ -527,9 +526,7 @@ def test_weekly_goal_exclude_weekends_creation(app, user):
     """Test weekly goal creation with exclude_weekends=True."""
     with app.app_context():
         week_start = date.today() - timedelta(days=date.today().weekday())
-        goal = WeeklyTimeGoal(
-            user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True
-        )
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True)
         db.session.add(goal)
         db.session.commit()
 
@@ -546,9 +543,7 @@ def test_weekly_goal_days_remaining_exclude_weekends_monday(app, user):
     with app.app_context():
         # Create a goal starting on Monday
         week_start = date.today() - timedelta(days=date.today().weekday())
-        goal = WeeklyTimeGoal(
-            user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True
-        )
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True)
         db.session.add(goal)
         db.session.commit()
 
@@ -575,9 +570,7 @@ def test_weekly_goal_average_hours_per_day_exclude_weekends(app, user):
     """Test average_hours_per_day calculation with exclude_weekends=True."""
     with app.app_context():
         week_start = date.today() - timedelta(days=date.today().weekday())
-        goal = WeeklyTimeGoal(
-            user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True
-        )
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True)
         db.session.add(goal)
         db.session.commit()
 
@@ -603,9 +596,7 @@ def test_weekly_goal_days_remaining_excludes_weekends(app, user):
         # Create a goal for a specific week (Monday to Friday)
         # Use a known Monday date
         week_start = date(2024, 1, 1)  # Monday, January 1, 2024
-        goal = WeeklyTimeGoal(
-            user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True
-        )
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True)
         db.session.add(goal)
         db.session.commit()
 
@@ -638,9 +629,7 @@ def test_weekly_goal_actual_hours_excludes_weekends(app, user, project):
     """Test that actual_hours calculation excludes weekends when exclude_weekends=True."""
     with app.app_context():
         week_start = date.today() - timedelta(days=date.today().weekday())
-        goal = WeeklyTimeGoal(
-            user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True
-        )
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=30.0, week_start_date=week_start, exclude_weekends=True)
         db.session.add(goal)
         db.session.commit()
 
@@ -667,3 +656,74 @@ def test_weekly_goal_actual_hours_excludes_weekends(app, user, project):
 
         # Should only count Monday's 8 hours, not Saturday's 5 hours
         assert goal.actual_hours == 8.0
+
+
+@pytest.mark.unit
+def test_weekly_actual_override_supports_migration(app, user):
+    with app.app_context():
+        week_start = date.today() - timedelta(days=date.today().weekday())
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=20, week_start_date=week_start)
+        goal.actual_hours_override = 23.5
+        db.session.add(goal)
+        db.session.commit()
+
+        assert goal.tracked_hours == 0
+        assert goal.actual_hours == 23.5
+        assert goal.overtime_hours == 3.5
+
+
+@pytest.mark.unit
+def test_weekly_ledger_inherits_schedule_and_ignores_empty_current_week(app, user):
+    from app.services.weekly_work_service import WeeklyWorkService
+
+    with app.app_context():
+        current = WeeklyWorkService.week_start(date.today(), user)
+        prior = current - timedelta(days=7)
+        goal = WeeklyTimeGoal(user_id=user.id, target_hours=28, week_start_date=prior)
+        goal.actual_hours_override = 30
+        db.session.add(goal)
+        db.session.commit()
+
+        rows = WeeklyWorkService.rows(user, limit=None)
+        prior_row = next(row for row in rows if row["week_start"] == prior)
+        current_row = next(row for row in rows if row["week_start"] == current)
+        assert prior_row["balance_hours"] == 2
+        assert current_row["expected_hours"] == 28
+        assert current_row["counted"] is False
+        assert current_row["balance_hours"] == 0
+
+        schedule_only = WeeklyTimeGoal(user_id=user.id, target_hours=32, week_start_date=current)
+        db.session.add(schedule_only)
+        db.session.commit()
+        current_row = next(row for row in WeeklyWorkService.rows(user, limit=None) if row["week_start"] == current)
+        assert current_row["expected_hours"] == 32
+        assert current_row["counted"] is False
+        assert current_row["balance_hours"] == 0
+
+
+@pytest.mark.unit
+def test_schedule_change_preserves_existing_actual_override(app, user):
+    """Changing expected hours must not erase imported weekly work."""
+    from app.services.weekly_work_service import WeeklyWorkService
+
+    with app.app_context():
+        week_start = WeeklyWorkService.week_start(date.today(), user)
+        goal = WeeklyTimeGoal(
+            user_id=user.id,
+            target_hours=20,
+            week_start_date=week_start,
+            actual_hours_override=23.5,
+        )
+        db.session.add(goal)
+        db.session.commit()
+
+        WeeklyWorkService.upsert_adjustment(user, week_start, 28)
+        db.session.commit()
+
+        db.session.refresh(goal)
+        assert goal.target_hours == 28
+        assert goal.actual_hours_override == 23.5
+
+        WeeklyWorkService.upsert_adjustment(user, week_start, 28, actual_override=None)
+        db.session.commit()
+        assert goal.actual_hours_override is None

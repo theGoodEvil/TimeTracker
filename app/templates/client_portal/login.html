@@ -30,14 +30,14 @@
             <div class="hidden md:flex items-center justify-center p-10 bg-background-light dark:bg-background-dark">
                 <div class="text-center">
                     <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="logo" class="w-24 h-24 mx-auto">
-                    <h1 class="text-3xl font-bold mt-4 text-primary">TimeTracker</h1>
+                    <h1 class="text-3xl font-bold mt-4 text-primary">EvilTime</h1>
                     <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Client Portal') }}</p>
                     <p class="mt-1 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('View your projects and invoices') }}</p>
                 </div>
             </div>
             <div class="p-6 sm:p-8">
                 <div class="flex items-center gap-3 mb-4 md:hidden">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="TimeTracker Logo" class="w-10 h-10">
+                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="EvilTime Logo" class="w-10 h-10">
                     <span class="text-xl font-bold text-primary">{{ _('Client Portal') }}</span>
                 </div>
                 <h2 class="text-2xl font-bold tracking-tight">{{ _('Sign in to Client Portal') }}</h2>
@@ -63,7 +63,7 @@
                     <button type="submit" class="btn btn-primary w-full mt-6">{{ _('Sign in') }}</button>
                 </form>
                 <p class="mt-6 text-sm text-center text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('If you have a TimeTracker user account with portal access,') }}
+                    {{ _('If you have a EvilTime user account with portal access,') }}
                     <a href="{{ url_for('auth.login') }}" class="text-primary hover:underline font-medium">{{ _('log in here instead') }}</a>.
                 </p>
             </div>

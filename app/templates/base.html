@@ -6,7 +6,7 @@
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="Professional time tracking and project management">
-    <meta name="theme-color" content="#4F46E5">
+    <meta name="theme-color" content="#64b376">
     
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website">
@@ -66,7 +66,7 @@
                         <i class="fas fa-mug-saucer text-amber-600 dark:text-amber-400 text-lg"></i>
                         <div class="flex-1">
                             <p class="text-sm font-medium text-amber-900 dark:text-amber-100" id="bannerTitle">
-                                {{ _('Enjoying TimeTracker?') }}
+                                {{ _('Enjoying EvilTime?') }}
                             </p>
                             <p class="text-xs text-amber-700 dark:text-amber-300" id="bannerMessage">
                                 {{ _('Support independent development — licenses are supporter badges, not paywalls.') }}
@@ -111,14 +111,10 @@
                     {% block content %}{% endblock %}
                 </main>
                 {% if current_user.is_authenticated %}
-                <p class="text-center text-xs text-text-muted-light dark:text-text-muted-dark px-4 pb-2 w-full shrink-0">{{ _('Built by an independent developer') }}</p>
+                <p class="text-center text-xs text-text-muted-light dark:text-text-muted-dark px-4 pb-2 w-full shrink-0">{{ _('EvilTime · The Good Evil GmbH') }}</p>
                 {% endif %}
             </div>
         </div>
-
-        {% if current_user.is_authenticated %}
-        <meta name="idle-timeout-minutes" content="{{ settings.idle_timeout_minutes if settings else 30 }}">
-        {% endif %}
 
         {% if is_admin_user %}
         <div id="adminVersionUpdateRoot" class="hidden fixed bottom-20 right-4 z-[60] max-w-sm w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-xl" role="region" aria-label="{{ _('Software update') }}">
@@ -267,21 +263,6 @@
                     } else if (typeof showToast === 'function') {
                         try { showToast(msg, 'info'); } catch (e) {}
                     }
-                });
-                // Server-side idle timeout (#722): show "Still working?" even when
-                // local idle detection did not fire (e.g. tab throttled).
-                socket.on('idle_timeout', function(data){
-                    try {
-                        if (typeof window.__ttShowIdlePrompt === 'function') {
-                            var stopTs = Date.now() - 30 * 60 * 1000;
-                            var meta = document.querySelector('meta[name="idle-timeout-minutes"]');
-                            var mins = meta ? parseInt(meta.getAttribute('content'), 10) : 30;
-                            if (!isNaN(mins) && mins >= 1) stopTs = Date.now() - mins * 60 * 1000;
-                            window.__ttShowIdlePrompt(stopTs);
-                        } else if (window.toastManager && data) {
-                            window.toastManager.warning(data.message || 'Still working?', data.title || 'Idle timer');
-                        }
-                    } catch (e) {}
                 });
             } catch (e) {
                 console.error('Mention socket init failed', e);
@@ -1193,10 +1174,10 @@ function trackBannerImpression(source) {
                 bannerTitle.textContent = '{{ _("Great progress! You\'ve logged 50+ entries") }}';
                 bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
             } else if (daysSinceSignup >= 7) {
-                bannerTitle.textContent = '{{ _("Thanks for using TimeTracker!") }}';
+                bannerTitle.textContent = '{{ _("Thanks for using EvilTime!") }}';
                 bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
             } else {
-                bannerTitle.textContent = '{{ _("Enjoying TimeTracker?") }}';
+                bannerTitle.textContent = '{{ _("Enjoying EvilTime?") }}';
                 bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
             }
         }
@@ -1287,4 +1268,3 @@ function trackBannerImpression(source) {
     {% endif %}
 </body>
 </html>
-
