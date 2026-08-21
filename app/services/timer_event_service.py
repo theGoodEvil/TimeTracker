@@ -43,40 +43,49 @@ def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=
 
 
 def build_timeline(user, entries):
-    """Combine exact captured events with inferred historical entry boundaries."""
+    """Combine exact captured events (breaks) with inferred historical entry boundaries."""
     entries = sorted(entries, key=lambda item: (item.start_time, item.id))
     if not entries:
         return []
+    
     ids = [entry.id for entry in entries]
-    stored = (
-        TimerEvent.query.filter(TimerEvent.user_id == user.id, TimerEvent.time_entry_id.in_(ids))
+    
+    # ONLY fetch breaks from TimerEvent! Boundary events are always inferred from TimeEntry to prevent desync.
+    break_events = (
+        TimerEvent.query.filter(
+            TimerEvent.user_id == user.id, 
+            TimerEvent.time_entry_id.in_(ids),
+            TimerEvent.event_type.in_(["break_start", "break_end"])
+        )
         .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
         .all()
     )
+    
     timeline = []
-    seen_boundaries = set()
-
-    for event in stored:
-        # Deduplicate boundary events per time_entry
-        if event.event_type in {"clock_in", "clock_out", "project_switch"}:
-            if (event.time_entry_id, event.event_type) in seen_boundaries:
-                continue
-            seen_boundaries.add((event.time_entry_id, event.event_type))
-
-        # If break_end occurred at the exact same moment as clock_out (e.g. stopped while paused),
-        # skip rendering the redundant duplicate pin right on top of clock_out.
-        if event.event_type == "break_end" and event.entry and event.entry.end_time:
-            if abs((event.occurred_at - event.entry.end_time).total_seconds()) <= 2:
-                continue
-
+    
+    for event in break_events:
         project = event.entry.project if event.entry else None
+        
+        # Clamp breaks strictly within TimeEntry boundaries so they don't look weird if start_time/end_time was edited
+        occurred_at = event.occurred_at
+        if event.entry:
+            if occurred_at < event.entry.start_time:
+                occurred_at = event.entry.start_time
+            if event.entry.end_time and occurred_at > event.entry.end_time:
+                occurred_at = event.entry.end_time
+                
+        # Skip break_end if it's exactly on top of clock_out
+        if event.event_type == "break_end" and event.entry and event.entry.end_time:
+            if abs((occurred_at - event.entry.end_time).total_seconds()) <= 2:
+                continue
+                
         timeline.append(
             {
                 "event_id": event.id,
                 "entry_id": event.time_entry_id,
                 "related_entry_id": event.related_entry_id,
                 "event_type": event.event_type,
-                "occurred_at": event.occurred_at,
+                "occurred_at": occurred_at,
                 "project_name": project.name if project else None,
                 "captured": True,
             }
@@ -88,25 +97,24 @@ def build_timeline(user, entries):
             previous and previous.end_time and abs((entry.start_time - previous.end_time).total_seconds()) <= 10
         )
         start_type = "project_switch" if contiguous_previous else "clock_in"
-        if (entry.id, start_type) not in seen_boundaries and (entry.id, "clock_in") not in seen_boundaries:
-            seen_boundaries.add((entry.id, start_type))
-            timeline.append(
-                {
-                    "event_id": None,
-                    "entry_id": entry.id,
-                    "related_entry_id": previous.id if contiguous_previous else None,
-                    "event_type": start_type,
-                    "occurred_at": entry.start_time,
-                    "project_name": entry.project.name if entry.project else None,
-                    "captured": False,
-                }
-            )
+        
+        timeline.append(
+            {
+                "event_id": None,
+                "entry_id": entry.id,
+                "related_entry_id": previous.id if contiguous_previous else None,
+                "event_type": start_type,
+                "occurred_at": entry.start_time,
+                "project_name": entry.project.name if entry.project else None,
+                "captured": False,
+            }
+        )
+        
         next_entry = entries[index + 1] if index + 1 < len(entries) else None
         contiguous_next = bool(
             entry.end_time and next_entry and abs((next_entry.start_time - entry.end_time).total_seconds()) <= 10
         )
-        if entry.end_time and not contiguous_next and (entry.id, "clock_out") not in seen_boundaries:
-            seen_boundaries.add((entry.id, "clock_out"))
+        if entry.end_time and not contiguous_next:
             timeline.append(
                 {
                     "event_id": None,
@@ -118,6 +126,7 @@ def build_timeline(user, entries):
                     "captured": False,
                 }
             )
+            
     timeline = sorted(timeline, key=lambda item: (item["occurred_at"], item["event_id"] or 0))
     span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
     for index, item in enumerate(timeline):

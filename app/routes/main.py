@@ -443,6 +443,7 @@ def add_timeline_event():
             )
             db.session.add(entry)
             db.session.flush()
+            entry.calculate_duration()
             db.session.add_all(
                 [
                     TimerEvent(
