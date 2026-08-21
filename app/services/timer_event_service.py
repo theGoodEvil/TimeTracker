@@ -11,15 +11,30 @@ TIMELINE_END_MINUTE = 20 * 60
 
 
 def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=None):
-    """Persist an event after a timer mutation; failures never roll back the timer itself."""
+    """Persist an event after a timer mutation; updates existing boundary events to avoid duplicates."""
     if not entry or event_type not in {"clock_in", "project_switch", "clock_out", "break_start", "break_end"}:
         return None
+    event_time = occurred_at or entry.start_time
+    # If a boundary TimerEvent for this entry and event_type already exists, update it
+    if event_type in {"clock_in", "clock_out", "project_switch"}:
+        existing = TimerEvent.query.filter_by(
+            user_id=entry.user_id,
+            time_entry_id=entry.id,
+            event_type=event_type,
+        ).first()
+        if existing:
+            existing.occurred_at = event_time
+            if related_entry_id is not None:
+                existing.related_entry_id = related_entry_id
+            safe_commit("record_timer_event_update", {"entry_id": entry.id, "event_type": event_type})
+            return existing
+
     event = TimerEvent(
         user_id=entry.user_id,
         time_entry_id=entry.id,
         related_entry_id=related_entry_id,
         event_type=event_type,
-        occurred_at=occurred_at or entry.start_time,
+        occurred_at=event_time,
     )
     db.session.add(event)
     if safe_commit("record_timer_event", {"entry_id": entry.id, "event_type": event_type}):
@@ -39,9 +54,21 @@ def build_timeline(user, entries):
         .all()
     )
     timeline = []
-    boundary_keys = {(event.time_entry_id, event.event_type) for event in stored}
+    seen_boundaries = set()
 
     for event in stored:
+        # Deduplicate boundary events per time_entry
+        if event.event_type in {"clock_in", "clock_out", "project_switch"}:
+            if (event.time_entry_id, event.event_type) in seen_boundaries:
+                continue
+            seen_boundaries.add((event.time_entry_id, event.event_type))
+
+        # If break_end occurred at the exact same moment as clock_out (e.g. stopped while paused),
+        # skip rendering the redundant duplicate pin right on top of clock_out.
+        if event.event_type == "break_end" and event.entry and event.entry.end_time:
+            if abs((event.occurred_at - event.entry.end_time).total_seconds()) <= 2:
+                continue
+
         project = event.entry.project if event.entry else None
         timeline.append(
             {
@@ -61,7 +88,8 @@ def build_timeline(user, entries):
             previous and previous.end_time and abs((entry.start_time - previous.end_time).total_seconds()) <= 10
         )
         start_type = "project_switch" if contiguous_previous else "clock_in"
-        if (entry.id, start_type) not in boundary_keys and (entry.id, "clock_in") not in boundary_keys:
+        if (entry.id, start_type) not in seen_boundaries and (entry.id, "clock_in") not in seen_boundaries:
+            seen_boundaries.add((entry.id, start_type))
             timeline.append(
                 {
                     "event_id": None,
@@ -77,7 +105,8 @@ def build_timeline(user, entries):
         contiguous_next = bool(
             entry.end_time and next_entry and abs((next_entry.start_time - entry.end_time).total_seconds()) <= 10
         )
-        if entry.end_time and not contiguous_next and (entry.id, "clock_out") not in boundary_keys:
+        if entry.end_time and not contiguous_next and (entry.id, "clock_out") not in seen_boundaries:
+            seen_boundaries.add((entry.id, "clock_out"))
             timeline.append(
                 {
                     "event_id": None,

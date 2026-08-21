@@ -520,3 +520,32 @@ def test_timeline_break_edit_recalculates_duration(authenticated_client, user, p
     assert entry.break_seconds == 900
     assert entry.duration_seconds == 9900
     assert break_start.occurred_at.minute == 15
+
+
+def test_timeline_deduplicates_duplicate_clock_outs_and_overlapping_breaks(user, project):
+    from app.services.timer_event_service import build_timeline
+
+    today = local_now().date()
+    entry = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=datetime.combine(today, time(hour=9)),
+        end_time=datetime.combine(today, time(hour=12)),
+        break_seconds=1800,
+        source="auto",
+    )
+    db.session.add(entry)
+    db.session.flush()
+    # Add two clock_out events (duplicate) and a break_end at the exact same time as clock_out
+    e1 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="clock_in", occurred_at=entry.start_time)
+    e2 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="break_start", occurred_at=datetime.combine(today, time(hour=11, minute=30)))
+    e3 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="break_end", occurred_at=entry.end_time)
+    e4 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="clock_out", occurred_at=entry.end_time)
+    e5 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="clock_out", occurred_at=entry.end_time)
+    db.session.add_all([e1, e2, e3, e4, e5])
+    db.session.commit()
+
+    timeline = build_timeline(user, [entry])
+    event_types = [item["event_type"] for item in timeline]
+    # No duplicate clock_out and no duplicate break_end overlapping at exact clock_out
+    assert event_types == ["clock_in", "break_start", "clock_out"]

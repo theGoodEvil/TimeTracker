@@ -206,6 +206,20 @@ def edit_timeline_event():
             if previous:
                 raise ValueError(_("The adjusted time would overlap another entry."))
             entry.start_time = new_time
+            # Update all clock_in TimerEvents for this entry and clean up duplicates
+            in_events = TimerEvent.query.filter_by(
+                user_id=current_user.id, time_entry_id=entry.id, event_type="clock_in"
+            ).all()
+            for idx, ev in enumerate(in_events):
+                if idx == 0:
+                    ev.occurred_at = new_time
+                else:
+                    db.session.delete(ev)
+            # Clamp any breaks that started before new clock-in
+            breaks = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id).all()
+            for b in breaks:
+                if b.occurred_at < new_time:
+                    b.occurred_at = new_time
         elif event_type == "clock_out":
             if not entry.end_time or new_time <= entry.start_time:
                 raise ValueError(_("Clock-out must be after clock-in."))
@@ -222,6 +236,20 @@ def edit_timeline_event():
             if following:
                 raise ValueError(_("The adjusted time would overlap another entry."))
             entry.end_time = new_time
+            # Update all clock_out TimerEvents for this entry and clean up duplicates
+            out_events = TimerEvent.query.filter_by(
+                user_id=current_user.id, time_entry_id=entry.id, event_type="clock_out"
+            ).all()
+            for idx, ev in enumerate(out_events):
+                if idx == 0:
+                    ev.occurred_at = new_time
+                else:
+                    db.session.delete(ev)
+            # Clamp any breaks that ended after new clock-out
+            breaks = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id).all()
+            for b in breaks:
+                if b.occurred_at > new_time:
+                    b.occurred_at = new_time
         elif event_type == "project_switch":
             related_id = (event.related_entry_id if event else None) or request.form.get("related_entry_id", type=int)
             previous = TimeEntry.query.filter_by(id=related_id, user_id=current_user.id).first() if related_id else None
@@ -230,6 +258,14 @@ def edit_timeline_event():
             previous.end_time = new_time
             previous.calculate_duration()
             entry.start_time = new_time
+            switch_events = TimerEvent.query.filter_by(
+                user_id=current_user.id, time_entry_id=entry.id, event_type="project_switch"
+            ).all()
+            for idx, ev in enumerate(switch_events):
+                if idx == 0:
+                    ev.occurred_at = new_time
+                else:
+                    db.session.delete(ev)
         else:
             if not event:
                 raise ValueError(_("Historical break details were not recorded and cannot be adjusted individually."))
@@ -242,18 +278,41 @@ def edit_timeline_event():
             event_index = next((index for index, item in enumerate(events) if item.id == event.id), None)
             previous_event = events[event_index - 1] if event_index is not None and event_index > 0 else None
             next_event = events[event_index + 1] if event_index is not None and event_index + 1 < len(events) else None
-            if new_time <= entry.start_time or (entry.end_time and new_time >= entry.end_time):
-                raise ValueError(_("The break event must remain inside the work session."))
-            if previous_event and new_time <= previous_event.occurred_at:
+            if new_time < entry.start_time:
+                raise ValueError(_("The break event cannot start before clock-in."))
+            if entry.end_time and new_time > entry.end_time:
+                entry.end_time = new_time
+                out_ev = TimerEvent.query.filter_by(
+                    user_id=current_user.id, time_entry_id=entry.id, event_type="clock_out"
+                ).first()
+                if out_ev:
+                    out_ev.occurred_at = new_time
+            if previous_event and new_time < previous_event.occurred_at:
                 raise ValueError(_("The timestamp must remain after the previous timeline event."))
-            if next_event and new_time >= next_event.occurred_at:
+            if next_event and new_time > next_event.occurred_at:
                 raise ValueError(_("The timestamp must remain before the next timeline event."))
-            if event_type == "break_start" and next_event and next_event.event_type == "break_end":
-                entry.break_seconds = max(0, (entry.break_seconds or 0) + int((old_time - new_time).total_seconds()))
-            elif event_type == "break_end" and previous_event and previous_event.event_type == "break_start":
-                entry.break_seconds = max(0, (entry.break_seconds or 0) + int((new_time - old_time).total_seconds()))
+
+            event.occurred_at = new_time
             if event_type == "break_start" and entry.paused_at and not next_event:
                 entry.paused_at = new_time
+
+            # Recompute exact break seconds from all recorded break pairs
+            all_breaks = (
+                TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+                .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+                .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+                .all()
+            )
+            total_break_sec = 0
+            cur_start = None
+            for b in all_breaks:
+                if b.event_type == "break_start":
+                    cur_start = b.occurred_at
+                elif b.event_type == "break_end" and cur_start:
+                    if b.occurred_at > cur_start:
+                        total_break_sec += int((b.occurred_at - cur_start).total_seconds())
+                    cur_start = None
+            entry.break_seconds = total_break_sec
 
         if event:
             event.occurred_at = new_time
