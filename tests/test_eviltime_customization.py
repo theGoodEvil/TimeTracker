@@ -114,10 +114,14 @@ def test_dashboard_behaviour_is_in_compiled_source():
     assert "eviltime-time-balance" in source
     assert "data-timeline-edit" in source
     assert "timelineConfirmModal" in source
+    assert "grabOffset" in source
+    assert "snappedMinute" in source
 
     palette_source = Path("app/static/js/command-palette.js").read_text(encoding="utf-8")
     assert "input?.addEventListener('keydown', onPaletteKeydown)" in palette_source
     assert "setMode('projects'" in palette_source
+    assert "setMode('edit-project'" in palette_source
+    assert "setMode('view-project'" in palette_source
     assert "closePalette();\n        setTimeout" not in palette_source
 
     timer_source = Path("app/static/timer-control.js").read_text(encoding="utf-8")
@@ -337,7 +341,7 @@ def test_mcp_rejects_tokens_without_migration_scope(client, user):
     assert response.status_code == 403
 
 
-def test_general_mcp_lists_everyday_tools(client, user, project):
+def test_general_mcp_lists_everyday_and_openapi_tools(client, user, project):
     token, plain = ApiToken.create_token(user_id=user.id, name="General MCP", scopes="mcp:access")
     db.session.add(token)
     db.session.commit()
@@ -349,8 +353,50 @@ def test_general_mcp_lists_everyday_tools(client, user, project):
         headers=headers,
     )
 
-    names = {tool["name"] for tool in response.get_json()["result"]["tools"]}
+    tools = response.get_json()["result"]["tools"]
+    names = {tool["name"] for tool in tools}
+    # Built-in helper tools
     assert {"eviltime_get_context", "eviltime_list_projects", "eviltime_timer"} <= names
+    # Dynamic OpenAPI-wrapped tools
+    assert {"api_get_projects", "api_post_projects", "api_get_time_entries", "api_get_tasks", "api_get_info"} <= names
+
+
+def test_dynamic_mcp_executes_openapi_endpoints(client, user, project):
+    token, plain = ApiToken.create_token(
+        user_id=user.id, name="Full MCP", scopes="mcp:access,read:projects,write:tasks"
+    )
+    db.session.add(token)
+    db.session.commit()
+    headers = {"Authorization": f"Bearer {plain}"}
+
+    # Call api_get_info
+    resp_info = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 2, "method": "tools/call", "params": {"name": "api_get_info", "arguments": {}}},
+        headers=headers,
+    )
+    info_data = resp_info.get_json()
+    assert "result" in info_data
+    assert info_data["result"]["isError"] is False
+    assert "api_version" in info_data["result"]["structuredContent"]
+
+    # Call api_get_projects
+    resp_projects = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 3,
+            "method": "tools/call",
+            "params": {"name": "api_get_projects", "arguments": {"status": "active"}},
+        },
+        headers=headers,
+    )
+    proj_data = resp_projects.get_json()
+    assert "result" in proj_data
+    assert proj_data["result"]["isError"] is False
+    assert "projects" in proj_data["result"]["structuredContent"]
+    project_names = [p["name"] for p in proj_data["result"]["structuredContent"]["projects"]]
+    assert project.name in project_names
 
 
 def test_dashboard_timeline_records_breaks_and_uses_overlay(authenticated_client, active_timer):

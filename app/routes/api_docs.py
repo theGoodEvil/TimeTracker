@@ -28,12 +28,14 @@ swaggerui_blueprint = get_swaggerui_blueprint(
 )
 
 
-@api_docs_bp.route("/api/openapi.json")
-def openapi_spec():
-    """Serve the OpenAPI specification"""
+def get_openapi_spec():
+    """Build and return the complete OpenAPI 3.0 specification dictionary."""
     app_version = get_version_from_setup()
     if app_version == "unknown":
-        app_version = current_app.config.get("APP_VERSION", "1.0.0")
+        try:
+            app_version = current_app.config.get("APP_VERSION", "1.0.0")
+        except Exception:
+            app_version = "1.0.0"
 
     spec = {
         "openapi": "3.0.0",
@@ -1025,4 +1027,10 @@ Example: `2024-01-15T14:30:00Z`
         },
     }
 
-    return jsonify(spec)
+    return spec
+
+
+@api_docs_bp.route("/api/openapi.json")
+def openapi_spec():
+    """Serve the OpenAPI specification"""
+    return jsonify(get_openapi_spec())

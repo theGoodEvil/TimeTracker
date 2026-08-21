@@ -351,6 +351,192 @@ TOOLS = [
 ]
 
 
+def _build_openapi_tools():
+    """Dynamically generate MCP tool definitions and dispatch mapping from the OpenAPI 3.0 specification."""
+    from app.routes.api_docs import get_openapi_spec
+
+    try:
+        spec = get_openapi_spec()
+    except Exception:
+        return [], {}
+
+    tools = []
+    dispatch_map = {}
+    schemas = spec.get("components", {}).get("schemas", {})
+
+    def resolve_schema(schema_obj):
+        if not isinstance(schema_obj, dict):
+            return {"type": "string"}
+        if "$ref" in schema_obj:
+            ref_name = schema_obj["$ref"].split("/")[-1]
+            target = schemas.get(ref_name, {})
+            return resolve_schema(target)
+        res = dict(schema_obj)
+        if "properties" in res:
+            res["properties"] = {k: resolve_schema(v) for k, v in res["properties"].items()}
+        if "items" in res:
+            res["items"] = resolve_schema(res["items"])
+        return res
+
+    for path, path_item in (spec.get("paths") or {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for method_str, op in path_item.items():
+            method = method_str.lower()
+            if method not in {"get", "post", "put", "patch", "delete"} or not isinstance(op, dict):
+                continue
+
+            clean_path = path.strip("/")
+            parts = clean_path.split("/")
+            slug_parts = []
+            for part in parts:
+                if part.startswith("{") and part.endswith("}"):
+                    param_name = part[1:-1].replace("-", "_")
+                    slug_parts.append(f"by_{param_name}")
+                else:
+                    slug_parts.append(part.replace("-", "_"))
+            slug = "_".join(slug_parts) if slug_parts else "root"
+            tool_name = f"api_{method}_{slug}"
+
+            summary = op.get("summary") or op.get("description") or f"{method.upper()} {path}"
+            raw_desc = op.get("description") or ""
+            description = f"{summary} (HTTP {method.upper()} /api/v1{path}). {raw_desc}".strip()
+
+            properties = {}
+            required = []
+            param_meta = {"path": [], "query": [], "body": []}
+
+            for param in op.get("parameters") or []:
+                p_name = param.get("name")
+                if not p_name:
+                    continue
+                p_in = param.get("in")
+                p_schema = resolve_schema(param.get("schema") or {"type": "string"})
+                if param.get("description"):
+                    p_schema["description"] = param["description"]
+
+                properties[p_name] = p_schema
+                if param.get("required") or p_in == "path":
+                    if p_name not in required:
+                        required.append(p_name)
+
+                if p_in == "path":
+                    param_meta["path"].append(p_name)
+                elif p_in == "query":
+                    param_meta["query"].append(p_name)
+
+            req_body = op.get("requestBody")
+            if isinstance(req_body, dict):
+                content = req_body.get("content", {})
+                json_content = content.get("application/json", {})
+                body_schema = json_content.get("schema")
+                if body_schema:
+                    resolved_body = resolve_schema(body_schema)
+                    body_props = resolved_body.get("properties", {})
+                    for bp_name, bp_schema in body_props.items():
+                        properties[bp_name] = bp_schema
+                        param_meta["body"].append(bp_name)
+                    for req_field in resolved_body.get("required") or []:
+                        if req_field not in required:
+                            required.append(req_field)
+
+            input_schema = {
+                "type": "object",
+                "properties": properties,
+                "additionalProperties": True,
+            }
+            if required:
+                input_schema["required"] = required
+
+            tools.append(
+                {
+                    "name": tool_name,
+                    "description": description[:1000],
+                    "inputSchema": input_schema,
+                }
+            )
+            dispatch_map[tool_name] = {
+                "method": method.upper(),
+                "path_template": path,
+                "param_meta": param_meta,
+            }
+
+    return tools, dispatch_map
+
+
+_CACHED_OPENAPI_TOOLS = None
+_CACHED_DISPATCH_MAP = None
+
+
+def _get_all_tools():
+    global _CACHED_OPENAPI_TOOLS, _CACHED_DISPATCH_MAP
+    if _CACHED_OPENAPI_TOOLS is None or _CACHED_DISPATCH_MAP is None:
+        dynamic_tools, dispatch_map = _build_openapi_tools()
+        _CACHED_OPENAPI_TOOLS = list(TOOLS) + dynamic_tools
+        _CACHED_DISPATCH_MAP = dispatch_map
+    return _CACHED_OPENAPI_TOOLS, _CACHED_DISPATCH_MAP
+
+
+def _execute_openapi_tool(tool_info: dict, arguments: dict, user) -> tuple[dict, bool]:
+    """Execute an OpenAPI endpoint dynamically via Flask test_client forwarding the caller's auth token."""
+    from flask import current_app
+    from app.utils.api_auth import extract_token_from_request
+
+    method = tool_info["method"]
+    path_template = tool_info["path_template"]
+    param_meta = tool_info["param_meta"]
+
+    url_path = path_template
+    used_keys = set()
+    for path_param in param_meta["path"]:
+        if path_param in arguments:
+            val = arguments[path_param]
+            url_path = url_path.replace(f"{{{path_param}}}", str(val))
+            used_keys.add(path_param)
+
+    full_url = f"/api/v1{url_path}"
+
+    query_params = {}
+    body_params = {}
+
+    for k, v in arguments.items():
+        if k in used_keys:
+            continue
+        if method == "GET" or k in param_meta["query"]:
+            query_params[k] = v
+        else:
+            body_params[k] = v
+
+    auth_headers = {}
+    token = extract_token_from_request()
+    if token:
+        auth_headers["Authorization"] = f"Bearer {token}"
+    elif hasattr(g, "api_token") and g.api_token:
+        auth_headers["X-API-Key"] = getattr(g.api_token, "token_prefix", "")
+
+    with current_app.test_client() as client:
+        client_kwargs = {
+            "method": method,
+            "headers": auth_headers,
+        }
+        if query_params:
+            client_kwargs["query_string"] = query_params
+        if body_params and method in {"POST", "PUT", "PATCH", "DELETE"}:
+            client_kwargs["json"] = body_params
+
+        resp = client.open(full_url, **client_kwargs)
+        data = resp.get_json(silent=True)
+        if data is None:
+            text = resp.get_data(as_text=True)
+            try:
+                data = json.loads(text)
+            except Exception:
+                data = {"status_code": resp.status_code, "response": text}
+
+        is_error = resp.status_code >= 400
+        return data, is_error
+
+
 @mcp_bp.route("", methods=["GET", "POST"])
 @mcp_bp.route("/", methods=["GET", "POST"])
 @require_api_token(("mcp:access", "mcp:migrate"))
@@ -376,6 +562,8 @@ def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endp
     if header_method and header_method != method:
         return _jsonrpc_error(request_id, -32600, "Mcp-Method header does not match the JSON-RPC method", status=400)
 
+    all_tools, dispatch_map = _get_all_tools()
+
     if method == "initialize":
         requested = (data.get("params") or {}).get("protocolVersion")
         version = requested if requested in SUPPORTED_PROTOCOL_VERSIONS else DEFAULT_PROTOCOL_VERSION
@@ -384,9 +572,9 @@ def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endp
             {
                 "protocolVersion": version,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "EvilTime MCP", "version": "1.1"},
+                "serverInfo": {"name": "EvilTime MCP", "version": "1.2"},
                 "instructions": (
-                    "All tools are restricted to the token owner. Use a dry run before historical imports."
+                    "All tools are restricted to the token owner. Full REST API is exposed through dynamic OpenAPI tools."
                 ),
             },
         )
@@ -395,7 +583,7 @@ def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endp
     if method == "ping":
         return _jsonrpc_result(request_id, {})
     if method == "tools/list":
-        return _jsonrpc_result(request_id, {"tools": TOOLS})
+        return _jsonrpc_result(request_id, {"tools": all_tools})
     if method != "tools/call":
         return _jsonrpc_error(request_id, -32601, "Method not found")
 
@@ -410,17 +598,24 @@ def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endp
     try:
         if name in {"eviltime_get_context", "eviltime_get_migration_context"}:
             result = _context(g.api_user)
+            is_error = False
         elif name == "eviltime_list_projects":
             result = _list_projects(g.api_user)
+            is_error = False
         elif name == "eviltime_timer":
             result = _timer_action(arguments, g.api_user)
+            is_error = bool(result.get("failed")) or result.get("success") is False
         elif name == "eviltime_list_time_entries":
             result = _list_time_entries(arguments, g.api_user)
+            is_error = False
         elif name == "eviltime_import_time_entries":
             result = _import_time_entries(arguments, g.api_user)
+            is_error = bool(result.get("failed")) or result.get("success") is False
+        elif name in dispatch_map:
+            result, is_error = _execute_openapi_tool(dispatch_map[name], arguments, g.api_user)
         else:
             return _jsonrpc_error(request_id, -32602, f"Unknown tool: {name}")
-        is_error = bool(result.get("failed")) or result.get("success") is False
+
         return _jsonrpc_result(request_id, _tool_result(result, is_error=is_error))
     except (TypeError, ValueError, PermissionError) as exc:
         return _jsonrpc_result(request_id, _tool_result({"error": str(exc)}, is_error=True))

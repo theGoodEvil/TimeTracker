@@ -235,9 +235,14 @@
     var spanMinutes = endMinute - startMinute;
 
     function pad(value) { return String(value).padStart(2, '0'); }
-    function dateTimeValue(minutes) {
-      var clamped = Math.max(0, Math.min(1439, Math.round(minutes / 5) * 5));
+    function dateTimeValue(minutes, step) {
+      step = step || 5;
+      var clamped = Math.max(0, Math.min(1439, Math.round(minutes / step) * step));
       return track.dataset.date + 'T' + pad(Math.floor(clamped / 60)) + ':' + pad(clamped % 60);
+    }
+    function snappedMinute(minutes, step) {
+      step = step || 5;
+      return Math.max(0, Math.min(1439, Math.round(minutes / step) * step));
     }
     function minutesFromPointer(clientX) {
       var bounds = track.getBoundingClientRect();
@@ -307,8 +312,8 @@
     function openAdd(minutes) {
       if (!addModal || !addStart || !addEnd) return;
       var rounded = Math.round(minutes / 5) * 5;
-      addStart.value = dateTimeValue(rounded);
-      addEnd.value = dateTimeValue(Math.min(rounded + 30, endMinute));
+      addStart.value = dateTimeValue(rounded, 5);
+      addEnd.value = dateTimeValue(Math.min(rounded + 30, endMinute), 5);
       addModal.classList.remove('hidden');
       addModal.classList.add('flex');
       setBodyLocked(true);
@@ -338,8 +343,11 @@
       trigger.addEventListener('pointerdown', function (downEvent) {
         if (downEvent.button !== 0) return;
         var startX = downEvent.clientX;
+        var triggerRect = trigger.getBoundingClientRect();
+        var grabOffset = downEvent.clientX - (triggerRect.left + triggerRect.width / 2);
         var dragging = false;
         var lastMinutes = null;
+        var lastStep = 5;
         var originalLeft = trigger.style.left;
         var timeLabel = trigger.querySelector('[data-timeline-time]');
         var originalTimeText = timeLabel ? timeLabel.textContent : '';
@@ -347,20 +355,26 @@
         trigger.setPointerCapture(downEvent.pointerId);
 
         function move(moveEvent) {
-          if (Math.abs(moveEvent.clientX - startX) < 5 && !dragging) return;
+          if (Math.abs(moveEvent.clientX - startX) < 4 && !dragging) return;
           dragging = true;
-          lastMinutes = minutesFromPointer(moveEvent.clientX);
-          var percent = Math.max(0, Math.min(100, (lastMinutes - startMinute) / spanMinutes * 100));
+          var fineGrained = moveEvent.shiftKey || moveEvent.ctrlKey || moveEvent.metaKey || moveEvent.altKey;
+          lastStep = fineGrained ? 1 : 5;
+          var rawMinutes = minutesFromPointer(moveEvent.clientX - grabOffset);
+          var snapped = snappedMinute(rawMinutes, lastStep);
+          lastMinutes = snapped;
+          var percent = Math.max(0, Math.min(100, (snapped - startMinute) / spanMinutes * 100));
           trigger.style.left = percent + '%';
-          if (timeLabel) timeLabel.textContent = dateTimeValue(lastMinutes).slice(-5);
+          if (timeLabel) timeLabel.textContent = dateTimeValue(snapped, lastStep).slice(-5);
         }
-        function finish() {
+        function finish(upEvent) {
           trigger.removeEventListener('pointermove', move);
           trigger.removeEventListener('pointerup', finish);
           trigger.removeEventListener('pointercancel', finish);
           if (!dragging || lastMinutes === null) return;
           suppressClick = true;
-          var newTimeStr = dateTimeValue(lastMinutes);
+          var fineGrained = (upEvent && (upEvent.shiftKey || upEvent.ctrlKey || upEvent.metaKey || upEvent.altKey)) || lastStep === 1;
+          var finalStep = fineGrained ? 1 : 5;
+          var newTimeStr = dateTimeValue(lastMinutes, finalStep);
           if (newTimeStr === originalOccurredAt) {
             trigger.style.left = originalLeft;
             if (timeLabel) timeLabel.textContent = originalTimeText;
