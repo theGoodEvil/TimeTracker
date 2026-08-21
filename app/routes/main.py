@@ -156,6 +156,93 @@ def dashboard():
     )
 
 
+@main_bp.route("/dashboard/timeline/delete_event", methods=["POST"])
+@login_required
+def delete_timeline_event():
+    """Delete a specific captured timeline event (e.g. a break) without deleting the whole entry."""
+    if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
+        flash(_("You do not have permission to edit time entries."), "error")
+        return redirect(url_for("main.dashboard"))
+        
+    from app.models import TimerEvent
+    from app.utils.db import safe_commit
+    
+    event_id = request.form.get("event_id", type=int)
+    if not event_id:
+        flash(_("Event ID is missing."), "error")
+        return redirect(url_for("main.dashboard"))
+        
+    event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first()
+    if not event:
+        flash(_("Timeline event not found."), "error")
+        return redirect(url_for("main.dashboard"))
+        
+    entry = event.entry
+    if not entry:
+        db.session.delete(event)
+        db.session.commit()
+        flash(_("Timeline event deleted."), "success")
+        return redirect(url_for("main.dashboard"))
+        
+    # If it's a break, we should delete the pair (break_start and break_end)
+    if event.event_type in ["break_start", "break_end"]:
+        all_breaks = (
+            TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+            .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+            .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+            .all()
+        )
+        
+        event_index = next((index for index, item in enumerate(all_breaks) if item.id == event.id), None)
+        to_delete = [event]
+        
+        if event_index is not None:
+            if event.event_type == "break_start" and event_index + 1 < len(all_breaks):
+                next_ev = all_breaks[event_index + 1]
+                if next_ev.event_type == "break_end":
+                    to_delete.append(next_ev)
+            elif event.event_type == "break_end" and event_index > 0:
+                prev_ev = all_breaks[event_index - 1]
+                if prev_ev.event_type == "break_start":
+                    to_delete.append(prev_ev)
+                    
+        for ev in to_delete:
+            db.session.delete(ev)
+            
+        db.session.flush()
+        
+        # Recompute exact break seconds from remaining break pairs
+        remaining_breaks = (
+            TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+            .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+            .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+            .all()
+        )
+        total_break_sec = 0
+        cur_start = None
+        for b in remaining_breaks:
+            if b.event_type == "break_start":
+                cur_start = b.occurred_at
+            elif b.event_type == "break_end" and cur_start:
+                if b.occurred_at > cur_start:
+                    total_break_sec += int((b.occurred_at - cur_start).total_seconds())
+                cur_start = None
+                
+        entry.break_seconds = total_break_sec
+        if entry.end_time:
+            entry.calculate_duration()
+            
+    else:
+        db.session.delete(event)
+        
+    if safe_commit("delete_timeline_event", {"user_id": current_user.id, "event_id": event_id}):
+        flash(_("Timeline event deleted successfully."), "success")
+    else:
+        flash(_("Could not delete timeline event."), "error")
+        
+    return redirect(url_for("main.dashboard"))
+
+
 @main_bp.route("/dashboard/timeline/edit", methods=["POST"])
 @login_required
 def edit_timeline_event():

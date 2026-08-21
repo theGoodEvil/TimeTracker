@@ -401,13 +401,26 @@
         var ctxMenu = document.getElementById('timelineContextMenu');
         var ctxEdit = document.getElementById('ctxEditEntry');
         var ctxDelete = document.getElementById('ctxDeleteForm');
+        var ctxDeleteText = document.getElementById('ctxDeleteText');
+        var ctxEventId = document.getElementById('ctxEventId');
         
         if (ctxMenu && ctxEdit && ctxDelete) {
           var entryId = trigger.dataset.entryId;
+          var eventId = trigger.dataset.eventId;
+          
           ctxEdit.onclick = function() {
             window.location.href = '/timer/edit/' + entryId;
           };
-          ctxDelete.action = '/timer/delete/' + entryId;
+          
+          if (eventId) {
+            ctxDelete.action = '/dashboard/timeline/delete_event';
+            if (ctxEventId) ctxEventId.value = eventId;
+            if (ctxDeleteText) ctxDeleteText.textContent = 'Delete break';
+          } else {
+            ctxDelete.action = '/timer/delete/' + entryId;
+            if (ctxEventId) ctxEventId.value = '';
+            if (ctxDeleteText) ctxDeleteText.textContent = 'Delete entry';
+          }
           
           ctxMenu.style.left = ev.clientX + 'px';
           ctxMenu.style.top = ev.clientY + 'px';
