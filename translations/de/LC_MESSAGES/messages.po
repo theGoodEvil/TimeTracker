@@ -26214,6 +26214,21 @@ msgstr "Die Benachrichtigungsberechtigung konnte nicht angefragt werden."
 msgid "Permission was not granted. Click Enable to try again."
 msgstr "Die Berechtigung wurde nicht erteilt. Klicken Sie zum erneuten Versuch auf Aktivieren."
 
+msgid "Current break"
+msgstr "Aktuelle Pause"
+
+#, python-format
+msgid "Break started at %(time)s"
+msgstr "Pause gestartet um %(time)s"
+
+#, python-format
+msgid "Switched project at %(time)s"
+msgstr "Projekt gewechselt um %(time)s"
+
+#, python-format
+msgid "Clocked in at %(time)s"
+msgstr "Eingestempelt um %(time)s"
+
 #, python-format
 msgid "Plan includes %(hours)s per cycle (resets on day %(day)s)."
 msgstr "Das Kontingent umfasst %(hours)s pro Zeitraum (Zurücksetzung an Tag %(day)s)."
@@ -26266,3 +26281,15 @@ msgstr "Sa"
 
 msgid "Sun"
 msgstr "So"
+
+msgid "Current session"
+msgstr "Laufende Zeiterfassung"
+
+msgid "Project time today"
+msgstr "Projektzeit heute"
+
+msgid "Recorded break time"
+msgstr "Erfasste Pausenzeit"
+
+msgid "Your latest completed sessions"
+msgstr "Zuletzt abgeschlossene Zeiterfassungen"

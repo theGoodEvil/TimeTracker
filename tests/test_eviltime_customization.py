@@ -46,6 +46,43 @@ def test_dashboard_renders_running_timer_before_javascript(authenticated_client,
     assert b'id="eviltime-active-timer"' in response.data
     assert b">00:05:" in response.data
     assert b'data-timer-running="true"' in response.data
+    assert b"Clocked in at" in response.data
+
+
+def test_paused_dashboard_and_status_show_live_break_duration(authenticated_client, active_timer):
+    active_timer.paused_at = local_now() - timedelta(minutes=2)
+    db.session.commit()
+
+    status_response = authenticated_client.get("/timer/status")
+    assert status_response.status_code == 200
+    assert status_response.get_json()["timer"]["paused_duration_seconds"] >= 120
+
+    dashboard_response = authenticated_client.get("/dashboard")
+    assert dashboard_response.status_code == 200
+    assert b"Current break" in dashboard_response.data
+    assert b'data-timer-display="break"' in dashboard_response.data
+    assert b">00:02:" in dashboard_response.data
+    assert b"Break started at" in dashboard_response.data
+
+
+def test_dashboard_identifies_project_switch(authenticated_client, active_timer, user, project):
+    active_timer.start_time = local_now() - timedelta(minutes=5)
+    previous_start = active_timer.start_time - timedelta(hours=1)
+    db.session.add(
+        TimeEntry(
+            user_id=user.id,
+            project_id=project.id,
+            start_time=previous_start,
+            end_time=active_timer.start_time,
+            duration_seconds=3600,
+            source="auto",
+        )
+    )
+    db.session.commit()
+
+    response = authenticated_client.get("/dashboard")
+    assert response.status_code == 200
+    assert b"Switched project at" in response.data
 
 
 def test_dashboard_behaviour_is_in_compiled_source():

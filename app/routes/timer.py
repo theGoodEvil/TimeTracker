@@ -10,6 +10,7 @@ from sqlalchemy.exc import ProgrammingError
 from app import db, log_event, socketio, track_event
 from app.constants import TimeEntrySource
 from app.models import Activity, Client, Project, Settings, Task, TimeEntry, User
+from app.models.time_entry import local_now
 from app.services.client_service import ClientService
 from app.services.project_service import ProjectService
 from app.services.time_tracking_service import TimeTrackingService

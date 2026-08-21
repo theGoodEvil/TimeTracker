@@ -32,6 +32,7 @@
     var baseTimer = Number(timer && timer.dataset.seconds) || 0;
     var running = root.dataset.timerRunning === 'true';
     var paused = root.dataset.timerPaused === 'true';
+    var timerDisplay = root.dataset.timerDisplay || 'work';
     var loadedAt = Date.now();
 
     function elapsedSinceLoad() {
@@ -42,7 +43,7 @@
       var elapsed = elapsedSinceLoad();
       if (work) work.textContent = formatElapsed(baseWork + (running ? elapsed : 0));
       if (breakTime) breakTime.textContent = formatElapsed(baseBreak + (paused ? elapsed : 0));
-      if (timer) timer.textContent = formatElapsed(baseTimer + (running ? elapsed : 0));
+      if (timer) timer.textContent = formatElapsed(baseTimer + (timerDisplay === 'break' ? (paused ? elapsed : 0) : (running ? elapsed : 0)));
     }
 
     drawTimers();

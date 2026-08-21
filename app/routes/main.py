@@ -34,6 +34,33 @@ def dashboard():
     track_page_view("dashboard")
     active_timer = current_user.active_timer
 
+    current_break_seconds = 0
+    status_action = None
+    status_action_at = None
+    if active_timer:
+        if active_timer.paused_at:
+            paused_at = active_timer._naive_dt(active_timer.paused_at)
+            current_break_seconds = max(0, int((local_now() - paused_at).total_seconds())) if paused_at else 0
+            status_action = "break_started"
+            status_action_at = paused_at
+        else:
+            status_action = "clocked_in"
+            status_action_at = active_timer.start_time
+            previous_entry = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != active_timer.id,
+                    TimeEntry.end_time.isnot(None),
+                    TimeEntry.end_time <= active_timer.start_time + timedelta(seconds=10),
+                )
+                .order_by(TimeEntry.end_time.desc())
+                .first()
+            )
+            if previous_entry and previous_entry.end_time:
+                switch_gap = abs((active_timer.start_time - previous_entry.end_time).total_seconds())
+                if switch_gap <= 10:
+                    status_action = "switched_project"
+
     # Preserve the dashboard cache contract used by invalidation hooks and API
     # consumers. The redesigned page itself renders authoritative live values.
     try:
@@ -116,6 +143,10 @@ def dashboard():
         today_break_seconds=today_break_seconds,
         today_work_formatted=format_elapsed(today_work_seconds),
         today_break_formatted=format_elapsed(today_break_seconds),
+        current_break_seconds=current_break_seconds,
+        current_break_formatted=format_elapsed(current_break_seconds),
+        status_action=status_action,
+        status_action_at=status_action_at,
     )
 
 
