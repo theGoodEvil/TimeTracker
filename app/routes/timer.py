@@ -77,14 +77,32 @@ def _edit_timer_form_projects_tasks(timer, can_edit_schedule):
 
 def _edit_timer_render_kwargs(timer, can_edit_schedule, show_source_dropdown):
     from app.utils.scope_filter import get_active_clients_for_user
+    from app.models import TimerEvent
 
     projects, tasks = _edit_timer_form_projects_tasks(timer, can_edit_schedule)
     clients = get_active_clients_for_user(current_user) if can_edit_schedule else []
+    
+    breaks_query = (
+        TimerEvent.query.filter_by(user_id=timer.user_id, time_entry_id=timer.id)
+        .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+        .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+        .all()
+    )
+    breaks = []
+    current_start = None
+    for b in breaks_query:
+        if b.event_type == "break_start":
+            current_start = b
+        elif b.event_type == "break_end" and current_start:
+            breaks.append({"start": current_start, "end": b})
+            current_start = None
+
     return {
         "timer": timer,
         "projects": projects,
         "tasks": tasks,
         "clients": clients,
+        "breaks": breaks,
         "can_edit_schedule": can_edit_schedule,
         "show_source_dropdown": show_source_dropdown,
         "can_create_clients": current_user.is_admin or current_user.has_permission("create_clients"),
@@ -1052,14 +1070,52 @@ def edit_timer(timer_id):
             else:
                 update_params["end_time"] = None
 
-            # Parse break time (HH:MM) to seconds; empty clears break
-            import re
+            # Extract and calculate break subevents
+            from app.utils.timezone import parse_user_local_datetime_from_string
+            
+            break_starts = request.form.getlist("break_start[]")
+            break_ends = request.form.getlist("break_end[]")
+            
+            valid_breaks = []
+            for bs_str, be_str in zip(break_starts, break_ends):
+                if bs_str and be_str:
+                    bs = parse_user_local_datetime_from_string(bs_str, user=current_user)
+                    be = parse_user_local_datetime_from_string(be_str, user=current_user)
+                    if bs and be and bs < be:
+                        # Ensure breaks are within the bounds of the entry (if entry has bounds)
+                        # We use new_start_time and new_end_time if provided, else timer.start_time / end_time
+                        eff_start = update_params.get("start_time", timer.start_time)
+                        eff_end = update_params.get("end_time", timer.end_time)
+                        
+                        if eff_start and bs < eff_start:
+                            bs = eff_start
+                        if eff_end and be > eff_end:
+                            be = eff_end
+                            
+                        if bs < be:
+                            valid_breaks.append((bs, be))
+            
+            # Sort to prevent negative overlapping durations if they messed up the UI
+            valid_breaks.sort(key=lambda x: x[0])
+            
+            total_break_sec = 0
+            merged_breaks = []
+            # Merge overlapping breaks
+            for b in valid_breaks:
+                if not merged_breaks:
+                    merged_breaks.append(b)
+                else:
+                    last = merged_breaks[-1]
+                    if b[0] <= last[1]:
+                        merged_breaks[-1] = (last[0], max(last[1], b[1]))
+                    else:
+                        merged_breaks.append(b)
+                        
+            for bs, be in merged_breaks:
+                total_break_sec += int((be - bs).total_seconds())
+                
+            update_params["break_seconds"] = total_break_sec
 
-            if break_time:
-                m = re.match(r"^(\d{1,3}):([0-5]\d)$", break_time.strip())
-                update_params["break_seconds"] = (int(m.group(1)) * 3600 + int(m.group(2)) * 60) if m else 0
-            else:
-                update_params["break_seconds"] = 0
 
         # Call service layer to update
         result = service.update_entry(**update_params)
@@ -1072,6 +1128,37 @@ def edit_timer(timer_id):
             )
 
         entry = result.get("entry")
+
+        if entry and can_edit_schedule:
+            from app.models import TimerEvent
+            from app.utils.db import safe_commit
+            
+            # Delete old breaks
+            old_breaks = (
+                TimerEvent.query.filter_by(user_id=entry.user_id, time_entry_id=entry.id)
+                .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+                .all()
+            )
+            for ob in old_breaks:
+                db.session.delete(ob)
+                
+            # Insert new breaks
+            for bs, be in merged_breaks:
+                b_start = TimerEvent(
+                    user_id=entry.user_id,
+                    time_entry_id=entry.id,
+                    event_type="break_start",
+                    occurred_at=bs,
+                )
+                b_end = TimerEvent(
+                    user_id=entry.user_id,
+                    time_entry_id=entry.id,
+                    event_type="break_end",
+                    occurred_at=be,
+                )
+                db.session.add_all([b_start, b_end])
+            
+            safe_commit("update_timer_breaks", {"entry_id": entry.id})
 
         # Log activity
         if entry:

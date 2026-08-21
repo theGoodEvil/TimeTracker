@@ -14,6 +14,30 @@
 <script src="{{ url_for('static', filename='inline-create-project.js') }}"></script>
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
+    // Dynamic break rows
+    const breaksContainer = document.getElementById('breaksContainer');
+    const addBreakBtn = document.getElementById('addBreakBtn');
+    
+    if (addBreakBtn && breaksContainer) {
+        addBreakBtn.addEventListener('click', function() {
+            const row = document.createElement('div');
+            row.className = 'flex items-center gap-2 break-row mb-2';
+            row.innerHTML = `
+                <input type="datetime-local" class="form-input text-sm" name="break_start[]" value="">
+                <span class="text-text-muted-light dark:text-text-muted-dark"><i class="fas fa-arrow-right"></i></span>
+                <input type="datetime-local" class="form-input text-sm" name="break_end[]" value="">
+                <button type="button" class="text-red-500 hover:text-red-700 px-2 py-1 delete-break-btn"><i class="fas fa-times"></i></button>
+            `;
+            breaksContainer.appendChild(row);
+        });
+        
+        breaksContainer.addEventListener('click', function(e) {
+            if (e.target.closest('.delete-break-btn')) {
+                e.target.closest('.break-row').remove();
+            }
+        });
+    }
+
     const projectSelect = document.getElementById('project_id');
     const clientSelect = document.getElementById('editTimerClient') || document.getElementById('client_id');
     const taskSelect = document.getElementById('task_id');
@@ -342,28 +366,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Select a specific task within the project') }}</p>
                 </div>
 
-                <!-- Start Date/Time -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <!-- Start and End Date/Time -->
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
                     <div>
                         <label for="start_date" class="form-label">
-                            <i class="fas fa-clock mr-1"></i>{{ _('Start Date') }}
+                            <i class="fas fa-play-circle mr-1"></i>{{ _('Start Date') }}
                         </label>
                         <input type="date" class="form-input user-date-input" id="start_date" name="start_date" 
-                               value="{{ timer.start_time.strftime('%Y-%m-%d') }}" required>
+                               value="{{ timer.start_time.strftime('%Y-%m-%d') if timer.start_time else '' }}" required>
                         <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('When the work started') }}</p>
                     </div>
                     <div>
                         <label for="start_time" class="form-label">
-                            <i class="fas fa-clock mr-1"></i>{{ _('Start Time') }}
+                            <i class="fas fa-play-circle mr-1"></i>{{ _('Start Time') }}
                         </label>
                         <input type="time" class="form-input user-time-input" id="start_time" name="start_time" 
-                               value="{{ timer.start_time.strftime('%H:%M') }}" required>
+                               value="{{ timer.start_time.strftime('%H:%M') if timer.start_time else '' }}" required>
                         <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Time the work started') }}</p>
                     </div>
-                </div>
-
-                <!-- End Date/Time -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                     <div>
                         <label for="end_date" class="form-label">
                             <i class="fas fa-stop-circle mr-1"></i>{{ _('End Date') }}
@@ -380,14 +400,27 @@ document.addEventListener('DOMContentLoaded', function() {
                                value="{{ timer.end_time.strftime('%H:%M') if timer.end_time else '' }}">
                         <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Time the work ended') }}</p>
                     </div>
-                    <div>
-                        <label for="break_time" class="form-label">
-                            <i class="fas fa-coffee mr-1"></i>{{ _('Break') }}
-                        </label>
-                        <input type="text" class="form-input" id="break_time" name="break_time" placeholder="HH:MM"
-                               value="{% if timer.break_seconds %}{{ (timer.break_seconds // 3600) }}:{{ '%02d' | format((timer.break_seconds % 3600) // 60) }}{% endif %}">
-                        <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Break duration (HH:MM). Subtracted from total to get worked duration.') }}</p>
+                </div>
+
+                <!-- Breaks -->
+                <div class="mb-6">
+                    <div class="flex items-center justify-between mb-2">
+                        <label class="form-label mb-0"><i class="fas fa-coffee mr-1"></i>{{ _('Breaks') }}</label>
+                        <button type="button" id="addBreakBtn" class="text-xs bg-secondary-light dark:bg-secondary-dark text-text-light dark:text-text-dark px-2 py-1 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors">
+                            <i class="fas fa-plus mr-1"></i>{{ _('Add break') }}
+                        </button>
                     </div>
+                    <div id="breaksContainer" class="space-y-2">
+                        {% for b in breaks %}
+                        <div class="flex items-center gap-2 break-row">
+                            <input type="datetime-local" class="form-input text-sm" name="break_start[]" value="{{ b.start.occurred_at.strftime('%Y-%m-%dT%H:%M') }}">
+                            <span class="text-text-muted-light dark:text-text-muted-dark"><i class="fas fa-arrow-right"></i></span>
+                            <input type="datetime-local" class="form-input text-sm" name="break_end[]" value="{{ b.end.occurred_at.strftime('%Y-%m-%dT%H:%M') }}">
+                            <button type="button" class="text-red-500 hover:text-red-700 px-2 py-1 delete-break-btn"><i class="fas fa-times"></i></button>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Exact break durations subtracted from total worked duration. Must fall within start and end time.') }}</p>
                 </div>
 
                 <!-- Source (admin only), Billable, Duration -->
