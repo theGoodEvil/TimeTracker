@@ -26184,6 +26184,36 @@ msgstr "Projektzeit"
 msgid "Counted hours"
 msgstr "Angerechnete Stunden"
 
+msgid "Time balance"
+msgstr "Zeitkonto"
+
+msgid "Actual hours"
+msgstr "Iststunden"
+
+msgid "Total overtime balance"
+msgstr "Gesamter Überstundensaldo"
+
+msgid "Scroll for all projects"
+msgstr "Scrollen für alle Projekte"
+
+msgid "Blocked"
+msgstr "Blockiert"
+
+msgid "Browser notifications are enabled."
+msgstr "Browser-Benachrichtigungen sind aktiviert."
+
+msgid "Notifications are blocked. Allow them in your browser settings."
+msgstr "Benachrichtigungen sind blockiert. Erlauben Sie sie in den Browser-Einstellungen."
+
+msgid "Requesting permission…"
+msgstr "Berechtigung wird angefragt …"
+
+msgid "Notification permission could not be requested."
+msgstr "Die Benachrichtigungsberechtigung konnte nicht angefragt werden."
+
+msgid "Permission was not granted. Click Enable to try again."
+msgstr "Die Berechtigung wurde nicht erteilt. Klicken Sie zum erneuten Versuch auf Aktivieren."
+
 #, python-format
 msgid "Plan includes %(hours)s per cycle (resets on day %(day)s)."
 msgstr "Das Kontingent umfasst %(hours)s pro Zeitraum (Zurücksetzung an Tag %(day)s)."

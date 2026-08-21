@@ -137,18 +137,17 @@ class WeeklyWorkService:
             seconds = entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
             totals[entry.start_time.date()] += max(0, seconds) / 3600
 
-        weekly_expected = cls.expected_hours(user, start)
-        weekday_expected = weekly_expected / 5 if weekly_expected else 0
-        return [
+        days = [
             {
                 "date": start + timedelta(days=offset),
+                "weekday_index": offset,
                 "hours": round(totals[start + timedelta(days=offset)], 2),
-                "expected_hours": round(weekday_expected, 2) if offset < 5 else 0,
                 "is_today": start + timedelta(days=offset) == today,
                 "is_future": start + timedelta(days=offset) > today,
             }
             for offset in range(7)
         ]
+        return [day for day in days if day["weekday_index"] < 5 or day["hours"] > 0]
 
     @classmethod
     def upsert_adjustment(cls, user, week_start: date, expected_hours: float, actual_override=_UNSET, notes=None):

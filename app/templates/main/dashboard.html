@@ -6,7 +6,18 @@
 {% set current_week = weekly_rows[0] if weekly_rows else none %}
 {% set day_names = [_('Mon'), _('Tue'), _('Wed'), _('Thu'), _('Fri'), _('Sat'), _('Sun')] %}
 
-<div class="mx-auto max-w-7xl space-y-4 pb-10">
+<div id="eviltime-dashboard" class="mx-auto max-w-7xl space-y-4 pb-10"
+     data-timer-running="{{ 'true' if active_timer and not is_paused else 'false' }}"
+     data-timer-paused="{{ 'true' if is_paused else 'false' }}"
+     data-user-id="{{ current_user.id }}"
+     data-notification-enabled="{{ _('Enabled') }}"
+     data-notification-blocked="{{ _('Blocked') }}"
+     data-notification-unavailable="{{ _('Unavailable') }}"
+     data-notification-ready="{{ _('Browser notifications are enabled.') }}"
+     data-notification-denied="{{ _('Notifications are blocked. Allow them in your browser settings.') }}"
+     data-notification-requesting="{{ _('Requesting permission…') }}"
+     data-notification-not-granted="{{ _('Permission was not granted. Click Enable to try again.') }}"
+     data-notification-failed="{{ _('Notification permission could not be requested.') }}">
   <header class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
     <div>
       {% if settings and settings.company_name %}<p class="text-xs font-semibold uppercase tracking-widest text-primary">{{ settings.company_name }}</p>{% endif %}
@@ -26,7 +37,7 @@
           </div>
           {% if active_timer %}
             <h2 class="mt-2 truncate text-xl font-semibold text-slate-950 dark:text-white">{{ active_project_name }}</h2>
-            <p id="eviltime-active-timer" data-seconds="{{ active_timer.current_duration_seconds }}" class="mt-1 font-mono text-4xl font-semibold tabular-nums tracking-tight">00:00:00</p>
+            <p id="eviltime-active-timer" data-seconds="{{ active_timer.current_duration_seconds }}" class="mt-1 font-mono text-4xl font-semibold tabular-nums tracking-tight">{{ active_timer.duration_formatted }}</p>
           {% else %}
             <h2 class="mt-2 text-xl font-semibold text-slate-950 dark:text-white">{{ _('What are you working on?') }}</h2>
             <p class="mt-1 text-sm text-slate-500">{{ _('Choose a project to clock in.') }}</p>
@@ -58,18 +69,21 @@
 
       {% if recent_projects %}
       <div class="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
-        <div class="mb-3 flex items-center justify-between"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Recent projects') }}</p><p class="text-xs text-slate-400">{{ _('Click to clock in or switch') }}</p></div>
-        <div class="flex flex-wrap gap-2" aria-label="{{ _('Quick project actions') }}">
+        <div class="mb-3 flex items-center justify-between gap-3"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Recent projects') }}</p><p class="text-right text-xs text-slate-400">{% if recent_projects|length > 8 %}{{ _('Scroll for all projects') }}{% else %}{{ _('Click to clock in or switch') }}{% endif %}</p></div>
+        <div class="overflow-x-auto pb-2" aria-label="{{ _('Quick project actions') }}">
+        <div class="flex w-max flex-nowrap gap-2">
           {% for project in recent_projects %}
           {% set is_current = active_timer and active_timer.project_id == project.id %}
-          <form method="POST" action="{{ url_for('timer.switch_timer') if active_timer else url_for('timer.start_timer') }}">
+          <form method="POST" action="{{ url_for('timer.switch_timer') if active_timer else url_for('timer.start_timer') }}" class="flex w-12 shrink-0 flex-col items-center gap-1">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="project_id" value="{{ project.id }}">
-            <button type="submit" title="{{ project.name }}{% if is_current %} · {{ _('Currently tracking') }}{% elif active_timer %} · {{ _('Switch project') }}{% else %} · {{ _('Clock in') }}{% endif %}" aria-label="{{ project.name }}" class="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 {% if is_current %}border-emerald-500 ring-2 ring-emerald-500/20{% else %}border-white shadow-sm ring-1 ring-slate-200 hover:border-primary dark:border-slate-900 dark:ring-slate-700{% endif %}" {% if is_current %}disabled{% endif %}>
+            <button type="submit" title="{{ project.name }}{% if is_current %} · {{ _('Currently tracking') }}{% elif active_timer %} · {{ _('Switch project') }}{% else %} · {{ _('Clock in') }}{% endif %}" aria-label="{{ project.name }}" class="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 transition-transform duration-150 ease-out hover:scale-110 focus-visible:scale-110 {% if is_current %}border-emerald-500 ring-2 ring-emerald-500/20{% else %}border-white shadow-sm ring-1 ring-slate-200 hover:border-primary dark:border-slate-900 dark:ring-slate-700{% endif %}" {% if is_current %}disabled{% endif %}>
               {% if project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=project.icon_filename) }}" alt="" class="h-full w-full object-cover">
               {% else %}<span class="flex h-full w-full items-center justify-center text-xs font-bold text-white" style="background-color: {{ project.color or '#64748b' }}">{{ project.code_display[:3] }}</span>{% endif %}
             </button>
+            <span class="max-w-12 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500" title="{{ project.code_display }}">{{ project.code_display }}</span>
           </form>
           {% endfor %}
+        </div>
         </div>
       </div>
       {% endif %}
@@ -77,25 +91,26 @@
 
     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:col-span-4">
       <div class="flex items-start justify-between gap-3"><div><h2 class="font-semibold text-slate-950 dark:text-white">{{ _('This week') }}</h2><p class="text-xs text-slate-500">{% if current_week %}KW {{ '%02d'|format(current_week.calendar_week) }} · {{ current_week.week_start.strftime('%d.%m.') }}–{{ current_week.week_end.strftime('%d.%m.') }}{% endif %}</p></div><i class="fas fa-calendar-week text-primary"></i></div>
-      <div class="mt-4 grid grid-cols-7 gap-1.5">
+      <div class="mt-4 grid gap-1.5 {% if current_week_days|length == 5 %}grid-cols-5{% elif current_week_days|length == 6 %}grid-cols-6{% else %}grid-cols-7{% endif %}">
         {% for day in current_week_days %}
-        <div class="rounded-xl border px-1 py-2 text-center {% if day.is_today %}border-primary bg-primary/5{% else %}border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50{% endif %} {% if day.is_future %}opacity-50{% endif %}" title="{{ day.date.strftime('%d.%m.%Y') }} · {{ day.hours|hours_minutes }} / {{ day.expected_hours|hours_minutes }}">
-          <p class="text-[10px] font-semibold uppercase text-slate-500">{{ day_names[loop.index0] }}</p><p class="mt-1 text-xs font-bold tabular-nums text-slate-900 dark:text-white">{{ day.hours|hours_minutes }}</p><p class="mt-0.5 text-[10px] text-slate-400">/ {{ day.expected_hours|hours_minutes }}</p>
+        <div class="rounded-xl border px-1 py-2 text-center {% if day.is_today %}border-primary bg-primary/5{% else %}border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50{% endif %} {% if day.is_future %}opacity-50{% endif %}" title="{{ day.date.strftime('%d.%m.%Y') }} · {{ day.hours|hours_minutes }}">
+          <p class="text-[10px] font-semibold uppercase text-slate-500">{{ day_names[day.weekday_index] }}</p><p class="mt-1 text-xs font-bold tabular-nums text-slate-900 dark:text-white">{{ day.hours|hours_minutes }}</p>
         </div>
         {% endfor %}
       </div>
       {% if current_week %}
-      <div class="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
-        <div><p class="text-xs text-slate-500">{{ _('Worked') }}</p><p class="font-semibold">{{ current_week.actual_hours|hours_minutes }}</p></div><div><p class="text-xs text-slate-500">{{ _('Expected hours') }}</p><p class="font-semibold">{{ current_week.expected_hours|hours_minutes }}</p></div><div><p class="text-xs text-slate-500">{{ _('Balance') }}</p><p class="font-semibold {% if current_week.balance_hours < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">{{ current_week.balance_hours|hours_minutes(true) }}</p></div>
+      <div class="mt-4 grid grid-cols-2 gap-3 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
+        <div><p class="text-xs text-slate-500">{{ _('Actual hours') }}</p><p class="font-semibold">{{ current_week.actual_hours|hours_minutes }}</p></div><div><p class="text-xs text-slate-500">{{ _('Expected hours') }}</p><p class="font-semibold">{{ current_week.expected_hours|hours_minutes }}</p></div>
       </div>
       {% endif %}
     </section>
   </div>
 
-  <div class="grid gap-4 sm:grid-cols-3">
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Worked today') }}</p><p id="eviltime-today-work" data-seconds="{{ today_work_seconds }}" class="mt-1 font-mono text-2xl font-semibold tabular-nums">00:00:00</p></section>
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Breaks today') }}</p><p id="eviltime-today-break" data-seconds="{{ today_break_seconds }}" class="mt-1 font-mono text-2xl font-semibold tabular-nums">00:00:00</p></section>
-    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Break reminders') }}</p><p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ _('Get a browser notification after a 30-minute break.') }}</p></div><button id="enableBrowserNotifications" type="button" class="btn btn-secondary btn-sm shrink-0">{{ _('Enable') }}</button></div></section>
+  <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Worked today') }}</p><p id="eviltime-today-work" data-seconds="{{ today_work_seconds }}" class="mt-1 font-mono text-2xl font-semibold tabular-nums">{{ today_work_formatted }}</p></section>
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Breaks today') }}</p><p id="eviltime-today-break" data-seconds="{{ today_break_seconds }}" class="mt-1 font-mono text-2xl font-semibold tabular-nums">{{ today_break_formatted }}</p></section>
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Time balance') }}</p><p class="mt-1 font-mono text-2xl font-semibold tabular-nums {% if current_week and current_week.cumulative_overtime < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">{{ (current_week.cumulative_overtime if current_week else 0)|hours_minutes(true) }}</p><p class="mt-1 text-xs text-slate-500">{{ _('Total overtime balance') }}</p></section>
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Break reminders') }}</p><p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ _('Get a browser notification after a 30-minute break.') }}</p><p id="browserNotificationStatus" class="mt-1 text-xs text-slate-500" aria-live="polite"></p></div><button id="enableBrowserNotifications" type="button" class="btn btn-secondary btn-sm shrink-0">{{ _('Enable') }}</button></div></section>
   </div>
 
   <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
@@ -104,12 +119,4 @@
   </section>
 </div>
 
-<script nonce="{{ csp_nonce() }}">
-(function(){
-  const work=document.getElementById('eviltime-today-work'),breaks=document.getElementById('eviltime-today-break'),timer=document.getElementById('eviltime-active-timer');let ws=Number(work?.dataset.seconds||0),bs=Number(breaks?.dataset.seconds||0),ts=Number(timer?.dataset.seconds||0);const working={{ (active_timer and not is_paused)|tojson }},paused={{ is_paused|tojson }};
-  function fmt(v){v=Math.max(0,Math.floor(v));return [Math.floor(v/3600),Math.floor(v%3600/60),v%60].map(n=>String(n).padStart(2,'0')).join(':')}function draw(){if(work)work.textContent=fmt(ws);if(breaks)breaks.textContent=fmt(bs);if(timer)timer.textContent=fmt(ts)}draw();setInterval(function(){if(working){ws++;ts++}if(paused)bs++;draw()},1000);
-  const notifyButton=document.getElementById('enableBrowserNotifications');function syncNotifyButton(){if(!notifyButton)return;if(!('Notification' in window)){notifyButton.disabled=true;notifyButton.textContent={{ _('Unavailable')|tojson }};return}if(Notification.permission==='granted'){notifyButton.disabled=true;notifyButton.textContent={{ _('Enabled')|tojson }}}syncNotifyButton();notifyButton?.addEventListener('click',async function(){try{await Notification.requestPermission();syncNotifyButton()}catch(e){}});
-  if(typeof io!=='undefined'){const socket=io();socket.on('connect',()=>socket.emit('join_user_room',{user_id:{{ current_user.id }}}));['timer_started','timer_stopped','timer_paused','timer_resumed'].forEach(event=>socket.on(event,data=>{if(!data||data.user_id==={{ current_user.id }})location.reload()}))}
-})();
-</script>
 {% endblock %}

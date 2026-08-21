@@ -70,12 +70,10 @@ def dashboard():
         recent_projects.append(active_project_by_id[current_user.default_project_id])
         seen_project_ids.add(current_user.default_project_id)
     for project in active_projects:
-        if len(recent_projects) >= 8:
-            break
         if project.id not in seen_project_ids:
             recent_projects.append(project)
             seen_project_ids.add(project.id)
-    weekly_rows = WeeklyWorkService.rows(current_user, limit=12)
+    weekly_rows = WeeklyWorkService.rows(current_user, limit=12, include_future=False)
     current_week_days = WeeklyWorkService.current_week_days(current_user)
 
     # Include the live entry. The browser then advances these values locally,
@@ -99,6 +97,13 @@ def dashboard():
         )
         for entry in today_entries
     )
+
+    def format_elapsed(seconds):
+        seconds = max(0, int(seconds or 0))
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+
     return render_template(
         "main/dashboard.html",
         active_timer=active_timer,
@@ -109,6 +114,8 @@ def dashboard():
         current_week_days=current_week_days,
         today_work_seconds=today_work_seconds,
         today_break_seconds=today_break_seconds,
+        today_work_formatted=format_elapsed(today_work_seconds),
+        today_break_formatted=format_elapsed(today_break_seconds),
     )
 
 

@@ -39,7 +39,7 @@ def get_version_from_setup():
     and never from upstream package tags.
 
     Returns:
-        str: EvilTime application version (for example ``evil1.0``)
+        str: EvilTime application version (for example ``5.11.4-evil``)
     """
     from app.version import get_eviltime_version
 

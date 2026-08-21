@@ -17,14 +17,14 @@ class TestVersionReading:
         assert isinstance(version, str)
         assert len(version) > 0
 
-        assert version.startswith("evil")
+        assert version.endswith("-evil")
 
     def test_get_version_ignores_docker_placeholder_app_version(self, monkeypatch):
         """Upstream Docker version variables do not change EvilTime releases."""
         monkeypatch.setenv("APP_VERSION", "dev-0")
         monkeypatch.delenv("TIMETRACKER_VERSION", raising=False)
         version = _get_version_from_setup()
-        assert version == "evil1.0"
+        assert version == "5.11.4-evil"
 
     def test_version_in_analytics_config(self):
         """Test that version is included in analytics config"""

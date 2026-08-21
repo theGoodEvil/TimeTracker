@@ -125,7 +125,7 @@ The startup process applies pending Alembic migrations. Persistent data is store
 
 ## EvilTime versions
 
-EvilTime uses its own release sequence, starting at `evil1.0`, and does not follow upstream TimeTracker release numbers. The version lives in [`EVILTIME_VERSION`](EVILTIME_VERSION) and can be overridden for a build with the `EVILTIME_VERSION` environment variable. Upstream update reminders are intentionally disabled.
+EvilTime keeps the compatible upstream numeric version and adds an `-evil` suffix, starting at `5.11.4-evil`. The version lives in [`EVILTIME_VERSION`](EVILTIME_VERSION) and can be overridden for a build with the `EVILTIME_VERSION` environment variable. Upstream update reminders are intentionally disabled.
 
 ## Tests and checks
 

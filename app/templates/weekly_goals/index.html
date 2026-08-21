@@ -32,11 +32,25 @@
           <td class="px-4 py-4 font-semibold {% if row.balance_hours < 0 %}text-red-600{% elif row.balance_hours > 0 %}text-emerald-600{% endif %}">{{ row.balance_hours|hours_minutes(true) }}</td>
           <td class="px-4 py-4 font-semibold {% if row.cumulative_overtime < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">{{ row.cumulative_overtime|hours_minutes(true) }}</td>
           <td class="px-4 py-4">{% for project in row.projects %}<div class="flex min-w-48 justify-between gap-3"><span class="truncate">{{ project.name }}</span><strong>{{ project.hours|hours_minutes }}</strong></div>{% else %}<span class="text-slate-400">—</span>{% endfor %}</td>
-          <td class="px-4 py-4"><details class="relative"><summary class="cursor-pointer list-none font-medium text-primary">{{ _('Edit week') }}</summary><form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="absolute right-0 z-20 mt-2 w-72 space-y-2 rounded-xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-800"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if current_user.is_admin %}<input type="hidden" name="user_id" value="{{ ledger_user.id }}">{% endif %}<input type="hidden" name="week_start" value="{{ row.week_start.isoformat() }}"><label class="block text-xs">{{ _('Expected hours') }}<input class="form-input mt-1" type="number" name="expected_hours" value="{{ row.expected_hours }}" min="0" max="168" step="0.25" required></label><label class="block text-xs">{{ _('Actual override') }}<input class="form-input mt-1" type="number" name="actual_hours" value="{{ row.actual_hours_override if row.actual_hours_override is not none else '' }}" min="0" max="168" step="0.25"></label><label class="block text-xs">{{ _('Note') }}<input class="form-input mt-1" type="text" name="notes" value="{{ row.goal.notes if row.goal and row.goal.notes else '' }}"></label><button class="btn btn-primary btn-sm w-full">{{ _('Save') }}</button></form></details></td>
+          <td class="px-4 py-4"><button type="button" class="font-medium text-primary hover:underline" data-week-edit data-week-label="KW {{ '%02d'|format(row.calendar_week) }} · {{ row.week_start.strftime('%d.%m.%Y') }}" data-week-start="{{ row.week_start.isoformat() }}" data-expected-hours="{{ row.expected_hours }}" data-actual-hours="{{ row.actual_hours_override if row.actual_hours_override is not none else '' }}" data-notes="{{ row.goal.notes if row.goal and row.goal.notes else '' }}">{{ _('Edit week') }}</button></td>
         </tr>
       {% else %}<tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">{{ _('No weekly data yet.') }}</td></tr>{% endfor %}
       </tbody>
     </table></div>
   </section>
+
+  <div id="weeklyEditModal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="weeklyEditModalTitle">
+    <button type="button" class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" data-week-modal-close aria-label="{{ _('Close') }}"></button>
+    <div class="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+      <div class="mb-4 flex items-start justify-between gap-4"><div><h2 id="weeklyEditModalTitle" class="text-lg font-semibold">{{ _('Edit week') }}</h2><p id="weeklyEditModalLabel" class="mt-1 text-sm text-slate-500"></p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-week-modal-close aria-label="{{ _('Close') }}"><i class="fas fa-times"></i></button></div>
+      <form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="space-y-3">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if current_user.is_admin %}<input type="hidden" name="user_id" value="{{ ledger_user.id }}">{% endif %}<input id="weeklyEditStart" type="hidden" name="week_start">
+        <label class="block text-sm font-medium">{{ _('Expected hours') }}<input id="weeklyEditExpected" class="form-input mt-1" type="number" name="expected_hours" min="0" max="168" step="0.25" required></label>
+        <label class="block text-sm font-medium">{{ _('Actual override') }}<input id="weeklyEditActual" class="form-input mt-1" type="number" name="actual_hours" min="0" max="168" step="0.25"></label>
+        <label class="block text-sm font-medium">{{ _('Note') }}<input id="weeklyEditNotes" class="form-input mt-1" type="text" name="notes"></label>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn btn-secondary" data-week-modal-close>{{ _('Cancel') }}</button><button class="btn btn-primary">{{ _('Save') }}</button></div>
+      </form>
+    </div>
+  </div>
 </div>
 {% endblock %}

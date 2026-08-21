@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-DEFAULT_EVILTIME_VERSION = "evil1.0"
+DEFAULT_EVILTIME_VERSION = "5.11.4-evil"
 
 
 def get_eviltime_version() -> str:

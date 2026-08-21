@@ -79,6 +79,7 @@ const CORE_GROUPS = {
     'smart-notifications.js',
     'dashboard-widgets.js',
     'dashboard-enhancements.js',
+    'eviltime-workflow.js',
     'activity-feed.js',
   ],
   // after the menus/support-banner inline block

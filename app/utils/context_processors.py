@@ -117,7 +117,7 @@ def register_context_processors(app):
 
             version_value = get_eviltime_version()
         except Exception:
-            version_value = "evil1.0"
+            version_value = "5.11.4-evil"
 
         # Current locale code (e.g., 'en', 'de')
         try:
