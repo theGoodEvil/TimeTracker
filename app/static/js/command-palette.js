@@ -133,6 +133,7 @@ import { commandScore } from 'cmdk/command-score';
     if (subheader) subheader.classList.add('hidden');
     root.classList.remove('hidden');
     setTimeout(() => input?.focus(), 30);
+    fetchProjects().catch(() => {});
     applyFilter();
     render();
   }
@@ -570,7 +571,64 @@ import { commandScore } from 'cmdk/command-score';
         };
       });
     }
-    return state.commands;
+
+    let items = state.commands.slice();
+    
+    // Global search for projects across all project actions
+    if (state.mode === 'commands' && state.query && state.projects) {
+      const pItems = [];
+      state.projects.forEach(p => {
+        const keywords = `${p.name || ''} ${p.client_name || ''} ${p.code || ''}`.trim();
+        const baseDesc = p.client_name ? String(p.client_name) : (p.code || '');
+        
+        pItems.push({
+          id: `global:proj-clock:${p.id}`,
+          title: `Clock in / switch: ${p.name || `Project #${p.id}`}`,
+          description: baseDesc,
+          icon: 'fa-play',
+          keywords: keywords,
+          hint: 'Clock in',
+          action: async () => {
+            try {
+              await startTimerWithProject(p.id);
+              closePalette();
+              showToast('Timer started', 'info');
+            } catch (e) {
+              showToast(e.message || 'Failed to start timer', 'danger');
+            }
+          }
+        });
+        
+        pItems.push({
+          id: `global:proj-view:${p.id}`,
+          title: `Open project: ${p.name || `Project #${p.id}`}`,
+          description: baseDesc,
+          icon: 'fa-folder-open',
+          keywords: keywords,
+          hint: 'View',
+          action: () => {
+            closePalette();
+            nav(`/projects/${p.id}`);
+          }
+        });
+        
+        pItems.push({
+          id: `global:proj-edit:${p.id}`,
+          title: `Edit project: ${p.name || `Project #${p.id}`}`,
+          description: baseDesc,
+          icon: 'fa-pen-to-square',
+          keywords: keywords,
+          hint: 'Edit',
+          action: () => {
+            closePalette();
+            nav(`/projects/${p.id}/edit`);
+          }
+        });
+      });
+      items = items.concat(pItems);
+    }
+    
+    return items;
   }
 
   function applyFilter() {

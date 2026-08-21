@@ -396,7 +396,33 @@
         trigger.addEventListener('pointerup', finish);
         trigger.addEventListener('pointercancel', finish);
       });
+      trigger.addEventListener('contextmenu', function (ev) {
+        ev.preventDefault();
+        var ctxMenu = document.getElementById('timelineContextMenu');
+        var ctxEdit = document.getElementById('ctxEditEntry');
+        var ctxDelete = document.getElementById('ctxDeleteForm');
+        
+        if (ctxMenu && ctxEdit && ctxDelete) {
+          var entryId = trigger.dataset.entryId;
+          ctxEdit.onclick = function() {
+            window.location.href = '/timer/edit/' + entryId;
+          };
+          ctxDelete.action = '/timer/delete/' + entryId;
+          
+          ctxMenu.style.left = ev.clientX + 'px';
+          ctxMenu.style.top = ev.clientY + 'px';
+          ctxMenu.classList.remove('hidden');
+        }
+      });
     });
+    
+    document.addEventListener('click', function(ev) {
+      var ctxMenu = document.getElementById('timelineContextMenu');
+      if (ctxMenu && !ctxMenu.contains(ev.target)) {
+        ctxMenu.classList.add('hidden');
+      }
+    });
+
     track.addEventListener('click', function (event) {
       if (event.target.closest('[data-timeline-edit]')) return;
       openAdd(minutesFromPointer(event.clientX));
