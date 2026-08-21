@@ -1,6 +1,6 @@
 # EvilTime
 
-<p align="center"><img src="app/static/images/eviltime-logo.png" alt="EvilTime googly-eyed alarm clock logo" width="144"></p>
+<p align="center"><img src="app/static/images/timetracker-logo.svg" alt="EvilTime clock logo" width="144"></p>
 
 EvilTime is a self-hosted project time-tracking system. It keeps attendance and project tracking in one workflow: users clock directly into a project and clock out when they are finished.
 
@@ -14,7 +14,9 @@ EvilTime is a self-hosted project time-tracking system. It keeps attendance and 
 - Weekly time can be reviewed and corrected while keeping the underlying project entries visible.
 - Weekly expected hours are schedule changes: set them once in the weekly overview and later weeks inherit them until the next change. Administrators can manage the same ledger for each user.
 - Browser notifications can remind a user when a 30-minute break is over.
-- Projects can have uploaded icons, used for one-click recent-project actions on the dashboard.
+- Projects can use an emoji or uploaded PNG icon for one-click recent-project actions on the dashboard.
+- The dashboard includes an editable event timeline for clock-ins, project switches, breaks, and clock-outs.
+- Every user can create a private, migration-only MCP connection for importing old project time with an agent.
 - Durations are displayed as hours and minutes (`7:30h`) instead of decimal hours (`7.50h`).
 - The UI, metadata, manifests, and frontend package are branded as EvilTime.
 
@@ -126,6 +128,12 @@ The startup process applies pending Alembic migrations. Persistent data is store
 ## EvilTime versions
 
 EvilTime keeps the compatible upstream numeric version and adds an `-evil` suffix, starting at `5.11.4-evil`. The version lives in [`EVILTIME_VERSION`](EVILTIME_VERSION) and can be overridden for a build with the `EVILTIME_VERSION` environment variable. Upstream update reminders are intentionally disabled.
+
+## Migrating time with an MCP agent
+
+Each user can open **My Settings → MCP migration**, create a short-lived token, and copy the displayed Streamable HTTP configuration into their agent. The MCP server exposes only migration context, the user's own completed entries, and retry-safe batch imports. Use the import tool with `dry_run: true` before writing data, then revoke the token when the migration is complete.
+
+The endpoint is `/mcp`. Authentication uses the generated token as `Authorization: Bearer <token>`; the token is shown only once and should not be committed to source control.
 
 ## Tests and checks
 

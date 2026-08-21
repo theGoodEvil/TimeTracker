@@ -8,13 +8,72 @@ from flask_babel import gettext as _
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import Activity, Project, User
+from app.models import Activity, ApiToken, Project, User
 from app.utils.db import safe_commit
 from app.utils.timezone import get_available_timezones
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 user_bp = Blueprint("user", __name__)
+
+
+def _render_mcp_settings(*, plain_token=None):
+    tokens = (
+        ApiToken.query.filter_by(user_id=current_user.id)
+        .filter(ApiToken.scopes == "mcp:migrate")
+        .order_by(ApiToken.created_at.desc())
+        .all()
+    )
+    return render_template("user/mcp_settings.html", tokens=tokens, plain_token=plain_token)
+
+
+@user_bp.route("/settings/mcp")
+@login_required
+def mcp_settings():
+    """Let every user configure their own migration-only MCP tokens."""
+    return _render_mcp_settings()
+
+
+@user_bp.route("/settings/mcp/tokens", methods=["POST"])
+@login_required
+def create_mcp_token():
+    name = (request.form.get("name") or "Migration agent").strip()[:100]
+    if not name:
+        name = "Migration agent"
+    try:
+        expires_days = int(request.form.get("expires_days") or 90)
+    except (TypeError, ValueError):
+        expires_days = 90
+    if expires_days not in (30, 90, 365):
+        expires_days = 90
+    active_count = ApiToken.query.filter_by(user_id=current_user.id, scopes="mcp:migrate", is_active=True).count()
+    if active_count >= 10:
+        flash(_("Revoke an existing MCP token before creating another one."), "error")
+        return redirect(url_for("user.mcp_settings"))
+    token, plain_token = ApiToken.create_token(
+        user_id=current_user.id,
+        name=name,
+        description="User-managed EvilTime migration MCP token",
+        scopes="mcp:migrate",
+        expires_days=expires_days,
+    )
+    db.session.add(token)
+    if not safe_commit("create_mcp_token", {"user_id": current_user.id}):
+        flash(_("The MCP token could not be created."), "error")
+        return redirect(url_for("user.mcp_settings"))
+    return _render_mcp_settings(plain_token=plain_token)
+
+
+@user_bp.route("/settings/mcp/tokens/<int:token_id>/revoke", methods=["POST"])
+@login_required
+def revoke_mcp_token(token_id):
+    token = ApiToken.query.filter_by(id=token_id, user_id=current_user.id, scopes="mcp:migrate").first_or_404()
+    token.is_active = False
+    if safe_commit("revoke_mcp_token", {"user_id": current_user.id, "token_id": token.id}):
+        flash(_("MCP token revoked."), "success")
+    else:
+        flash(_("The MCP token could not be revoked."), "error")
+    return redirect(url_for("user.mcp_settings"))
 
 
 @user_bp.route("/profile")

@@ -26,6 +26,11 @@
                 <p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Used for one-click clock-in and /in in Slack when no project is supplied. EvilTime never creates or hardcodes a general project.') }}</p>
             </div>
         </details>
+
+        <a href="{{ url_for('user.mcp_settings') }}" class="flex items-center justify-between gap-4 rounded-lg bg-card-light p-6 shadow-md transition hover:ring-2 hover:ring-primary/30 dark:bg-card-dark">
+            <div><h2 class="text-xl font-semibold text-gray-900 dark:text-white"><i class="fas fa-plug mr-2 text-primary"></i>{{ _('MCP migration') }}</h2><p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Create your own scoped connection for agents that migrate historical project time.') }}</p></div>
+            <i class="fas fa-arrow-right text-primary"></i>
+        </a>
         
         <!-- Profile Information -->
         <details class="bg-card-light dark:bg-card-dark rounded-lg shadow-md group" open>

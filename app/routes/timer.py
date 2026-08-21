@@ -259,6 +259,9 @@ def start_timer():
         client_id,
         task_id,
     )
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -422,6 +425,9 @@ def start_timer_from_template(template_id):
     if not safe_commit("start_timer_from_template", {"template_id": template_id}):
         flash(_("Could not start timer due to a database error. Please check server logs."), "error")
         return redirect(url_for("time_entry_templates.list_templates"))
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -517,6 +523,9 @@ def start_timer_for_project(project_id):
         project_id,
         task_id,
     )
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -610,7 +619,13 @@ def stop_timer():
 
     # Stop the timer
     try:
+        paused_before_stop = active_timer.paused_at is not None
         active_timer.stop_timer()
+        from app.services.timer_event_service import record_timer_event
+
+        if paused_before_stop:
+            record_timer_event("break_end", active_timer, occurred_at=active_timer.end_time)
+        record_timer_event("clock_out", active_timer, occurred_at=active_timer.end_time)
         current_app.logger.info("Stopped timer id=%s for user=%s", active_timer.id, current_user.username)
 
         from app.telemetry.otel_setup import business_span
@@ -736,6 +751,9 @@ def pause_timer():
         return redirect(url_for("main.dashboard"))
     try:
         active_timer.pause_timer()
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("break_start", active_timer, occurred_at=active_timer.paused_at)
         socketio.emit(
             "timer_paused",
             {"user_id": current_user.id, "timer_id": active_timer.id, "paused_at": active_timer.paused_at.isoformat()},
@@ -765,7 +783,11 @@ def resume_timer():
         flash(_("No active timer to resume"), "error")
         return redirect(url_for("main.dashboard"))
     try:
+        resumed_at = local_now()
         active_timer.resume_timer()
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("break_end", active_timer, occurred_at=resumed_at)
         socketio.emit(
             "timer_resumed",
             {"user_id": current_user.id, "timer_id": active_timer.id, "break_seconds": active_timer.break_seconds or 0},
@@ -2197,6 +2219,9 @@ def resume_timer_by_id(timer_id):
         project_id,
         client_id,
     )
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     # Track timer resumed event
     log_event(

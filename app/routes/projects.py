@@ -2,6 +2,7 @@ import csv
 import io
 import os
 import re
+import unicodedata
 import uuid
 from datetime import datetime
 from decimal import Decimal
@@ -23,7 +24,6 @@ from flask_babel import gettext as _
 from flask_login import current_user, login_required
 
 from app import db, log_event, track_event
-from app.constants import PROJECT_ICON_EMOJIS
 from app.models import (
     Activity,
     Client,
@@ -54,12 +54,6 @@ _project_service = ProjectService()
 projects_bp = Blueprint("projects", __name__)
 
 
-@projects_bp.app_context_processor
-def project_icon_choices():
-    """Expose the curated picker choices to project form templates."""
-    return {"project_icon_emojis": PROJECT_ICON_EMOJIS}
-
-
 def _save_project_icon(upload):
     """Validate and persist a PNG project icon, returning (filename, error)."""
     if not upload or not upload.filename:
@@ -86,6 +80,13 @@ def _save_project_icon(upload):
     return filename, None
 
 
+def _is_project_emoji(value):
+    """Accept Unicode emoji sequences while rejecting arbitrary labels."""
+    if not value or len(value) > 32:
+        return False
+    return any(unicodedata.category(character) == "So" or character == "\u20e3" for character in value)
+
+
 def _read_project_icon_form(existing_project=None):
     """Return normalized icon form state without allowing mixed emoji/file icons."""
     upload = request.files.get("project_icon")
@@ -105,8 +106,8 @@ def _read_project_icon_form(existing_project=None):
 
     if submitted_type == "emoji":
         emoji = request.form.get("project_icon_emoji", "").strip()
-        if emoji not in PROJECT_ICON_EMOJIS:
-            return None, None, _("Choose an emoji from the project icon selector")
+        if not _is_project_emoji(emoji):
+            return None, None, _("Choose an emoji from the project icon picker")
         return emoji, None, None
 
     if submitted_type == "png":

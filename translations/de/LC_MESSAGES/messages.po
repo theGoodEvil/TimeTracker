@@ -26333,3 +26333,171 @@ msgstr "Lade ein quadratisches PNG-Bild mit maximal 2 MB hoch."
 
 msgid "Leave empty to keep the current PNG."
 msgstr "Leer lassen, um das aktuelle PNG beizubehalten."
+# EvilTime project icons
+msgid "Choose an emoji from the project icon picker"
+msgstr "Wählen Sie ein Emoji aus der Projekt-Icon-Auswahl aus"
+
+msgid "Search all emojis or use your system emoji keyboard."
+msgstr "Durchsuchen Sie alle Emojis oder verwenden Sie die Emoji-Tastatur Ihres Systems."
+
+msgid "Or paste an emoji"
+msgstr "Oder Emoji einfügen"
+
+msgid "Selected emoji"
+msgstr "Ausgewähltes Emoji"
+
+# EvilTime editable dashboard timeline
+msgid "You do not have permission to edit your time entries."
+msgstr "Sie sind nicht berechtigt, Ihre Zeiteinträge zu bearbeiten."
+
+msgid "Timeline event not found."
+msgstr "Timeline-Ereignis wurde nicht gefunden."
+
+msgid "Timeline event does not match this time entry."
+msgstr "Das Timeline-Ereignis gehört nicht zu diesem Zeiteintrag."
+
+msgid "Choose a valid timestamp that is not in the future."
+msgstr "Wählen Sie einen gültigen Zeitstempel, der nicht in der Zukunft liegt."
+
+msgid "Clock-in must be before clock-out."
+msgstr "Das Einstempeln muss vor dem Ausstempeln liegen."
+
+msgid "The adjusted time would overlap another entry."
+msgstr "Die angepasste Zeit würde sich mit einem anderen Eintrag überschneiden."
+
+msgid "Clock-out must be after clock-in."
+msgstr "Das Ausstempeln muss nach dem Einstempeln liegen."
+
+msgid "The project switch must remain between the two entries."
+msgstr "Der Projektwechsel muss zwischen den beiden Einträgen liegen."
+
+msgid "Historical break details were not recorded and cannot be adjusted individually."
+msgstr "Historische Pausendetails wurden nicht erfasst und können nicht einzeln angepasst werden."
+
+msgid "The break event must remain inside the work session."
+msgstr "Das Pausenereignis muss innerhalb der Arbeitssitzung bleiben."
+
+msgid "The timestamp must remain after the previous timeline event."
+msgstr "Der Zeitstempel muss nach dem vorherigen Timeline-Ereignis liegen."
+
+msgid "The timestamp must remain before the next timeline event."
+msgstr "Der Zeitstempel muss vor dem nächsten Timeline-Ereignis liegen."
+
+msgid "The timeline change could not be saved."
+msgstr "Die Timeline-Änderung konnte nicht gespeichert werden."
+
+msgid "Timeline updated."
+msgstr "Timeline aktualisiert."
+
+msgid "Today's timeline"
+msgstr "Heutige Timeline"
+
+msgid "Clock events and project changes in chronological order."
+msgstr "Stempelereignisse und Projektwechsel in zeitlicher Reihenfolge."
+
+msgid "Click a time to adjust it"
+msgstr "Zum Anpassen auf eine Uhrzeit klicken"
+
+msgid "Switched project"
+msgstr "Projekt gewechselt"
+
+msgid "Break started"
+msgstr "Pause begonnen"
+
+msgid "Break ended"
+msgstr "Pause beendet"
+
+#, python-format
+msgid "Adjust %(event)s time"
+msgstr "Zeit für „%(event)s“ anpassen"
+
+msgid "No clock events today."
+msgstr "Heute gibt es noch keine Stempelereignisse."
+
+msgid "Individual breaks completed before this timeline was introduced are only available as a total duration."
+msgstr "Einzelne Pausen, die vor Einführung dieser Timeline beendet wurden, sind nur als Gesamtdauer verfügbar."
+
+msgid "Adjust timeline event"
+msgstr "Timeline-Ereignis anpassen"
+
+msgid "The timestamp must stay between its neighboring events. Work and break totals are recalculated automatically."
+msgstr "Der Zeitstempel muss zwischen den benachbarten Ereignissen bleiben. Arbeits- und Pausenzeiten werden automatisch neu berechnet."
+
+msgid "Save time"
+msgstr "Uhrzeit speichern"
+
+# EvilTime per-user MCP migration
+msgid "Revoke an existing MCP token before creating another one."
+msgstr "Widerrufen Sie ein bestehendes MCP-Token, bevor Sie ein neues erstellen."
+
+msgid "The MCP token could not be created."
+msgstr "Das MCP-Token konnte nicht erstellt werden."
+
+msgid "MCP token revoked."
+msgstr "MCP-Token widerrufen."
+
+msgid "The MCP token could not be revoked."
+msgstr "Das MCP-Token konnte nicht widerrufen werden."
+
+msgid "MCP migration"
+msgstr "MCP-Migration"
+
+msgid "Back to settings"
+msgstr "Zurück zu den Einstellungen"
+
+msgid "Connect an agent to migrate your historical project time. Every token is limited to your own account and migration tools."
+msgstr "Verbinden Sie einen Agenten, um historische Projektzeiten zu migrieren. Jedes Token ist auf Ihr eigenes Konto und die Migrationswerkzeuge beschränkt."
+
+msgid "Copy your token now"
+msgstr "Token jetzt kopieren"
+
+msgid "This token is shown only once. Store it in your agent configuration, not in source control."
+msgstr "Dieses Token wird nur einmal angezeigt. Speichern Sie es in der Agentenkonfiguration, nicht in der Versionsverwaltung."
+
+msgid "Connection"
+msgstr "Verbindung"
+
+msgid "Use Streamable HTTP and send the token as a Bearer token."
+msgstr "Verwenden Sie Streamable HTTP und senden Sie das Token als Bearer-Token."
+
+msgid "Server URL"
+msgstr "Server-URL"
+
+msgid "Copy server URL"
+msgstr "Server-URL kopieren"
+
+msgid "Run a dry run first. Exact retries are detected automatically; overlapping entries are rejected."
+msgstr "Führen Sie zuerst einen Testlauf aus. Exakte Wiederholungen werden automatisch erkannt; überlappende Einträge werden abgelehnt."
+
+msgid "Create migration token"
+msgstr "Migrationstoken erstellen"
+
+msgid "Expires after"
+msgstr "Läuft ab nach"
+
+msgid "30 days"
+msgstr "30 Tagen"
+
+msgid "90 days"
+msgstr "90 Tagen"
+
+msgid "1 year"
+msgstr "1 Jahr"
+
+msgid "Create token"
+msgstr "Token erstellen"
+
+msgid "Your migration tokens"
+msgstr "Ihre Migrationstoken"
+
+msgid "Last used"
+msgstr "Zuletzt verwendet"
+
+msgid "Revoke"
+msgstr "Widerrufen"
+
+msgid "No migration tokens yet."
+msgstr "Noch keine Migrationstoken."
+
+msgid "Create your own scoped connection for agents that migrate historical project time."
+msgstr "Erstellen Sie eine eigene eingeschränkte Verbindung für Agenten, die historische Projektzeiten migrieren."

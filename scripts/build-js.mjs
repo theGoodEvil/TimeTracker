@@ -80,7 +80,6 @@ const CORE_GROUPS = {
     'dashboard-widgets.js',
     'dashboard-enhancements.js',
     'eviltime-workflow.js',
-    'project-icon-picker.js',
     'activity-feed.js',
   ],
   // after the menus/support-banner inline block
@@ -107,7 +106,10 @@ const STANDALONE_GROUPS = {
 /**
  * True ES modules that need dependency resolution.
  */
-const MODULE_ENTRIES = [{ name: 'command-palette', entry: 'js/command-palette.js' }];
+const MODULE_ENTRIES = [
+  { name: 'command-palette', entry: 'js/command-palette.js' },
+  { name: 'project-emoji-picker', entry: 'js/project-emoji-picker.js' },
+];
 
 /**
  * Third-party packages that npm does not publish as a self-contained browser build,

@@ -33,51 +33,6 @@ class ProjectStatus(Enum):
     ARCHIVED = "archived"
 
 
-# Curated, work-friendly choices for the project icon selector. Keeping this
-# server-side also lets us reject arbitrary text submitted as an emoji icon.
-PROJECT_ICON_EMOJIS = (
-    "🕒",
-    "🎨",
-    "🎮",
-    "💻",
-    "🧰",
-    "🛠️",
-    "📱",
-    "🌐",
-    "🚀",
-    "✨",
-    "💡",
-    "🧪",
-    "🔬",
-    "📊",
-    "📈",
-    "🧾",
-    "🏢",
-    "🏠",
-    "🎬",
-    "🎧",
-    "🎵",
-    "📸",
-    "✏️",
-    "📚",
-    "🔒",
-    "🧠",
-    "🤖",
-    "👾",
-    "🐛",
-    "🐱",
-    "🐶",
-    "🦊",
-    "🐙",
-    "🌱",
-    "🌈",
-    "🔥",
-    "⚡",
-    "💚",
-    "✅",
-)
-
-
 class InvoiceStatus(Enum):
     """Invoice status values"""
 

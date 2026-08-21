@@ -1,0 +1,89 @@
+"""Capture and present project timer state transitions."""
+
+from __future__ import annotations
+
+from app import db
+from app.models import TimerEvent
+from app.utils.db import safe_commit
+
+
+def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=None):
+    """Persist an event after a timer mutation; failures never roll back the timer itself."""
+    if not entry or event_type not in {"clock_in", "project_switch", "clock_out", "break_start", "break_end"}:
+        return None
+    event = TimerEvent(
+        user_id=entry.user_id,
+        time_entry_id=entry.id,
+        related_entry_id=related_entry_id,
+        event_type=event_type,
+        occurred_at=occurred_at or entry.start_time,
+    )
+    db.session.add(event)
+    if safe_commit("record_timer_event", {"entry_id": entry.id, "event_type": event_type}):
+        return event
+    return None
+
+
+def build_timeline(user, entries):
+    """Combine exact captured events with inferred historical entry boundaries."""
+    entries = sorted(entries, key=lambda item: (item.start_time, item.id))
+    if not entries:
+        return []
+    ids = [entry.id for entry in entries]
+    stored = (
+        TimerEvent.query.filter(TimerEvent.user_id == user.id, TimerEvent.time_entry_id.in_(ids))
+        .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+        .all()
+    )
+    timeline = []
+    boundary_keys = {(event.time_entry_id, event.event_type) for event in stored}
+
+    for event in stored:
+        project = event.entry.project if event.entry else None
+        timeline.append(
+            {
+                "event_id": event.id,
+                "entry_id": event.time_entry_id,
+                "related_entry_id": event.related_entry_id,
+                "event_type": event.event_type,
+                "occurred_at": event.occurred_at,
+                "project_name": project.name if project else None,
+                "captured": True,
+            }
+        )
+
+    for index, entry in enumerate(entries):
+        previous = entries[index - 1] if index else None
+        contiguous_previous = bool(
+            previous and previous.end_time and abs((entry.start_time - previous.end_time).total_seconds()) <= 10
+        )
+        start_type = "project_switch" if contiguous_previous else "clock_in"
+        if (entry.id, start_type) not in boundary_keys and (entry.id, "clock_in") not in boundary_keys:
+            timeline.append(
+                {
+                    "event_id": None,
+                    "entry_id": entry.id,
+                    "related_entry_id": previous.id if contiguous_previous else None,
+                    "event_type": start_type,
+                    "occurred_at": entry.start_time,
+                    "project_name": entry.project.name if entry.project else None,
+                    "captured": False,
+                }
+            )
+        next_entry = entries[index + 1] if index + 1 < len(entries) else None
+        contiguous_next = bool(
+            entry.end_time and next_entry and abs((next_entry.start_time - entry.end_time).total_seconds()) <= 10
+        )
+        if entry.end_time and not contiguous_next and (entry.id, "clock_out") not in boundary_keys:
+            timeline.append(
+                {
+                    "event_id": None,
+                    "entry_id": entry.id,
+                    "related_entry_id": None,
+                    "event_type": "clock_out",
+                    "occurred_at": entry.end_time,
+                    "project_name": entry.project.name if entry.project else None,
+                    "captured": False,
+                }
+            )
+    return sorted(timeline, key=lambda item: (item["occurred_at"], item["event_id"] or 0))

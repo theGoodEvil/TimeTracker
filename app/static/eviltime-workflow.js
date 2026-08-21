@@ -20,6 +20,18 @@
     }).join(':');
   }
 
+  function formatHoursMinutes(value) {
+    var totalMinutes = Math.max(0, Math.round((Number(value) || 0) / 60));
+    return Math.floor(totalMinutes / 60) + ':' + String(totalMinutes % 60).padStart(2, '0') + 'h';
+  }
+
+  function formatSignedHoursMinutes(value) {
+    var seconds = Number(value) || 0;
+    var sign = seconds > 0 ? '+' : (seconds < 0 ? '-' : '');
+    var totalMinutes = Math.round(Math.abs(seconds) / 60);
+    return sign + Math.floor(totalMinutes / 60) + ':' + String(totalMinutes % 60).padStart(2, '0') + 'h';
+  }
+
   function initDashboard() {
     var root = document.getElementById('eviltime-dashboard');
     if (!root) return;
@@ -27,9 +39,20 @@
     var work = document.getElementById('eviltime-today-work');
     var breakTime = document.getElementById('eviltime-today-break');
     var timer = document.getElementById('eviltime-active-timer');
+    var weekActual = document.getElementById('eviltime-week-actual');
+    var weekToday = document.getElementById('eviltime-week-today');
+    var weekProgress = document.getElementById('eviltime-week-progress');
+    var timeBalance = document.getElementById('eviltime-time-balance');
+    var balanceIcon = document.getElementById('eviltime-balance-icon');
     var baseWork = Number(work && work.dataset.seconds) || 0;
     var baseBreak = Number(breakTime && breakTime.dataset.seconds) || 0;
     var baseTimer = Number(timer && timer.dataset.seconds) || 0;
+    var baseWeekActual = Number(weekActual && weekActual.dataset.seconds) || 0;
+    var baseWeekToday = Number(weekToday && weekToday.dataset.seconds) || 0;
+    var expectedWeekSeconds = Number(weekProgress && weekProgress.dataset.expectedSeconds) || 0;
+    var baseTimeBalance = Number(timeBalance && timeBalance.dataset.seconds) || 0;
+    var balanceLive = !timeBalance || timeBalance.dataset.live !== 'false';
+    var weekLive = !weekActual || weekActual.dataset.live !== 'false';
     var running = root.dataset.timerRunning === 'true';
     var paused = root.dataset.timerPaused === 'true';
     var timerDisplay = root.dataset.timerDisplay || 'work';
@@ -44,6 +67,30 @@
       if (work) work.textContent = formatElapsed(baseWork + (running ? elapsed : 0));
       if (breakTime) breakTime.textContent = formatElapsed(baseBreak + (paused ? elapsed : 0));
       if (timer) timer.textContent = formatElapsed(baseTimer + (timerDisplay === 'break' ? (paused ? elapsed : 0) : (running ? elapsed : 0)));
+      var liveWeekSeconds = baseWeekActual + (running && weekLive ? elapsed : 0);
+      if (weekActual) weekActual.textContent = formatHoursMinutes(liveWeekSeconds);
+      if (weekToday) weekToday.textContent = formatHoursMinutes(baseWeekToday + (running ? elapsed : 0));
+      if (weekProgress) {
+        var progress = expectedWeekSeconds > 0 ? Math.min(100, liveWeekSeconds / expectedWeekSeconds * 100) : 0;
+        weekProgress.style.width = progress + '%';
+      }
+      if (timeBalance) {
+        var liveBalance = baseTimeBalance + (running && balanceLive ? elapsed : 0);
+        var isNegative = liveBalance < 0;
+        timeBalance.textContent = formatSignedHoursMinutes(liveBalance);
+        timeBalance.classList.toggle('text-red-600', isNegative);
+        timeBalance.classList.toggle('dark:text-red-400', isNegative);
+        timeBalance.classList.toggle('text-emerald-600', !isNegative);
+        timeBalance.classList.toggle('dark:text-emerald-400', !isNegative);
+        if (balanceIcon) {
+          balanceIcon.classList.toggle('bg-red-500/10', isNegative);
+          balanceIcon.classList.toggle('text-red-600', isNegative);
+          balanceIcon.classList.toggle('dark:text-red-400', isNegative);
+          balanceIcon.classList.toggle('bg-emerald-500/10', !isNegative);
+          balanceIcon.classList.toggle('text-emerald-600', !isNegative);
+          balanceIcon.classList.toggle('dark:text-emerald-400', !isNegative);
+        }
+      }
     }
 
     drawTimers();
@@ -158,8 +205,49 @@
     });
   }
 
+  function initTimelineEditModal() {
+    var modal = document.getElementById('timelineEditModal');
+    if (!modal) return;
+    var label = document.getElementById('timelineEditLabel');
+    var occurredAt = document.getElementById('timelineOccurredAt');
+    var eventId = document.getElementById('timelineEventId');
+    var entryId = document.getElementById('timelineEntryId');
+    var relatedEntryId = document.getElementById('timelineRelatedEntryId');
+    var eventType = document.getElementById('timelineEventType');
+    var lastTrigger = null;
+
+    function closeModal() {
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+      document.body.classList.remove('overflow-hidden');
+      if (lastTrigger) lastTrigger.focus();
+    }
+    document.querySelectorAll('[data-timeline-edit]').forEach(function (trigger) {
+      trigger.addEventListener('click', function () {
+        lastTrigger = trigger;
+        label.textContent = trigger.dataset.eventLabel || '';
+        occurredAt.value = trigger.dataset.occurredAt || '';
+        eventId.value = trigger.dataset.eventId || '';
+        entryId.value = trigger.dataset.entryId || '';
+        relatedEntryId.value = trigger.dataset.relatedEntryId || '';
+        eventType.value = trigger.dataset.eventType || '';
+        modal.classList.remove('hidden');
+        modal.classList.add('flex');
+        document.body.classList.add('overflow-hidden');
+        window.setTimeout(function () { occurredAt.focus(); }, 0);
+      });
+    });
+    modal.querySelectorAll('[data-timeline-modal-close]').forEach(function (button) {
+      button.addEventListener('click', closeModal);
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+    });
+  }
+
   onReady(function () {
     initDashboard();
     initWeeklyEditModal();
+    initTimelineEditModal();
   });
 })();

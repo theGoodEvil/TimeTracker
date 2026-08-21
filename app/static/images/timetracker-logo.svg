@@ -1,19 +1,10 @@
 <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
   <title id="title">EvilTime</title>
-  <g fill="none" stroke="#172b1d" stroke-width="20" stroke-linecap="round" stroke-linejoin="round">
-    <circle cx="158" cy="145" r="92" fill="#64b376"/>
-    <circle cx="354" cy="145" r="92" fill="#64b376"/>
-    <circle cx="256" cy="328" r="154" fill="#64b376"/>
-  </g>
-  <circle cx="158" cy="145" r="61" fill="#172b1d"/>
-  <circle cx="354" cy="145" r="61" fill="#172b1d"/>
-  <circle cx="133" cy="170" r="17" fill="#fff"/>
-  <circle cx="379" cy="120" r="17" fill="#fff"/>
-  <circle cx="256" cy="328" r="116" fill="#fff" stroke="#172b1d" stroke-width="16"/>
-  <g stroke="#172b1d" stroke-width="16" stroke-linecap="round">
-    <path d="M256 230v20M256 406v20M158 328h20M334 328h20"/>
-    <path d="M256 328l58-61M256 328l-49 48" stroke-width="22"/>
-  </g>
-  <circle cx="256" cy="328" r="15" fill="#64b376" stroke="#172b1d" stroke-width="10"/>
-  <path d="M96 62l-25 38M416 62l25 38M150 448l-31 35M362 448l31 35" fill="none" stroke="#172b1d" stroke-width="20" stroke-linecap="round"/>
+  <defs><linearGradient id="eviltime-green" x1="40" y1="20" x2="480" y2="500" gradientUnits="userSpaceOnUse"><stop stop-color="#78bd87"/><stop offset="1" stop-color="#4e965f"/></linearGradient></defs>
+  <rect width="512" height="512" rx="128" fill="url(#eviltime-green)"/>
+  <path d="M144 178 104 106l86 44M368 178l40-72-86 44" fill="#172b1d" stroke="#172b1d" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="270" r="142" fill="#fff"/>
+  <circle cx="256" cy="270" r="116" fill="none" stroke="#172b1d" stroke-width="18"/>
+  <path d="M256 198v78l56 38" fill="none" stroke="#64b376" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="270" r="14" fill="#172b1d"/>
 </svg>

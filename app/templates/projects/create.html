@@ -264,6 +264,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="{{ asset_url('project-emoji-picker') }}"></script>
 <script src="{{ url_for('static', filename='vendor/pickr/pickr.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/gantt-color-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/toastui/toastui-editor.js') }}"></script>

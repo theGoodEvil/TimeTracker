@@ -121,15 +121,15 @@
       <div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('This week') }}</p><h2 class="mt-1 font-semibold text-slate-950 dark:text-white">{% if current_week %}KW {{ '%02d'|format(current_week.calendar_week) }} <span class="font-normal text-slate-400">· {{ current_week.week_start.strftime('%d.%m.') }}–{{ current_week.week_end.strftime('%d.%m.') }}</span>{% endif %}</h2></div><span class="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><i class="fas fa-calendar-week"></i></span></div>
       {% if current_week %}
       <div class="mt-5 grid grid-cols-2 gap-4">
-        <div><p class="text-xs text-slate-500">{{ _('Actual hours') }}</p><p class="mt-0.5 text-2xl font-semibold tabular-nums text-slate-950 dark:text-white">{{ current_week.actual_hours|hours_minutes }}</p></div>
+        <div><p class="text-xs text-slate-500">{{ _('Actual hours') }}</p><p id="eviltime-week-actual" data-seconds="{{ (current_week.actual_hours * 3600)|round|int }}" data-live="{{ 'false' if current_week.actual_hours_override is not none else 'true' }}" class="mt-0.5 text-2xl font-semibold tabular-nums text-slate-950 dark:text-white">{{ current_week.actual_hours|hours_minutes }}</p></div>
         <div class="text-right"><p class="text-xs text-slate-500">{{ _('Expected hours') }}</p><p class="mt-0.5 text-lg font-semibold tabular-nums text-slate-700 dark:text-slate-200">{{ current_week.expected_hours|hours_minutes }}</p></div>
       </div>
-      <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div class="h-full rounded-full bg-primary transition-all" style="width: {{ 100 if week_progress > 100 else week_progress }}%"></div></div>
+      <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800"><div id="eviltime-week-progress" data-expected-seconds="{{ (current_week.expected_hours * 3600)|round|int }}" class="h-full rounded-full bg-primary transition-all" style="width: {{ 100 if week_progress > 100 else week_progress }}%"></div></div>
       {% endif %}
       <div class="mt-4 grid gap-1.5 {% if current_week_days|length == 5 %}grid-cols-5{% elif current_week_days|length == 6 %}grid-cols-6{% else %}grid-cols-7{% endif %}">
         {% for day in current_week_days %}
         <div class="rounded-xl border px-1 py-2.5 text-center {% if day.is_today %}border-primary/60 bg-primary/10{% else %}border-slate-100 bg-slate-50/70 dark:border-slate-800 dark:bg-slate-800/40{% endif %} {% if day.is_future %}opacity-50{% endif %}" title="{{ day.date.strftime('%d.%m.%Y') }} · {{ day.hours|hours_minutes }}">
-          <p class="text-[10px] font-semibold uppercase text-slate-500">{{ day_names[day.weekday_index] }}</p><p class="mt-1 text-xs font-bold tabular-nums text-slate-900 dark:text-white">{{ day.hours|hours_minutes }}</p>
+          <p class="text-[10px] font-semibold uppercase text-slate-500">{{ day_names[day.weekday_index] }}</p><p {% if day.is_today %}id="eviltime-week-today" data-seconds="{{ today_work_seconds }}"{% endif %} class="mt-1 text-xs font-bold tabular-nums text-slate-900 dark:text-white">{{ day.hours|hours_minutes }}</p>
         </div>
         {% endfor %}
       </div>
@@ -146,8 +146,8 @@
       <div class="min-w-0"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Breaks today') }}</p><p id="eviltime-today-break" data-seconds="{{ today_break_seconds }}" class="mt-2 font-mono text-2xl font-semibold tabular-nums text-slate-950 dark:text-white">{{ today_break_formatted }}</p><p class="mt-1 text-xs text-slate-500">{{ _('Recorded break time') }}</p></div>
     </section>
     <section class="flex min-h-32 items-start gap-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {% if current_week and current_week.cumulative_overtime < 0 %}bg-red-500/10 text-red-600 dark:text-red-400{% else %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400{% endif %}"><i class="fas fa-scale-balanced"></i></span>
-      <div class="min-w-0"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Time balance') }}</p><p class="mt-2 font-mono text-2xl font-semibold tabular-nums {% if current_week and current_week.cumulative_overtime < 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">{{ (current_week.cumulative_overtime if current_week else 0)|hours_minutes(true) }}</p><p class="mt-1 text-xs text-slate-500">{{ _('Total overtime balance') }}</p></div>
+      <span id="eviltime-balance-icon" class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl {% if current_week and current_week.cumulative_overtime < 0 %}bg-red-500/10 text-red-600 dark:text-red-400{% else %}bg-emerald-500/10 text-emerald-600 dark:text-emerald-400{% endif %}"><i class="fas fa-scale-balanced"></i></span>
+      <div class="min-w-0"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Time balance') }}</p><p id="eviltime-time-balance" data-seconds="{{ ((current_week.cumulative_overtime if current_week else 0) * 3600)|round|int }}" data-live="{{ 'false' if current_week and current_week.actual_hours_override is not none else 'true' }}" class="mt-2 font-mono text-2xl font-semibold tabular-nums {% if current_week and current_week.cumulative_overtime < 0 %}text-red-600 dark:text-red-400{% else %}text-emerald-600 dark:text-emerald-400{% endif %}">{{ (current_week.cumulative_overtime if current_week else 0)|hours_minutes(true) }}</p><p class="mt-1 text-xs text-slate-500">{{ _('Total overtime balance') }}</p></div>
     </section>
     <section class="min-h-32 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
       <div class="flex items-start gap-3">
@@ -158,6 +158,33 @@
       <p id="browserNotificationStatus" class="mt-2 border-t border-slate-100 pt-2 text-xs text-slate-500 dark:border-slate-800" aria-live="polite"></p>
     </section>
   </div>
+
+  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
+      <div><h2 class="font-semibold text-slate-950 dark:text-white">{{ _("Today's timeline") }}</h2><p class="mt-0.5 text-xs text-slate-500">{{ _('Clock events and project changes in chronological order.') }}</p></div>
+      {% if can_edit_timeline %}<span class="text-xs font-medium text-slate-400"><i class="fas fa-pen mr-1"></i>{{ _('Click a time to adjust it') }}</span>{% endif %}
+    </div>
+    <div class="overflow-x-auto px-5 py-5">
+      {% if today_timeline %}
+      <ol class="flex min-w-max items-start" aria-label="{{ _("Today's timeline") }}">
+        {% for event in today_timeline %}
+        {% set label = _('Clocked in') if event.event_type == 'clock_in' else _('Switched project') if event.event_type == 'project_switch' else _('Clocked out') if event.event_type == 'clock_out' else _('Break started') if event.event_type == 'break_start' else _('Break ended') %}
+        {% set icon = 'fa-play' if event.event_type == 'clock_in' else 'fa-shuffle' if event.event_type == 'project_switch' else 'fa-stop' if event.event_type == 'clock_out' else 'fa-mug-hot' if event.event_type == 'break_start' else 'fa-rotate-left' %}
+        <li class="relative w-44 shrink-0 pr-5 last:pr-0">
+          {% if not loop.last %}<span class="absolute left-8 right-0 top-4 h-px bg-slate-200 dark:bg-slate-700"></span>{% endif %}
+          <div class="relative flex h-8 w-8 items-center justify-center rounded-full border-4 border-white {% if event.event_type in ('break_start', 'break_end') %}bg-amber-500{% elif event.event_type == 'clock_out' %}bg-slate-500{% else %}bg-primary{% endif %} text-[10px] text-white shadow-sm dark:border-slate-900"><i class="fas {{ icon }}"></i></div>
+          <p class="mt-3 text-xs font-semibold text-slate-900 dark:text-white">{{ label }}</p>
+          {% if event.project_name %}<p class="mt-0.5 max-w-36 truncate text-[11px] text-slate-500" title="{{ event.project_name }}">{{ event.project_name }}</p>{% endif %}
+          {% if can_edit_timeline %}
+          <button type="button" data-timeline-edit data-event-id="{{ event.event_id or '' }}" data-entry-id="{{ event.entry_id }}" data-related-entry-id="{{ event.related_entry_id or '' }}" data-event-type="{{ event.event_type }}" data-event-label="{{ label }}" data-occurred-at="{{ event.occurred_at|user_datetime_local }}" class="mt-1 rounded-md font-mono text-sm font-semibold tabular-nums text-primary hover:bg-primary/10 px-1.5 py-0.5 -ml-1.5" aria-label="{{ _('Adjust %(event)s time', event=label) }}">{{ event.occurred_at|user_time }}</button>
+          {% else %}<p class="mt-1 font-mono text-sm font-semibold tabular-nums text-slate-700 dark:text-slate-200">{{ event.occurred_at|user_time }}</p>{% endif %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% else %}<p class="py-5 text-center text-sm text-slate-500">{{ _('No clock events today.') }}</p>{% endif %}
+    </div>
+    <div class="border-t border-slate-100 px-5 py-3 text-xs text-slate-400 dark:border-slate-800"><i class="fas fa-circle-info mr-1"></i>{{ _('Individual breaks completed before this timeline was introduced are only available as a total duration.') }}</div>
+  </section>
 
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
     <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4 dark:border-slate-800"><div><h2 class="font-semibold text-slate-950 dark:text-white">{{ _('Recent project time') }}</h2><p class="mt-0.5 text-xs text-slate-500">{{ _('Your latest completed sessions') }}</p></div><a href="{{ url_for('timer.time_entries_overview') }}" class="group inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">{{ _('All entries') }} <i class="fas fa-arrow-right text-xs transition-transform group-hover:translate-x-0.5"></i></a></div>
@@ -175,6 +202,19 @@
       {% else %}<p class="py-10 text-center text-sm text-slate-500">{{ _('No project time yet.') }}</p>{% endfor %}
     </div>
   </section>
+</div>
+
+<div id="timelineEditModal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="timelineEditTitle">
+  <button type="button" class="absolute inset-0 bg-slate-950/55 backdrop-blur-[1px]" data-timeline-modal-close aria-label="{{ _('Close') }}"></button>
+  <div class="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+    <div class="flex items-start justify-between gap-4"><div><h2 id="timelineEditTitle" class="text-lg font-semibold text-slate-950 dark:text-white">{{ _('Adjust timeline event') }}</h2><p id="timelineEditLabel" class="mt-1 text-sm text-slate-500"></p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-timeline-modal-close aria-label="{{ _('Close') }}"><i class="fas fa-times"></i></button></div>
+    <form method="POST" action="{{ url_for('main.edit_timeline_event') }}" class="mt-5 space-y-4">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input id="timelineEventId" type="hidden" name="event_id"><input id="timelineEntryId" type="hidden" name="entry_id"><input id="timelineRelatedEntryId" type="hidden" name="related_entry_id"><input id="timelineEventType" type="hidden" name="event_type">
+      <div><label for="timelineOccurredAt" class="form-label">{{ _('Timestamp') }}</label><input id="timelineOccurredAt" type="datetime-local" name="occurred_at" class="form-input" required></div>
+      <p class="text-xs leading-relaxed text-slate-500">{{ _('The timestamp must stay between its neighboring events. Work and break totals are recalculated automatically.') }}</p>
+      <div class="flex justify-end gap-2"><button type="button" class="btn btn-secondary" data-timeline-modal-close>{{ _('Cancel') }}</button><button class="btn btn-primary"><i class="fas fa-check"></i>{{ _('Save time') }}</button></div>
+    </form>
+  </div>
 </div>
 
 {% endblock %}

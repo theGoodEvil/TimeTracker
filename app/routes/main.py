@@ -111,6 +111,9 @@ def dashboard():
         TimeEntry.start_time >= datetime.combine(today_local, datetime.min.time()),
         TimeEntry.start_time <= datetime.combine(today_local, datetime.max.time()),
     ).all()
+    from app.services.timer_event_service import build_timeline
+
+    today_timeline = build_timeline(current_user, today_entries)
     today_work_seconds = sum(
         entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
         for entry in today_entries
@@ -147,7 +150,135 @@ def dashboard():
         current_break_formatted=format_elapsed(current_break_seconds),
         status_action=status_action,
         status_action_at=status_action_at,
+        today_timeline=today_timeline,
+        can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
     )
+
+
+@main_bp.route("/dashboard/timeline/edit", methods=["POST"])
+@login_required
+def edit_timeline_event():
+    """Adjust a clock boundary or captured break event from today's timeline."""
+    if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
+        flash(_("You do not have permission to edit your time entries."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    from app.models import TimerEvent
+    from app.utils.db import safe_commit
+    from app.utils.timezone import parse_user_local_datetime_from_string
+
+    entry_id = request.form.get("entry_id", type=int)
+    event_id = request.form.get("event_id", type=int)
+    event_type = (request.form.get("event_type") or "").strip()
+    new_time = parse_user_local_datetime_from_string(request.form.get("occurred_at"), user=current_user)
+    entry = TimeEntry.query.filter_by(id=entry_id, user_id=current_user.id).first()
+    event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first() if event_id else None
+    if not entry or event_type not in {"clock_in", "project_switch", "clock_out", "break_start", "break_end"}:
+        flash(_("Timeline event not found."), "error")
+        return redirect(url_for("main.dashboard"))
+    if event_id and not event:
+        flash(_("Timeline event not found."), "error")
+        return redirect(url_for("main.dashboard"))
+    if event and (event.time_entry_id != entry.id or event.event_type != event_type):
+        flash(_("Timeline event does not match this time entry."), "error")
+        return redirect(url_for("main.dashboard"))
+    if not new_time or new_time > local_now():
+        flash(_("Choose a valid timestamp that is not in the future."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    try:
+        old_time = event.occurred_at if event else (entry.end_time if event_type == "clock_out" else entry.start_time)
+        if event_type == "clock_in":
+            if entry.end_time and new_time >= entry.end_time:
+                raise ValueError(_("Clock-in must be before clock-out."))
+            previous = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != entry.id,
+                    TimeEntry.end_time.isnot(None),
+                    TimeEntry.end_time > new_time,
+                    TimeEntry.start_time < entry.start_time,
+                )
+                .order_by(TimeEntry.end_time.desc())
+                .first()
+            )
+            if previous:
+                raise ValueError(_("The adjusted time would overlap another entry."))
+            entry.start_time = new_time
+        elif event_type == "clock_out":
+            if not entry.end_time or new_time <= entry.start_time:
+                raise ValueError(_("Clock-out must be after clock-in."))
+            following = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != entry.id,
+                    TimeEntry.start_time < new_time,
+                    TimeEntry.start_time > entry.start_time,
+                )
+                .order_by(TimeEntry.start_time.asc())
+                .first()
+            )
+            if following:
+                raise ValueError(_("The adjusted time would overlap another entry."))
+            entry.end_time = new_time
+        elif event_type == "project_switch":
+            related_id = (event.related_entry_id if event else None) or request.form.get("related_entry_id", type=int)
+            previous = TimeEntry.query.filter_by(id=related_id, user_id=current_user.id).first() if related_id else None
+            if not previous or new_time <= previous.start_time or (entry.end_time and new_time >= entry.end_time):
+                raise ValueError(_("The project switch must remain between the two entries."))
+            previous.end_time = new_time
+            previous.calculate_duration()
+            entry.start_time = new_time
+        else:
+            if not event:
+                raise ValueError(_("Historical break details were not recorded and cannot be adjusted individually."))
+            events = (
+                TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+                .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+                .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+                .all()
+            )
+            event_index = next((index for index, item in enumerate(events) if item.id == event.id), None)
+            previous_event = events[event_index - 1] if event_index is not None and event_index > 0 else None
+            next_event = events[event_index + 1] if event_index is not None and event_index + 1 < len(events) else None
+            if new_time <= entry.start_time or (entry.end_time and new_time >= entry.end_time):
+                raise ValueError(_("The break event must remain inside the work session."))
+            if previous_event and new_time <= previous_event.occurred_at:
+                raise ValueError(_("The timestamp must remain after the previous timeline event."))
+            if next_event and new_time >= next_event.occurred_at:
+                raise ValueError(_("The timestamp must remain before the next timeline event."))
+            if event_type == "break_start" and next_event and next_event.event_type == "break_end":
+                entry.break_seconds = max(0, (entry.break_seconds or 0) + int((old_time - new_time).total_seconds()))
+            elif event_type == "break_end" and previous_event and previous_event.event_type == "break_start":
+                entry.break_seconds = max(0, (entry.break_seconds or 0) + int((new_time - old_time).total_seconds()))
+            if event_type == "break_start" and entry.paused_at and not next_event:
+                entry.paused_at = new_time
+
+        if event:
+            event.occurred_at = new_time
+        if entry.end_time:
+            entry.calculate_duration()
+        if not safe_commit(
+            "edit_timeline_event",
+            {"user_id": current_user.id, "entry_id": entry.id, "event_type": event_type},
+        ):
+            raise ValueError(_("The timeline change could not be saved."))
+        Activity.log(
+            user_id=current_user.id,
+            action="updated",
+            entity_type="timer_event",
+            entity_id=event.id if event else entry.id,
+            entity_name=event_type,
+            description=f"Adjusted {event_type} from {old_time.isoformat()} to {new_time.isoformat()}",
+            extra_data={"time_entry_id": entry.id, "old_time": old_time.isoformat(), "new_time": new_time.isoformat()},
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        flash(_("Timeline updated."), "success")
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    return redirect(url_for("main.dashboard"))
 
 
 @main_bp.route("/dashboard/productivity")

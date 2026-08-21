@@ -3,7 +3,7 @@ from datetime import datetime, time, timedelta
 from pathlib import Path
 
 from app import db
-from app.models import Project, TimeEntry
+from app.models import ApiToken, Project, TimeEntry, TimerEvent
 from app.models.time_entry import local_now
 from app.services.weekly_work_service import WeeklyWorkService
 from app.utils.template_filters import format_hours_minutes
@@ -88,8 +88,12 @@ def test_dashboard_identifies_project_switch(authenticated_client, active_timer,
 def test_dashboard_behaviour_is_in_compiled_source():
     source = Path("app/static/eviltime-workflow.js").read_text(encoding="utf-8")
     assert "drawTimers" in source
+    assert "eviltime-week-actual" in source
+    assert "eviltime-week-today" in source
     assert "Notification.requestPermission" in source
     assert "data-week-edit" in source
+    assert "eviltime-time-balance" in source
+    assert "data-timeline-edit" in source
 
 
 def test_dashboard_project_bubbles_scroll_and_week_has_no_daily_target(authenticated_client, multiple_projects):
@@ -210,4 +214,154 @@ def test_project_forms_render_emoji_png_selector(admin_authenticated_client, pro
         assert b"data-project-icon-picker" in response.data
         assert b'data-project-icon-mode="emoji"' in response.data
         assert b'data-project-icon-mode="png"' in response.data
+        assert b"data-project-emoji-picker-host" in response.data
+        assert b"vendor/emoji-picker-data/en.json" in response.data
         assert b'accept="image/png,.png"' in response.data
+
+
+def test_each_user_can_create_and_revoke_a_migration_mcp_token(authenticated_client, user):
+    page = authenticated_client.get("/settings/mcp")
+    assert page.status_code == 200
+    assert b"/mcp" in page.data
+
+    created = authenticated_client.post(
+        "/settings/mcp/tokens",
+        data={"name": "Old tracker migration", "expires_days": "30"},
+    )
+    assert created.status_code == 200
+    assert b"tt_" in created.data
+    token = ApiToken.query.filter_by(user_id=user.id, scopes="mcp:migrate").one()
+    assert token.is_active is True
+
+    revoked = authenticated_client.post(f"/settings/mcp/tokens/{token.id}/revoke")
+    assert revoked.status_code == 302
+    db.session.refresh(token)
+    assert token.is_active is False
+
+
+def test_mcp_import_is_user_scoped_and_retry_safe(client, user, project):
+    token, plain = ApiToken.create_token(
+        user_id=user.id,
+        name="MCP migration",
+        scopes="mcp:migrate",
+        expires_days=30,
+    )
+    db.session.add(token)
+    db.session.commit()
+    headers = {"Authorization": f"Bearer {plain}", "Accept": "application/json"}
+
+    initialized = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+        headers=headers,
+    )
+    assert initialized.status_code == 200
+    assert initialized.get_json()["result"]["serverInfo"]["name"] == "EvilTime migration MCP"
+
+    context = client.post(
+        "/mcp",
+        json={
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {"name": "eviltime_get_migration_context", "arguments": {}},
+        },
+        headers=headers,
+    ).get_json()["result"]["structuredContent"]
+    assert project.id in [item["id"] for item in context["projects"]]
+
+    call = {
+        "jsonrpc": "2.0",
+        "id": 3,
+        "method": "tools/call",
+        "params": {
+            "name": "eviltime_import_time_entries",
+            "arguments": {
+                "entries": [
+                    {
+                        "project_id": project.id,
+                        "start": "2024-01-02T09:00:00Z",
+                        "end": "2024-01-02T10:30:00Z",
+                        "notes": "Migrated from old tracker",
+                    }
+                ]
+            },
+        },
+    }
+    first = client.post("/mcp", json=call, headers=headers).get_json()["result"]["structuredContent"]
+    second = client.post("/mcp", json=call, headers=headers).get_json()["result"]["structuredContent"]
+    assert first["created"] == 1
+    assert second["duplicates"] == 1
+    assert TimeEntry.query.filter_by(user_id=user.id, notes="Migrated from old tracker").count() == 1
+
+
+def test_mcp_rejects_tokens_without_migration_scope(client, user):
+    token, plain = ApiToken.create_token(user_id=user.id, name="Regular API", scopes="read:time_entries")
+    db.session.add(token)
+    db.session.commit()
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        headers={"Authorization": f"Bearer {plain}"},
+    )
+    assert response.status_code == 403
+
+
+def test_dashboard_timeline_records_breaks_and_uses_overlay(authenticated_client, active_timer):
+    paused = authenticated_client.post("/timer/pause")
+    assert paused.status_code == 302
+    resumed = authenticated_client.post("/timer/resume")
+    assert resumed.status_code == 302
+
+    event_types = [event.event_type for event in TimerEvent.query.filter_by(time_entry_id=active_timer.id).all()]
+    assert event_types == ["break_start", "break_end"]
+    dashboard = authenticated_client.get("/dashboard")
+    assert dashboard.status_code == 200
+    assert b'id="timelineEditModal"' in dashboard.data
+    assert b"Break started" in dashboard.data
+    assert b"Break ended" in dashboard.data
+
+
+def test_timeline_break_edit_recalculates_duration(authenticated_client, user, project):
+    today = local_now().date()
+    entry = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=datetime.combine(today, time(hour=9)),
+        end_time=datetime.combine(today, time(hour=12)),
+        break_seconds=1800,
+        source="auto",
+    )
+    db.session.add(entry)
+    db.session.flush()
+    break_start = TimerEvent(
+        user_id=user.id,
+        time_entry_id=entry.id,
+        event_type="break_start",
+        occurred_at=datetime.combine(today, time(hour=10)),
+    )
+    break_end = TimerEvent(
+        user_id=user.id,
+        time_entry_id=entry.id,
+        event_type="break_end",
+        occurred_at=datetime.combine(today, time(hour=10, minute=30)),
+    )
+    db.session.add_all([break_start, break_end])
+    db.session.commit()
+
+    response = authenticated_client.post(
+        "/dashboard/timeline/edit",
+        data={
+            "event_id": break_start.id,
+            "entry_id": entry.id,
+            "event_type": "break_start",
+            "occurred_at": datetime.combine(today, time(hour=10, minute=15)).strftime("%Y-%m-%dT%H:%M"),
+        },
+    )
+    assert response.status_code == 302
+    db.session.refresh(entry)
+    db.session.refresh(break_start)
+    assert entry.break_seconds == 900
+    assert entry.duration_seconds == 9900
+    assert break_start.occurred_at.minute == 15

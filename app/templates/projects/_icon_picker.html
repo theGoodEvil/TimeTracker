@@ -23,12 +23,13 @@
             </div>
 
             <div class="mt-3 {% if selected_type != 'emoji' %}hidden{% endif %}" data-project-icon-panel="emoji">
-                <p class="mb-2 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Choose an emoji') }}</p>
-                <div class="grid max-w-md grid-cols-8 gap-1.5 rounded-xl border border-border-light bg-card-light p-2 dark:border-border-dark dark:bg-card-dark">
-                    {% for emoji in project_icon_emojis %}
-                    <button type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40 {% if emoji == selected_emoji %}bg-primary/10 ring-1 ring-primary/40{% endif %}" data-project-emoji="{{ emoji }}" aria-label="{{ _('Use %(emoji)s', emoji=emoji) }}" aria-pressed="{{ 'true' if emoji == selected_emoji else 'false' }}">{{ emoji }}</button>
-                    {% endfor %}
-                </div>
+                <p class="mb-2 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Search all emojis or use your system emoji keyboard.') }}</p>
+                <div data-project-emoji-picker-host
+                     data-emoji-source-en="{{ url_for('static', filename='vendor/emoji-picker-data/en.json') }}"
+                     data-emoji-source-de="{{ url_for('static', filename='vendor/emoji-picker-data/de.json') }}"
+                     class="min-h-80 max-w-md overflow-hidden rounded-xl border border-border-light bg-card-light dark:border-border-dark dark:bg-card-dark"></div>
+                <label for="project_icon_emoji_manual" class="mt-3 block text-xs font-medium text-text-muted-light dark:text-text-muted-dark">{{ _('Or paste an emoji') }}</label>
+                <input type="text" id="project_icon_emoji_manual" value="{{ selected_emoji }}" maxlength="32" inputmode="text" autocomplete="off" class="form-input mt-1 max-w-28 text-center text-2xl" data-project-emoji-manual aria-label="{{ _('Selected emoji') }}">
             </div>
 
             <div class="mt-3 {% if selected_type != 'png' %}hidden{% endif %}" data-project-icon-panel="png">

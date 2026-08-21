@@ -140,6 +140,10 @@ class TimeTrackingService:
                 "error": "database_error",
             }
 
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("clock_in", timer, occurred_at=timer.start_time)
+
         # Emit domain event
         emit_event(
             WebhookEvent.TIME_ENTRY_CREATED.value, {"entry_id": timer.id, "user_id": user_id, "project_id": project_id}
@@ -188,6 +192,7 @@ class TimeTrackingService:
                 stop_at = now_local
 
         # Stop the timer
+        was_paused = entry.paused_at is not None
         if entry.paused_at:
             paused_at = entry._naive_dt(entry.paused_at)
             stop_naive = entry._naive_dt(stop_at)
@@ -203,6 +208,12 @@ class TimeTrackingService:
                 "message": "Could not stop timer due to a database error",
                 "error": "database_error",
             }
+
+        from app.services.timer_event_service import record_timer_event
+
+        if was_paused:
+            record_timer_event("break_end", entry, occurred_at=stop_at)
+        record_timer_event("clock_out", entry, occurred_at=stop_at)
 
         from app.utils.workflow_bridge import fire_time_logged_workflow
 
@@ -234,6 +245,7 @@ class TimeTrackingService:
             return err
 
         switched_at = local_now()
+        was_paused = current.paused_at is not None
         if current.paused_at:
             paused_at = current._naive_dt(current.paused_at)
             if paused_at and switched_at > paused_at:
@@ -252,6 +264,12 @@ class TimeTrackingService:
                 "message": "Could not switch projects due to a database error",
                 "error": "database_error",
             }
+
+        from app.services.timer_event_service import record_timer_event
+
+        if was_paused:
+            record_timer_event("break_end", current, occurred_at=switched_at)
+        record_timer_event("project_switch", timer, occurred_at=switched_at, related_entry_id=current.id)
 
         from app.utils.workflow_bridge import fire_time_logged_workflow
 
@@ -280,6 +298,9 @@ class TimeTrackingService:
             return {"success": False, "message": str(e), "error": "invalid_state"}
         if not safe_commit("pause_timer", {"user_id": user_id, "entry_id": entry.id}):
             return {"success": False, "message": "Could not pause timer", "error": "database_error"}
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("break_start", entry, occurred_at=entry.paused_at)
         return {"success": True, "message": "Timer paused", "entry": entry}
 
     def resume_timer(self, user_id: int) -> Dict[str, Any]:
@@ -289,12 +310,16 @@ class TimeTrackingService:
             return {"success": False, "message": "No active timer found", "error": "no_active_timer"}
         if entry.user_id != user_id:
             return {"success": False, "message": "You can only resume your own timer", "error": "unauthorized"}
+        resumed_at = local_now()
         try:
             entry.resume_timer()
         except ValueError as e:
             return {"success": False, "message": str(e), "error": "invalid_state"}
         if not safe_commit("resume_timer", {"user_id": user_id, "entry_id": entry.id}):
             return {"success": False, "message": "Could not resume timer", "error": "database_error"}
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("break_end", entry, occurred_at=resumed_at)
         return {"success": True, "message": "Timer resumed", "entry": entry}
 
     def create_manual_entry(
