@@ -381,11 +381,30 @@
       setBodyLocked(false);
       if (lastTrigger) lastTrigger.focus();
     }
+    var originalStartLabel = null;
     function updateAddKind() {
       if (!addKind || !projectWrap || !projectSelect) return;
-      var needsProject = addKind.value === 'work_session';
+      var isSwitch = addKind.value === 'project_switch';
+      var needsProject = addKind.value === 'work_session' || isSwitch;
+      var endWrap = document.getElementById('timelineEndWrap');
+      var endInput = document.getElementById('timelineEndAt');
+      var startWrap = document.getElementById('timelineStartWrap');
+      var startLabel = startWrap ? startWrap.querySelector('label') : null;
+      
+      if (startLabel && !originalStartLabel) {
+          originalStartLabel = startLabel.textContent;
+      }
+      
       projectWrap.classList.toggle('hidden', !needsProject);
       projectSelect.required = needsProject;
+      
+      if (endWrap && endInput) {
+        endWrap.classList.toggle('hidden', isSwitch);
+        endInput.required = !isSwitch;
+      }
+      if (startLabel) {
+        startLabel.textContent = isSwitch ? (document.documentElement.lang === "de" ? "Zeitpunkt" : "Timestamp") : originalStartLabel;
+      }
     }
     function openAdd(minutes) {
       if (!addModal || !addStart || !addEnd) return;

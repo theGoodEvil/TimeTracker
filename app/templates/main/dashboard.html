@@ -253,9 +253,9 @@
     <div class="flex items-start justify-between gap-4"><div><h2 id="timelineAddTitle" class="text-lg font-semibold text-slate-950 dark:text-white">{{ _('Add timeline event') }}</h2><p class="mt-1 text-sm text-slate-500">{{ _('Insert a completed break or work session for today.') }}</p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-timeline-add-close aria-label="{{ _('Close') }}"><i class="fas fa-times"></i></button></div>
     <form method="POST" action="{{ url_for('main.add_timeline_event') }}" class="mt-5 space-y-4">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div><label for="timelineEventKind" class="form-label">{{ _('What do you want to add?') }}</label><select id="timelineEventKind" name="event_kind" class="form-input"><option value="work_session">{{ _('Work session') }}</option><option value="break">{{ _('Break') }}</option></select></div>
+      <div><label for="timelineEventKind" class="form-label">{{ _('What do you want to add?') }}</label><select id="timelineEventKind" name="event_kind" class="form-input"><option value="work_session">{{ _('Work session') }}</option><option value="break">{{ _('Break') }}</option><option value="project_switch">{{ _('Project switch') }}</option></select></div>
       <div id="timelineProjectWrap" class="hidden"><label for="timelineProjectId" class="form-label">{{ _('Project') }}</label><select id="timelineProjectId" name="project_id" class="form-input"><option value="">{{ _('Select project') }}</option>{% for project in active_projects %}<option value="{{ project.id }}">{{ project.code_display }} · {{ project.name }}</option>{% endfor %}</select></div>
-      <div class="grid gap-4 sm:grid-cols-2"><div><label for="timelineStartAt" class="form-label">{{ _('Start') }}</label><input id="timelineStartAt" type="datetime-local" name="start_at" class="form-input" required></div><div><label for="timelineEndAt" class="form-label">{{ _('End') }}</label><input id="timelineEndAt" type="datetime-local" name="end_at" class="form-input" required></div></div>
+      <div class="grid gap-4 sm:grid-cols-2"><div id="timelineStartWrap"><label for="timelineStartAt" class="form-label">{{ _('Start') }}</label><input id="timelineStartAt" type="datetime-local" name="start_at" class="form-input" required></div><div id="timelineEndWrap"><label for="timelineEndAt" class="form-label">{{ _('End') }}</label><input id="timelineEndAt" type="datetime-local" name="end_at" class="form-input" required></div></div>
       <p class="text-xs leading-relaxed text-slate-500">{{ _('Breaks must fit inside one work session. New work sessions cannot overlap existing time.') }}</p>
       <div class="flex justify-end gap-2"><button type="button" class="btn btn-secondary" data-timeline-add-close>{{ _('Cancel') }}</button><button class="btn btn-primary"><i class="fas fa-plus"></i>{{ _('Add to timeline') }}</button></div>
     </form>
@@ -336,6 +336,7 @@
 
 {% endblock %}
 
+{% block scripts_extra %}
 {% if can_edit_timeline %}
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener("DOMContentLoaded", function() {
@@ -362,3 +363,4 @@ document.addEventListener("DOMContentLoaded", function() {
 });
 </script>
 {% endif %}
+{% endblock %}

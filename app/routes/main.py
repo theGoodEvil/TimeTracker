@@ -529,15 +529,86 @@ def add_timeline_event():
     today = local_now().date()
 
     try:
-        if event_kind not in {"break", "work_session"}:
+        if event_kind not in {"break", "work_session", "project_switch"}:
             raise ValueError(_("Choose a valid timeline event."))
-        if not start or not end or end <= start:
-            raise ValueError(_("The end time must be after the start time."))
+            
+        if event_kind != "project_switch":
+            if not start or not end or end <= start:
+                raise ValueError(_("The end time must be after the start time."))
+        else:
+            if not start:
+                raise ValueError(_("Start time is required for a project switch."))
+            end = start # dummy
+
         if start.date() != today or end.date() != today:
             raise ValueError(_("Dashboard timeline events must be within today."))
 
-
-        if event_kind == "break":
+        if event_kind == "project_switch":
+            entry = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.start_time < start,
+                    or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > start),
+                )
+                .order_by(TimeEntry.start_time.desc())
+                .first()
+            )
+            if not entry:
+                raise ValueError(_("A project switch must be placed inside an existing work session."))
+                
+            project_id = request.form.get("project_id", type=int)
+            if not project_id:
+                raise ValueError(_("Please select a project to switch to."))
+            if not user_can_clock_project(current_user, project_id):
+                raise ValueError(_("You do not have access to the selected project."))
+                
+            # Create a duplicate entry from the split point
+            new_entry = TimeEntry(
+                user_id=current_user.id,
+                project_id=project_id,
+                start_time=start,
+                end_time=entry.end_time,
+                source="manual",
+                billable=entry.billable
+            )
+            entry.end_time = start
+            
+            db.session.add(new_entry)
+            db.session.flush()
+            
+            # Transfer breaks that fall after the split
+            breaks = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id).filter(TimerEvent.event_type.in_(["break_start", "break_end"])).all()
+            for b in breaks:
+                if b.occurred_at >= start:
+                    b.time_entry_id = new_entry.id
+            db.session.flush()
+            
+            # Recompute breaks
+            for e in [entry, new_entry]:
+                b_evs = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=e.id).filter(TimerEvent.event_type.in_(["break_start", "break_end"])).order_by(TimerEvent.occurred_at.asc()).all()
+                tot = 0
+                cur = None
+                for b in b_evs:
+                    if b.event_type == "break_start":
+                        cur = b.occurred_at
+                    elif b.event_type == "break_end" and cur:
+                        if b.occurred_at > cur:
+                            tot += int((b.occurred_at - cur).total_seconds())
+                        cur = None
+                e.break_seconds = tot
+                if e.end_time:
+                    e.calculate_duration()
+            
+            switch_event = TimerEvent(
+                user_id=current_user.id,
+                time_entry_id=new_entry.id,
+                related_entry_id=entry.id,
+                event_type="project_switch",
+                occurred_at=start,
+            )
+            db.session.add(switch_event)
+            
+        elif event_kind == "break":
             entry = (
                 TimeEntry.query.filter(
                     TimeEntry.user_id == current_user.id,
