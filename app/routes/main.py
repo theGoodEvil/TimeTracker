@@ -114,6 +114,45 @@ def dashboard():
     from app.services.timer_event_service import build_timeline
 
     today_timeline = build_timeline(current_user, today_entries)
+    
+    timeline_segments = []
+    current_status = "none"
+    last_event = None
+    
+    for event in today_timeline:
+        t = event["event_type"]
+        pos = event["timeline_position"]
+        
+        if last_event and current_status != "none":
+            # Add a segment from last_event to event
+            timeline_segments.append({
+                "type": current_status,
+                "start": last_event["timeline_position"],
+                "width": max(0, pos - last_event["timeline_position"])
+            })
+                
+        if t in ["clock_in", "project_switch", "break_end"]:
+            current_status = "active"
+        elif t == "break_start":
+            current_status = "break"
+        elif t == "clock_out":
+            current_status = "none"
+            
+        last_event = event
+        
+    if last_event and current_status != "none":
+        from app.services.timer_event_service import TIMELINE_START_MINUTE, TIMELINE_END_MINUTE
+        now_dt = local_now()
+        minute = now_dt.hour * 60 + now_dt.minute + now_dt.second / 60
+        span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
+        now_pos = round(max(0, min(100, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
+        if now_pos > last_event["timeline_position"]:
+            timeline_segments.append({
+                "type": current_status,
+                "start": last_event["timeline_position"],
+                "width": max(0, now_pos - last_event["timeline_position"])
+            })
+            
     today_work_seconds = sum(
         entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
         for entry in today_entries
@@ -151,7 +190,8 @@ def dashboard():
         status_action=status_action,
         status_action_at=status_action_at,
         today_timeline=today_timeline,
-        timeline_date=today_local,
+        timeline_segments=timeline_segments,
+        timeline_date=local_now().date(),
         can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
     )
 

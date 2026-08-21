@@ -7,7 +7,7 @@ from app.models import TimerEvent
 from app.utils.db import safe_commit
 
 TIMELINE_START_MINUTE = 8 * 60
-TIMELINE_END_MINUTE = 20 * 60
+TIMELINE_END_MINUTE = 22 * 60
 
 
 def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=None):
