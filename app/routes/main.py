@@ -607,6 +607,9 @@ def add_timeline_event():
                 occurred_at=start,
             )
             db.session.add(switch_event)
+            db.session.flush()
+            entity_id = switch_event.id
+            entity_name = "project_switch"
             
         elif event_kind == "break":
             entry = (
