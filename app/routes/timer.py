@@ -1116,6 +1116,31 @@ def edit_timer(timer_id):
                 
             update_params["break_seconds"] = total_break_sec
 
+            # SYNC WITH TIMER EVENTS
+            from app.models.timer_event import TimerEvent
+            # First delete all existing break events for this entry
+            TimerEvent.query.filter_by(
+                user_id=current_user.id, 
+                time_entry_id=timer.id
+            ).filter(TimerEvent.event_type.in_(["break_start", "break_end"])).delete(synchronize_session=False)
+            
+            # Now add the new valid merged breaks
+            for bs, be in merged_breaks:
+                ev_start = TimerEvent(
+                    user_id=current_user.id,
+                    time_entry_id=timer.id,
+                    event_type="break_start",
+                    occurred_at=bs
+                )
+                ev_end = TimerEvent(
+                    user_id=current_user.id,
+                    time_entry_id=timer.id,
+                    event_type="break_end",
+                    occurred_at=be
+                )
+                db.session.add(ev_start)
+                db.session.add(ev_end)
+
 
         # Call service layer to update
         result = service.update_entry(**update_params)
@@ -1281,6 +1306,12 @@ def delete_timer(timer_id):
 
     # Capture entry info for logging before deletion
     entry_id = timer.id
+    
+    # MANUALLY CASCADE DELETE TimerEvents
+    from app.models.timer_event import TimerEvent
+    TimerEvent.query.filter_by(time_entry_id=entry_id).delete(synchronize_session=False)
+    db.session.commit() # Commit the deletion of subevents before the entry itself
+
     duration_formatted = timer.duration_formatted
     project_name = timer.project.name if timer.project else None
     client_name = timer.client.name if timer.client else None

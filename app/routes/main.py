@@ -231,6 +231,8 @@ def delete_timeline_event():
 
     if event_type == "clock_in":
         # Deleting a clock_in deletes the whole entry
+        from app.models.timer_event import TimerEvent
+        TimerEvent.query.filter_by(time_entry_id=entry.id).delete(synchronize_session=False)
         db.session.delete(entry)
         if safe_commit("delete_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
             flash(_("Work session deleted."), "success")
