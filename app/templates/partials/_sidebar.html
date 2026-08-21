@@ -2,7 +2,7 @@
    is_module_enabled() (app/utils/module_helpers.py). #}
         <aside id="sidebar" class="sidebar-scrollbar-hover w-64 bg-card-light dark:bg-card-dark text-text-light dark:text-text-dark p-4 flex-col hidden md:flex transition-all duration-200 ease-in-out fixed top-0 left-0 h-screen overflow-y-auto z-10" aria-label="{{ _('Main navigation') }}">
             <div class="sidebar-header flex items-center mb-8 gap-1">
-                <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="Logo" class="h-10 w-10 mr-2 shrink-0">
+                <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="Logo" class="h-10 w-10 mr-2 shrink-0 object-contain">
                 <h1 class="text-2xl font-bold text-primary sidebar-header-title min-w-0"><a href="{{ url_for('main.dashboard') }}" class="no-underline">EvilTime</a></h1>
                 <button id="sidebarCollapseBtn" type="button" class="ml-auto shrink-0 p-1.5 rounded hover:bg-background-light dark:hover:bg-background-dark" aria-label="{{ _('Toggle sidebar') }}" title="{{ _('Toggle sidebar') }}">
                     <i id="sidebarCollapseIcon" class="fas fa-angles-left"></i>
@@ -54,6 +54,12 @@
                         <a href="{{ url_for('main.productivity_dashboard') }}" class="sidebar-nav-item flex items-center p-2 rounded-lg border-l-4 {% if ep == 'main.productivity_dashboard' %}border-primary bg-primary/5 dark:bg-primary/10 text-primary font-semibold{% else %}border-transparent text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark{% endif %}" title="{{ _('My productivity') }}">
                             <i class="fas fa-chart-line w-6 text-center"></i>
                             <span class="ml-3 sidebar-label">{{ _('My productivity') }}</span>
+                        </a>
+                    </li>
+                    <li class="mt-1">
+                        <a href="{{ url_for('weekly_goals.index') }}" class="sidebar-nav-item flex items-center p-2 rounded-lg border-l-4 {% if ep.startswith('weekly_goals.') %}border-primary bg-primary/5 dark:bg-primary/10 text-primary font-semibold{% else %}border-transparent text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark{% endif %}" title="{{ _('Weekly overview') }}">
+                            <i class="fas fa-calendar-week w-6 text-center"></i>
+                            <span class="ml-3 sidebar-label">{{ _('Weekly overview') }}</span>
                         </a>
                     </li>
                     <li class="mt-1">
@@ -118,7 +124,6 @@
                             {% set nav_active_kanban = ep.startswith('kanban.') %}
                             {% set nav_active_templates = ep.startswith('time_entry_templates.') %}
                             {% set nav_active_workflows = ep.startswith('workflows.') %}
-                            {% set nav_active_goals = ep.startswith('weekly_goals.') %}
                             {% set nav_active_project_templates = ep.startswith('project_templates.') %}
                             {% set nav_active_workforce = ep.startswith('workforce.') %}
                             {% if is_module_enabled('time_approvals') %}
@@ -170,13 +175,6 @@
                             <li>
                                 <a class="block px-2 py-1 rounded {% if nav_active_kanban %}text-primary font-semibold bg-background-light dark:bg-background-dark{% else %}text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark{% endif %}" href="{{ url_for('kanban.board') }}">
                                     <i class="fas fa-columns w-4 mr-2"></i>{{ _('Kanban Board') }}
-                                </a>
-                            </li>
-                            {% endif %}
-                            {% if is_module_enabled('weekly_goals') %}
-                            <li>
-                                <a class="block px-2 py-1 rounded {% if nav_active_goals %}text-primary font-semibold bg-background-light dark:bg-background-dark{% else %}text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark{% endif %}" href="{{ url_for('weekly_goals.index') }}">
-                                    <i class="fas fa-bullseye w-4 mr-2"></i>{{ _('Weekly Goals') }}
                                 </a>
                             </li>
                             {% endif %}
@@ -739,9 +737,9 @@
                 </ul>
                 <!-- App Version -->
                 <div class="mt-4 pt-3 border-t border-border-light dark:border-border-dark">
-                    <div class="sidebar-version-row flex items-center justify-center px-2 py-1 text-xs text-text-muted-light dark:text-text-muted-dark" title="v{{ app_version }}">
+                    <div class="sidebar-version-row flex items-center justify-center px-2 py-1 text-xs text-text-muted-light dark:text-text-muted-dark" title="{{ app_version }}">
                         <i class="fas fa-code-branch w-4 text-center shrink-0" aria-hidden="true"></i>
-                        <span class="ml-2 sidebar-version-text truncate">v{{ app_version }}</span>
+                        <span class="ml-2 sidebar-version-text truncate">{{ app_version }}</span>
                     </div>
                 </div>
             </div>

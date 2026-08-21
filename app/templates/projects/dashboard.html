@@ -51,10 +51,10 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-text-muted-light dark:text-text-muted-dark text-xs sm:text-sm">{{ _('Total Hours') }}</p>
-                <p class="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{{ "%.1f"|format(project.total_hours) }}</p>
+                <p class="text-xl sm:text-3xl font-bold mt-1 sm:mt-2">{{ project.total_hours|hours_minutes }}</p>
                 {% if budget_data.estimated_hours > 0 %}
                 <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-1">
-                    {{ _('of') }} {{ "%.0f"|format(budget_data.estimated_hours) }} {{ _('estimated') }}
+                    {{ _('of') }} {{ budget_data.estimated_hours|hours_minutes }} {{ _('estimated') }}
                 </p>
                 {% endif %}
             </div>
@@ -196,7 +196,7 @@
                     <span>{{ member.username }}</span>
                 </div>
                 <div class="flex items-center gap-4">
-                    <span class="text-text-muted-light dark:text-text-muted-dark">{{ "%.1f"|format(member.total_hours) }}h</span>
+                    <span class="text-text-muted-light dark:text-text-muted-dark">{{ member.total_hours|hours_minutes }}</span>
                     <span class="font-semibold">{{ "%.1f"|format(member.percentage) }}%</span>
                 </div>
             </div>
@@ -282,7 +282,7 @@
             <div class="p-4 bg-bg-light dark:bg-bg-dark rounded-lg">
                 <div class="flex items-center justify-between mb-2">
                     <h3 class="font-medium">{{ member.username }}</h3>
-                    <span class="text-sm font-semibold text-primary">{{ "%.1f"|format(member.total_hours) }}h</span>
+                    <span class="text-sm font-semibold text-primary">{{ member.total_hours|hours_minutes }}</span>
                 </div>
                 <div class="grid grid-cols-3 gap-2 text-sm text-text-muted-light dark:text-text-muted-dark">
                     <div>
@@ -510,4 +510,3 @@ document.addEventListener('DOMContentLoaded', function() {
 {% endautoescape %}
 </script>
 {% endblock %}
-

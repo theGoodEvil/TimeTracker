@@ -14,7 +14,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
         <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
-            <form method="POST" action="{{ url_for('projects.create_project') }}" novalidate id="createProjectForm" data-validate-form>
+            <form method="POST" action="{{ url_for('projects.create_project') }}" enctype="multipart/form-data" novalidate id="createProjectForm" data-validate-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -45,6 +45,12 @@
                             <button type="button" id="openCreateClientModal" data-client-select-id="client_id" class="text-primary hover:underline">{{ _('Create new client') }}</button>
                         </p>
                     </div>
+                </div>
+
+                <div>
+                    <label for="project_icon" class="form-label">{{ _('Project icon') }}</label>
+                    <input type="file" id="project_icon" name="project_icon" accept="image/png,image/jpeg,image/gif,image/webp" class="form-input">
+                    <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Optional square image, up to 2 MB. Shown in quick project actions.') }}</p>
                 </div>
 
                 <div>
@@ -415,5 +421,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
 

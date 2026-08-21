@@ -6,7 +6,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from app import db, log_event, track_event
-from app.models import TimeEntry, WeeklyTimeGoal
+from app.models import TimeEntry, User, WeeklyTimeGoal
 from app.utils.db import safe_commit
 from app.utils.module_helpers import module_enabled
 
@@ -15,16 +15,29 @@ weekly_goals_bp = Blueprint("weekly_goals", __name__)
 
 @weekly_goals_bp.route("/goals")
 @login_required
-@module_enabled("weekly_goals")
 def index():
     """Display EvilTime's expected/actual calendar-week ledger."""
     current_app.logger.info(f"GET /goals user={current_user.username}")
 
     from app.services.weekly_work_service import WeeklyWorkService
 
-    ledger_rows = WeeklyWorkService.rows(current_user, limit=None)
+    target_user = current_user
+    requested_user_id = request.args.get("user_id", type=int)
+    if requested_user_id and requested_user_id != current_user.id:
+        if not current_user.is_admin:
+            flash(_("You do not have permission to view another user's weekly overview."), "error")
+            return redirect(url_for("weekly_goals.index"))
+        target_user = User.query.get_or_404(requested_user_id)
+
+    ledger_rows = WeeklyWorkService.rows(target_user, limit=None)
+    users = User.query.order_by(User.username).all() if current_user.is_admin else []
     track_event(user_id=current_user.id, event_name="weekly_goals_viewed")
-    return render_template("weekly_goals/index.html", ledger_rows=ledger_rows)
+    return render_template(
+        "weekly_goals/index.html",
+        ledger_rows=ledger_rows,
+        ledger_user=target_user,
+        ledger_users=users,
+    )
 
 
 @weekly_goals_bp.route("/work-weeks/adjust", methods=["POST"])
@@ -44,14 +57,22 @@ def adjust_week():
         flash(_("Enter a valid week and hours between 0 and 168."), "error")
         return redirect(request.referrer or url_for("weekly_goals.index"))
 
+    target_user = current_user
+    target_user_id = request.form.get("user_id", type=int)
+    if target_user_id and target_user_id != current_user.id:
+        if not current_user.is_admin:
+            flash(_("You do not have permission to change another user's weekly hours."), "error")
+            return redirect(url_for("weekly_goals.index"))
+        target_user = User.query.get_or_404(target_user_id)
+
     WeeklyWorkService.upsert_adjustment(
-        current_user,
+        target_user,
         week,
         expected,
         actual_override=actual,
         notes=(request.form.get("notes") or "").strip() or None,
     )
-    if safe_commit("weekly_work_adjustment", {"user_id": current_user.id, "week_start": week.isoformat()}):
+    if safe_commit("weekly_work_adjustment", {"user_id": target_user.id, "week_start": week.isoformat()}):
         flash(_("Calendar week updated."), "success")
     else:
         flash(_("Could not update the calendar week."), "error")

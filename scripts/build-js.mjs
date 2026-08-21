@@ -60,12 +60,7 @@ const CORE_GROUPS = {
   // Gated on `current_user.is_authenticated` — the floating timer bar and idle
   // tracker must not load for anonymous visitors.
   'core-auth': ['floating-actions.js', 'floating-timer-bar.js', 'idle.js'],
-  // These two sit behind *different* Jinja gates in base.html — `ai_enabled` and
-  // `is_admin_user` respectively — so they must stay separate bundles. Merging them
-  // would leak the admin update-checker to non-admins whenever AI is on, and hide it
-  // from admins whenever AI is off.
   'core-ai': ['ai-helper.js'],
-  'core-admin': ['admin-version-update.js'],
   // after the window.__BASE_INIT__ bootstrap
   'core-c': ['base-init.js', 'mobile.js'],
   // after the sidebar + theme inline blocks, and after chart.js vendor

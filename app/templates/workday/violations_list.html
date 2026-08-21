@@ -12,7 +12,7 @@
             <div>
                 <p class="font-medium">{{ _('%(type)s limit', type=v.period_type|capitalize) }} — {{ v.period_start }}{% if v.period_end != v.period_start %} – {{ v.period_end }}{% endif %}</p>
                 <p class="text-sm text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('Limit') }}: {{ "%.1f"|format(v.limit_hours) }}h · {{ _('Actual') }}: {{ "%.1f"|format(v.actual_hours) }}h · +{{ "%.1f"|format(v.hours_over) }}h
+                    {{ _('Limit') }}: {{ v.limit_hours|hours_minutes }} · {{ _('Actual') }}: {{ v.actual_hours|hours_minutes }} · {{ v.hours_over|hours_minutes(true) }}
                 </p>
                 <span class="inline-flex mt-1 px-2 py-0.5 text-xs rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">{{ v.status }}</span>
             </div>

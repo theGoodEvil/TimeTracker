@@ -111,30 +111,13 @@ def register_context_processors(app):
         except Exception:
             pass
 
-        # Determine app version from setup.py (single source of truth)
+        # EvilTime has its own release sequence, independent from upstream.
         try:
-            import os
+            from app.version import get_eviltime_version
 
-            from app.config.analytics_defaults import get_version_from_setup
-
-            # Get version from setup.py
-            version_value = get_version_from_setup()
-
-            # If version is "unknown", fall back to environment variable for dev mode
-            if version_value == "unknown":
-                env_version = os.getenv("APP_VERSION")
-                if env_version:
-                    version_value = env_version
-                else:
-                    # Last resort: use "dev-0" for development
-                    version_value = "dev-0"
-
-            # Strip any leading 'v' prefix to avoid double 'v' in template (e.g., vv3.5.0)
-            if version_value and version_value.startswith("v"):
-                version_value = version_value[1:]
+            version_value = get_eviltime_version()
         except Exception:
-            # Fallback if anything goes wrong
-            version_value = "dev-0"
+            version_value = "evil1.0"
 
         # Current locale code (e.g., 'en', 'de')
         try:

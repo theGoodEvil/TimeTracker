@@ -129,7 +129,7 @@
                             <div>
                                 <p class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Duration') }}</p>
                                 <p class="font-semibold text-text-light dark:text-text-dark">
-                                    {{ "%.2f"|format(approval.time_entry.duration_hours) }} {{ _('hours') }}
+                                    {{ approval.time_entry.duration_hours|hours_minutes }}
                                 </p>
                             </div>
                         </div>

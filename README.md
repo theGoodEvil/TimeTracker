@@ -1,6 +1,8 @@
 # EvilTime
 
-EvilTime is the self-hosted project time-tracking system used by The Good Evil GmbH. It keeps attendance and project tracking in one workflow: users clock directly into a project and clock out when they are finished.
+<p align="center"><img src="app/static/images/eviltime-logo.png" alt="EvilTime googly-eyed alarm clock logo" width="144"></p>
+
+EvilTime is a self-hosted project time-tracking system. It keeps attendance and project tracking in one workflow: users clock directly into a project and clock out when they are finished.
 
 ## What is different in EvilTime?
 
@@ -10,7 +12,11 @@ EvilTime is the self-hosted project time-tracking system used by The Good Evil G
 - Starting a timer without an explicit project uses that default when it is available and active.
 - Timer heartbeat and idle handling preserve healthy project timers instead of stopping them after a short period of browser inactivity.
 - Weekly time can be reviewed and corrected while keeping the underlying project entries visible.
-- The UI, metadata, manifests, and frontend package are branded as EvilTime by The Good Evil GmbH.
+- Weekly expected hours are schedule changes: set them once in the weekly overview and later weeks inherit them until the next change. Administrators can manage the same ledger for each user.
+- Browser notifications can remind a user when a 30-minute break is over.
+- Projects can have uploaded icons, used for one-click recent-project actions on the dashboard.
+- Durations are displayed as hours and minutes (`7:30h`) instead of decimal hours (`7.50h`).
+- The UI, metadata, manifests, and frontend package are branded as EvilTime.
 
 EvilTime also retains the broader project, task, client, reporting, invoicing, API, authentication, and administration capabilities inherited from the upstream application.
 
@@ -117,6 +123,10 @@ docker compose logs -f app
 
 The startup process applies pending Alembic migrations. Persistent data is stored in Docker volumes; do not use `docker compose down -v` unless you intentionally want to delete it.
 
+## EvilTime versions
+
+EvilTime uses its own release sequence, starting at `evil1.0`, and does not follow upstream TimeTracker release numbers. The version lives in [`EVILTIME_VERSION`](EVILTIME_VERSION) and can be overridden for a build with the `EVILTIME_VERSION` environment variable. Upstream update reminders are intentionally disabled.
+
 ## Tests and checks
 
 ```bash
@@ -139,7 +149,7 @@ Some inherited documents still use the original TimeTracker name where they desc
 
 EvilTime is a fork of [DRYTRIX/TimeTracker](https://github.com/DRYTRIX/TimeTracker). We are grateful to the original maintainers and contributors for the application this work builds upon.
 
-EvilTime-specific changes are maintained by The Good Evil GmbH in [Domi2803/EvilTime](https://git.domisbu.de/Domi2803/EvilTime).
+EvilTime-specific changes are maintained in [Domi2803/EvilTime](https://git.domisbu.de/Domi2803/EvilTime).
 
 ## License
 

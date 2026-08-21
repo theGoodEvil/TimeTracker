@@ -2797,7 +2797,7 @@ def pdf_layout_default():
     )
 
 
-@admin_bp.route("/admin/pdf-layout/preview", methods=["POST"])
+@admin_bp.route("/admin/pdf-layout/preview", methods=["GET", "POST"])
 @limiter.limit("60 per minute")
 @login_required
 @admin_or_permission_required("manage_settings")

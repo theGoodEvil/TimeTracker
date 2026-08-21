@@ -463,7 +463,7 @@ window.chartManager = new ChartManager();
 
 // Utility function to format hours
 function formatHours(hours) {
-    return `${hours.toFixed(1)}h`;
+    return window.formatHoursMinutes ? window.formatHoursMinutes(hours) : `${hours.toFixed(1)}h`;
 }
 
 // Utility function to format currency
@@ -473,4 +473,3 @@ function formatCurrency(value, currency = 'USD') {
         currency: currency
     }).format(value);
 }
-

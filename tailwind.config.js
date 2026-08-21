@@ -24,7 +24,7 @@ module.exports = {
       },
       colors: {
         primary: {
-          // The Good Evil GmbH brand green
+          // EvilTime primary green
           50: '#f2f9f4',
           100: '#e1f1e5',
           200: '#c4e3cb',

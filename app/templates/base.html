@@ -64,37 +64,15 @@
                     {% block content %}{% endblock %}
                 </main>
                 {% if current_user.is_authenticated %}
-                <p class="text-center text-xs text-text-muted-light dark:text-text-muted-dark px-4 pb-2 w-full shrink-0">{{ _('EvilTime · The Good Evil GmbH') }}</p>
+                <p class="text-center text-xs text-text-muted-light dark:text-text-muted-dark px-4 pb-2 w-full shrink-0">EvilTime{% if settings and settings.company_name %} · {{ settings.company_name }}{% endif %}</p>
                 {% endif %}
             </div>
         </div>
 
-        {% if is_admin_user %}
-        <div id="adminVersionUpdateRoot" class="hidden fixed bottom-20 right-4 z-[60] max-w-sm w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-xl" role="region" aria-label="{{ _('Software update') }}">
-            <div class="p-4 sm:p-5">
-                <div class="flex items-start gap-3">
-                    <span class="text-2xl shrink-0" aria-hidden="true">&#128640;</span>
-                    <div class="min-w-0 flex-1">
-                        <h2 id="adminVersionUpdateTitle" class="text-sm font-semibold text-text-light dark:text-text-dark"></h2>
-                        <p id="adminVersionUpdatePublished" class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark"></p>
-                        <div id="adminVersionUpdateNotes" class="mt-2 text-sm text-text-light dark:text-text-dark whitespace-pre-wrap break-words max-h-40 overflow-y-auto"></div>
-                        <button type="button" id="adminVersionUpdateReadMore" class="hidden mt-1 text-xs text-primary hover:underline">{{ _('Read more') }}</button>
-                    </div>
-                    <button type="button" id="adminVersionUpdateClose" class="shrink-0 p-1 rounded-md text-text-muted-light hover:bg-background-light dark:text-text-muted-dark dark:hover:bg-background-dark" aria-label="{{ _('Close') }}">&times;</button>
-                </div>
-                <div class="mt-4 flex flex-wrap gap-2">
-                    <a id="adminVersionUpdateViewRelease" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark">{{ _('View Release') }}</a>
-                    <button type="button" id="adminVersionUpdateDismiss" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-border-light dark:border-border-dark text-sm">{{ _('Dismiss') }}</button>
-                    <button type="button" id="adminVersionUpdateDismissVersion" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-border-light dark:border-border-dark text-sm">{{ _("Don't show again for this version") }}</button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
         {% if current_user.is_authenticated %}
-        {# Floating hub: Actions, Chat, AI. Admin: whole dock lifted to clear #adminVersionUpdateRoot. #}
+        {# Floating hub: Actions, Chat, AI. #}
         <div id="fabDock"
-             class="{% if is_admin_user %}fab-dock--admin{% endif %}"
+             class=""
              aria-label="{{ _('Quick actions dock') }}"
              data-dashboard-url="{{ url_for('main.dashboard') }}"
              data-manual-entry-url="{{ url_for('timer.manual_entry') }}"
@@ -217,9 +195,6 @@
     {% if ai_enabled %}
     <script src="{{ asset_url('core-ai') }}"></script>
     {% endif %}
-    {% endif %}
-    {% if is_admin_user %}
-    <script src="{{ asset_url('core-admin') }}"></script>
     {% endif %}
     <script nonce="{{ csp_nonce() }}">window.__BASE_INIT__={timerStatus:"{{ url_for('timer.timer_status') }}",stopTimer:"{{ url_for('timer.stop_timer') }}",dashboard:"{{ url_for('main.dashboard') }}",manualEntry:"{{ url_for('timer.manual_entry') }}",newTask:"{{ url_for('tasks.create_task') }}"};</script>
     <script src="{{ asset_url('core-c') }}"></script>

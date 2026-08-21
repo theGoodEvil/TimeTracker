@@ -187,7 +187,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
             <h6 class="text-sm text-text-muted-light dark:text-text-muted-dark mb-1">{{ _('Total Hours') }}</h6>
-            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ "%.2f"|format(resource_allocation.total_hours) }}</p>
+            <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ resource_allocation.total_hours|hours_minutes }}</p>
         </div>
         <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
             <h6 class="text-sm text-text-muted-light dark:text-text-muted-dark mb-1">{{ _('Total Cost') }}</h6>
@@ -216,7 +216,7 @@
                     <td class="p-4" data-label="Team Member">
                         <strong>{{ user.username }}</strong>
                     </td>
-                    <td class="p-4" data-label="Hours">{{ "%.2f"|format(user.hours) }}</td>
+                    <td class="p-4" data-label="Hours">{{ user.hours|hours_minutes }}</td>
                     <td class="p-4" data-label="Cost">{{ user.cost|format_currency }}</td>
                     <td class="p-4" data-label="Hours %">
                         <div class="flex items-center gap-2">

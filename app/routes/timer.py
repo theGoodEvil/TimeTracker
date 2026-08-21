@@ -849,6 +849,11 @@ def timer_status():
                 "duration_formatted": active_timer.duration_formatted,
                 "paused": getattr(active_timer, "is_paused", False),
                 "paused_at": active_timer.paused_at.isoformat() if active_timer.paused_at else None,
+                "paused_duration_seconds": (
+                    max(0, int((local_now() - active_timer._naive_dt(active_timer.paused_at)).total_seconds()))
+                    if active_timer.paused_at
+                    else 0
+                ),
                 "break_seconds": getattr(active_timer, "break_seconds", None) or 0,
                 "break_formatted": getattr(active_timer, "break_formatted", "00:00:00"),
             },

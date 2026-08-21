@@ -71,7 +71,14 @@ class WeeklyWorkService:
             projects_by_week[week][project_name] += max(0, seconds) / 3600
 
         current_week = cls.week_start(local_now().date(), user)
-        weeks = set(projects_by_week) | set(goal_by_week) | {current_week}
+        source_weeks = set(projects_by_week) | set(goal_by_week) | {current_week}
+        first_week = min(source_weeks)
+        last_week = max(source_weeks) if include_future else current_week
+        weeks = set()
+        cursor = first_week
+        while cursor <= last_week:
+            weeks.add(cursor)
+            cursor += timedelta(days=7)
         if not include_future:
             weeks = {week for week in weeks if week <= current_week}
 
@@ -115,6 +122,35 @@ class WeeklyWorkService:
         return rows[:limit] if limit else rows
 
     @classmethod
+    def current_week_days(cls, user):
+        """Return a compact Monday–Sunday ledger for dashboard display."""
+        today = local_now().date()
+        start = cls.week_start(today, user)
+        end = start + timedelta(days=6)
+        totals = defaultdict(float)
+        entries = TimeEntry.query.filter(
+            TimeEntry.user_id == user.id,
+            TimeEntry.start_time >= date_to_datetime(start),
+            TimeEntry.start_time < date_to_datetime(end + timedelta(days=1)),
+        ).all()
+        for entry in entries:
+            seconds = entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
+            totals[entry.start_time.date()] += max(0, seconds) / 3600
+
+        weekly_expected = cls.expected_hours(user, start)
+        weekday_expected = weekly_expected / 5 if weekly_expected else 0
+        return [
+            {
+                "date": start + timedelta(days=offset),
+                "hours": round(totals[start + timedelta(days=offset)], 2),
+                "expected_hours": round(weekday_expected, 2) if offset < 5 else 0,
+                "is_today": start + timedelta(days=offset) == today,
+                "is_future": start + timedelta(days=offset) > today,
+            }
+            for offset in range(7)
+        ]
+
+    @classmethod
     def upsert_adjustment(cls, user, week_start: date, expected_hours: float, actual_override=_UNSET, notes=None):
         """Create or update a weekly ledger row.
 
@@ -134,3 +170,10 @@ class WeeklyWorkService:
         goal.notes = notes or None
         goal.status = "active"
         return goal
+
+
+def date_to_datetime(value: date):
+    """Keep ledger range queries compatible with the app's naive timestamps."""
+    from datetime import datetime, time
+
+    return datetime.combine(value, time.min)

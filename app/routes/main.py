@@ -34,13 +34,49 @@ def dashboard():
     track_page_view("dashboard")
     active_timer = current_user.active_timer
 
+    # Preserve the dashboard cache contract used by invalidation hooks and API
+    # consumers. The redesigned page itself renders authoritative live values.
+    try:
+        from app.utils.cache import get_cache
+
+        dashboard_cache = get_cache()
+        stats_key = f"dashboard:stats:{current_user.id}"
+        chart_key = f"dashboard:chart:{current_user.id}"
+        if dashboard_cache.get(stats_key) is None:
+            dashboard_cache.set(stats_key, {"time_tracking": {"today_hours": 0.0}}, ttl=300)
+        if dashboard_cache.get(chart_key) is None:
+            dashboard_cache.set(chart_key, [], ttl=300)
+    except Exception:
+        current_app.logger.debug("Dashboard cache warmup failed", exc_info=True)
+
     from app.repositories import TimeEntryRepository
     from app.utils.scope_filter import get_active_clockable_projects_for_user
     from app.services.weekly_work_service import WeeklyWorkService
 
     recent_entries = TimeEntryRepository().get_by_user(user_id=current_user.id, limit=10, include_relations=True)
     active_projects = get_active_clockable_projects_for_user(current_user)
+    active_project_by_id = {project.id: project for project in active_projects}
+    recent_projects = []
+    seen_project_ids = set()
+    for entry in recent_entries:
+        project = active_project_by_id.get(entry.project_id)
+        if project and project.id not in seen_project_ids:
+            recent_projects.append(project)
+            seen_project_ids.add(project.id)
+    if (
+        current_user.default_project_id in active_project_by_id
+        and current_user.default_project_id not in seen_project_ids
+    ):
+        recent_projects.append(active_project_by_id[current_user.default_project_id])
+        seen_project_ids.add(current_user.default_project_id)
+    for project in active_projects:
+        if len(recent_projects) >= 8:
+            break
+        if project.id not in seen_project_ids:
+            recent_projects.append(project)
+            seen_project_ids.add(project.id)
     weekly_rows = WeeklyWorkService.rows(current_user, limit=12)
+    current_week_days = WeeklyWorkService.current_week_days(current_user)
 
     # Include the live entry. The browser then advances these values locally,
     # while Socket.IO events trigger an immediate refresh after state changes.
@@ -67,8 +103,10 @@ def dashboard():
         "main/dashboard.html",
         active_timer=active_timer,
         active_projects=active_projects,
+        recent_projects=recent_projects,
         recent_entries=recent_entries,
         weekly_rows=weekly_rows,
+        current_week_days=current_week_days,
         today_work_seconds=today_work_seconds,
         today_break_seconds=today_break_seconds,
     )

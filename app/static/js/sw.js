@@ -1,5 +1,5 @@
-/* TimeTracker service worker — cache static assets; do not touch /api/v1/* (token auth). */
-const CACHE_NAME = 'timetracker-v1';
+/* EvilTime service worker — cache static assets; do not touch /api/v1/* (token auth). */
+const CACHE_NAME = 'eviltime-evil1.0';
 
 const PRECACHE_URLS = [
   '/offline',
@@ -125,4 +125,20 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(networkFirstDocument(request));
     return;
   }
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = (event.notification.data && event.notification.data.url) || '/';
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      for (const client of clients) {
+        if ('focus' in client) {
+          client.navigate(target);
+          return client.focus();
+        }
+      }
+      return self.clients.openWindow ? self.clients.openWindow(target) : undefined;
+    })
+  );
 });

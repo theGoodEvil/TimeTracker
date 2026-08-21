@@ -53,8 +53,6 @@ EvilTime exposes two JSON HTTP surfaces. **This OpenAPI document describes only 
 
 2. **`/api/*` (not fully documented here)** — Same-origin **session** JSON used by the **logged-in web UI** (Flask-Login cookie): search, timer helpers, notifications, dashboard fragments, uploads, and similar. These routes may change with the UI. Where a v1 equivalent exists, legacy `/api` routes may return **`X-API-Deprecated: true`** and a **`Link`** header with `rel="successor-version"` pointing at the v1 path. **Integrations should not rely on `/api/*`.**
 
-**Exception:** a few `/api` routes (for example version check/dismiss) may accept **either** session or token for admin tooling; see product docs for details.
-
 ## Authentication (paths under `/api/v1` in this spec)
 
 All **documented** API endpoints use authentication as described below. You can obtain an API token from the admin dashboard.
@@ -167,7 +165,7 @@ All timestamps use ISO 8601 format:
 
 Example: `2024-01-15T14:30:00Z`
             """,
-            "contact": {"name": "EvilTime API Support · The Good Evil GmbH"},
+            "contact": {"name": "EvilTime API Support"},
             "license": {"name": "MIT"},
         },
         "servers": [

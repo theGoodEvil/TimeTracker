@@ -14,7 +14,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
         <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
-            <form method="POST" action="{{ url_for('projects.edit_project', project_id=project.id) }}" novalidate data-validate-form>
+            <form method="POST" action="{{ url_for('projects.edit_project', project_id=project.id) }}" enctype="multipart/form-data" novalidate data-validate-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -41,6 +41,16 @@
                         {% endif %}
                         <p class="text-xs mt-1"><a href="{{ url_for('clients.create_client') }}" class="text-primary hover:underline">{{ _('Create new client') }}</a></p>
                     </div>
+                </div>
+
+                <div>
+                    <label for="project_icon" class="form-label">{{ _('Project icon') }}</label>
+                    <div class="flex items-center gap-3">
+                        {% if project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=project.icon_filename) }}" alt="" class="h-12 w-12 rounded-xl object-cover">{% endif %}
+                        <input type="file" id="project_icon" name="project_icon" accept="image/png,image/jpeg,image/gif,image/webp" class="form-input">
+                    </div>
+                    {% if project.icon_filename %}<label class="mt-2 inline-flex items-center gap-2 text-sm"><input type="checkbox" name="remove_project_icon" value="1"> {{ _('Remove current icon') }}</label>{% endif %}
+                    <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Optional square image, up to 2 MB. Shown in quick project actions.') }}</p>
                 </div>
 
                 <div>
@@ -223,5 +233,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
 

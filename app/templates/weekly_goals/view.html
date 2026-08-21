@@ -139,7 +139,7 @@
                 </div>
                 <div class="flex items-center space-x-4">
                     <span class="text-sm text-gray-600 dark:text-gray-400">
-                        {{ "%.2f"|format(hours) }} hours
+                        {{ hours|hours_minutes }}
                     </span>
                     <div class="w-32 bg-gray-200 dark:bg-gray-700 rounded-full h-2">
                         {% set work_days = 5 if goal.exclude_weekends else 7 %}
@@ -206,7 +206,7 @@
                         {{ entry.duration_formatted }}
                     </p>
                     <p class="text-xs text-gray-500 dark:text-gray-400">
-                        {{ "%.2f"|format(entry.duration_seconds / 3600) }}h
+                        {{ (entry.duration_seconds / 3600)|hours_minutes }}
                     </p>
                 </div>
             </div>
@@ -229,4 +229,3 @@
     {% endif %}
 </div>
 {% endblock %}
-

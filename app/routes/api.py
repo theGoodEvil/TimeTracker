@@ -256,62 +256,6 @@ def ai_suggest():
     return jsonify({"ok": True, "suggestions": unique[:5]})
 
 
-def _effective_user_for_version_api():
-    """Session user, or API token user (Bearer / X-API-Key). Used for version check routes."""
-    if getattr(current_user, "is_authenticated", False):
-        return current_user
-    from app.utils.api_auth import authenticate_token, extract_token_from_request
-
-    token = extract_token_from_request()
-    if not token:
-        return None
-    user, _api_token, _err = authenticate_token(token, record_usage=False)
-    return user
-
-
-@api_bp.route("/api/version/check")
-def api_version_check():
-    """Admin only: compare installed version to latest GitHub release (cached)."""
-    user = _effective_user_for_version_api()
-    if user is None:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    if not user.is_admin:
-        return jsonify({"error": "forbidden", "message": "Admin only"}), 403
-    from app.services.version_service import VersionService
-
-    return jsonify(VersionService.build_check_response(user))
-
-
-@api_bp.route("/api/version/dismiss", methods=["POST"])
-def api_version_dismiss():
-    """Admin only: remember not to show update popup for this normalized release version."""
-    user = _effective_user_for_version_api()
-    if user is None:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    if not user.is_admin:
-        return jsonify({"error": "forbidden", "message": "Admin only"}), 403
-    data = request.get_json(silent=True) or {}
-    raw = data.get("latest_version")
-    if not isinstance(raw, str) or not raw.strip():
-        return jsonify({"error": "latest_version is required"}), 400
-
-    from app.utils.version_compare import normalize_version_tag
-
-    norm = normalize_version_tag(raw)
-    if not norm:
-        current_app.logger.warning(
-            "Version dismiss: invalid latest_version from admin user_id=%s: %r",
-            user.id,
-            raw,
-        )
-        return jsonify({"error": "invalid latest_version"}), 400
-    user.dismissed_release_version = norm
-    db.session.add(user)
-    if not safe_commit():
-        return jsonify({"error": "save_failed"}), 500
-    return jsonify({"ok": True})
-
-
 @api_bp.route("/api/timer/status")
 @login_required
 @deprecated_session_api("/api/v1/timer/status")
@@ -335,6 +279,11 @@ def timer_status():
                 "duration_formatted": active_timer.duration_formatted,
                 "paused": active_timer.is_paused,
                 "paused_at": active_timer.paused_at.isoformat() if active_timer.paused_at else None,
+                "paused_duration_seconds": (
+                    max(0, int((local_now() - active_timer._naive_dt(active_timer.paused_at)).total_seconds()))
+                    if active_timer.paused_at
+                    else 0
+                ),
                 "break_seconds": active_timer.break_seconds or 0,
                 "idle_notified": bool(active_timer.idle_notified_at),
                 "last_heartbeat_at": (

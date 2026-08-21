@@ -371,7 +371,7 @@ class TestUserSettingsUpdate:
         db.session.refresh(user)
         assert user.default_project_id == project.id
 
-    def test_weekly_hours_effective_date_creates_schedule_change(self, client, user):
+    def test_weekly_schedule_changes_are_not_created_from_settings(self, client, user):
         with client.session_transaction() as sess:
             sess["_user_id"] = str(user.id)
 
@@ -386,9 +386,9 @@ class TestUserSettingsUpdate:
         )
 
         assert response.status_code == 200
-        goal = WeeklyTimeGoal.query.filter_by(user_id=user.id).one()
-        assert goal.target_hours == 32
-        assert goal.actual_hours_override is None
+        assert WeeklyTimeGoal.query.filter_by(user_id=user.id).count() == 0
+        db.session.refresh(user)
+        assert user.standard_hours_per_week == 32
 
     def test_update_standard_hours_per_week_validation(self, client, user):
         """Test validation of standard hours per week (must be between 1 and 168)."""

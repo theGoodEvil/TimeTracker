@@ -3,59 +3,113 @@
 {% block content %}
 {% set is_paused = active_timer and active_timer.is_paused %}
 {% set active_project_name = active_timer.project.name if active_timer and active_timer.project else _('Legacy unassigned time') %}
-{% set state_color = 'bg-amber-400' if is_paused else ('bg-emerald-500' if active_timer else 'bg-red-500') %}
-{% set state_ring = 'ring-amber-400/20' if is_paused else ('ring-emerald-500/20' if active_timer else 'ring-red-500/20') %}
-<div class="mx-auto max-w-6xl space-y-6 pb-10">
-  <header class="relative overflow-hidden rounded-3xl border border-primary/20 bg-white p-6 shadow-tt-card dark:bg-slate-900 sm:p-8">
-    <div class="absolute -right-20 -top-28 h-72 w-72 rounded-full bg-primary/10 blur-3xl"></div>
-    <div class="relative flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-      <div>
-        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-primary">The Good Evil GmbH</p>
-        <h1 class="text-3xl font-bold tracking-tight text-slate-950 dark:text-white sm:text-4xl">{{ _('Your workday') }}</h1>
-        <div class="mt-4 flex items-center gap-3">
-          <span class="relative flex h-3 w-3">{% if active_timer and not is_paused %}<span class="absolute inline-flex h-full w-full animate-ping rounded-full {{ state_color }} opacity-50"></span>{% endif %}<span class="relative inline-flex h-3 w-3 rounded-full {{ state_color }} ring-8 {{ state_ring }}"></span></span>
-          <span class="font-medium text-slate-700 dark:text-slate-200">{% if is_paused %}{{ _('On break') }}{% elif active_timer %}{{ _('Working on %(project)s', project=active_project_name) }}{% else %}{{ _('Clocked out') }}{% endif %}</span>
-        </div>
-      </div>
-      <div class="grid grid-cols-2 gap-3 sm:min-w-[25rem]">
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/70"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Worked today') }}</p><p id="eviltime-today-work" data-seconds="{{ today_work_seconds }}" class="mt-1 font-mono text-2xl font-bold tabular-nums text-slate-950 dark:text-white">00:00:00</p></div>
-        <div class="rounded-2xl border border-slate-200 bg-slate-50/80 p-4 dark:border-slate-700 dark:bg-slate-800/70"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Breaks today') }}</p><p id="eviltime-today-break" data-seconds="{{ today_break_seconds }}" class="mt-1 font-mono text-2xl font-bold tabular-nums text-slate-950 dark:text-white">00:00:00</p></div>
-      </div>
+{% set current_week = weekly_rows[0] if weekly_rows else none %}
+{% set day_names = [_('Mon'), _('Tue'), _('Wed'), _('Thu'), _('Fri'), _('Sat'), _('Sun')] %}
+
+<div class="mx-auto max-w-7xl space-y-4 pb-10">
+  <header class="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      {% if settings and settings.company_name %}<p class="text-xs font-semibold uppercase tracking-widest text-primary">{{ settings.company_name }}</p>{% endif %}
+      <h1 class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{{ _('Dashboard') }}</h1>
+      <p class="text-sm text-slate-500">{{ _('Track project time and see your week at a glance.') }}</p>
     </div>
+    <a href="{{ url_for('weekly_goals.index') }}" class="text-sm font-medium text-primary hover:underline">{{ _('Open weekly overview') }} <i class="fas fa-arrow-right ml-1"></i></a>
   </header>
 
-  <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-tt-soft dark:border-slate-700 dark:bg-slate-900 sm:p-6">
-    {% if active_timer %}
-    <div class="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
-      <div class="min-w-0"><div class="flex items-center gap-3"><div class="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"><i class="fas fa-folder"></i></div><div class="min-w-0"><p class="text-sm text-slate-500">{{ _('Current project') }}</p><h2 class="truncate text-xl font-semibold text-slate-950 dark:text-white">{{ active_project_name }}</h2></div></div><p id="eviltime-active-timer" data-seconds="{{ active_timer.current_duration_seconds }}" class="mt-5 font-mono text-4xl font-bold tracking-tight tabular-nums text-slate-950 dark:text-white sm:text-5xl">00:00:00</p>{% if active_timer.notes %}<p class="mt-2 max-w-2xl text-sm text-slate-500">{{ active_timer.notes }}</p>{% endif %}</div>
-      <div class="flex flex-col gap-3 sm:min-w-[22rem]">
-        <div class="grid grid-cols-2 gap-3">
-          {% if is_paused %}<form method="POST" action="{{ url_for('timer.resume_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary w-full"><i class="fas fa-play mr-2"></i>{{ _('Back') }}</button></form>{% else %}<form method="POST" action="{{ url_for('timer.pause_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary w-full"><i class="fas fa-mug-hot mr-2"></i>{{ _('Take break') }}</button></form>{% endif %}
-          <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger w-full"><i class="fas fa-stop mr-2"></i>{{ _('Clock out') }}</button></form>
+  <div class="grid gap-4 lg:grid-cols-12">
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:col-span-8">
+      <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+        <div class="min-w-0">
+          <div class="flex items-center gap-2 text-sm font-medium {% if is_paused %}text-amber-600{% elif active_timer %}text-emerald-600{% else %}text-slate-500{% endif %}">
+            <span class="h-2.5 w-2.5 rounded-full {% if is_paused %}bg-amber-500{% elif active_timer %}bg-emerald-500{% else %}bg-slate-400{% endif %}"></span>
+            {% if is_paused %}{{ _('On break') }}{% elif active_timer %}{{ _('Clocked in') }}{% else %}{{ _('Clocked out') }}{% endif %}
+          </div>
+          {% if active_timer %}
+            <h2 class="mt-2 truncate text-xl font-semibold text-slate-950 dark:text-white">{{ active_project_name }}</h2>
+            <p id="eviltime-active-timer" data-seconds="{{ active_timer.current_duration_seconds }}" class="mt-1 font-mono text-4xl font-semibold tabular-nums tracking-tight">00:00:00</p>
+          {% else %}
+            <h2 class="mt-2 text-xl font-semibold text-slate-950 dark:text-white">{{ _('What are you working on?') }}</h2>
+            <p class="mt-1 text-sm text-slate-500">{{ _('Choose a project to clock in.') }}</p>
+          {% endif %}
         </div>
-        <form method="POST" action="{{ url_for('timer.switch_timer') }}" class="flex gap-2"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="project_id" required class="form-input min-w-0 flex-1"><option value="">{{ _('Switch project…') }}</option>{% for project in active_projects if project.id != active_timer.project_id %}<option value="{{ project.id }}">{{ project.name }}</option>{% endfor %}</select><button class="btn btn-secondary shrink-0">{{ _('Switch') }}</button></form>
+
+        <div class="w-full shrink-0 sm:w-auto sm:min-w-80">
+          {% if active_timer %}
+            <div class="grid grid-cols-2 gap-2">
+              {% if is_paused %}
+              <form method="POST" action="{{ url_for('timer.resume_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary w-full"><i class="fas fa-play mr-2"></i>{{ _('End break') }}</button></form>
+              {% else %}
+              <form method="POST" action="{{ url_for('timer.pause_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary w-full"><i class="fas fa-mug-hot mr-2"></i>{{ _('Take break') }}</button></form>
+              {% endif %}
+              <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger w-full"><i class="fas fa-stop mr-2"></i>{{ _('Clock out') }}</button></form>
+            </div>
+          {% else %}
+            <form method="POST" action="{{ url_for('timer.start_timer') }}" class="flex gap-2">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <select name="project_id" class="form-input min-w-0 flex-1" {% if not current_user.default_project_id %}required{% endif %}>
+                <option value="">{% if current_user.default_project %}{{ _('Default: %(project)s', project=current_user.default_project.name) }}{% else %}{{ _('Choose project…') }}{% endif %}</option>
+                {% for project in active_projects %}<option value="{{ project.id }}">{{ project.name }}</option>{% endfor %}
+              </select>
+              <button class="btn btn-primary shrink-0"><i class="fas fa-play mr-2"></i>{{ _('Clock in') }}</button>
+            </form>
+          {% endif %}
+        </div>
       </div>
-    </div>
-    {% else %}
-    <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
-      <div><h2 class="text-xl font-semibold text-slate-950 dark:text-white">{{ _('What are you working on?') }}</h2><p class="mt-1 text-sm text-slate-500">{{ _('Clocking into a project starts your workday. There is no separate attendance timer.') }}</p></div>
-      <form method="POST" action="{{ url_for('timer.start_timer') }}" class="flex w-full max-w-xl flex-col gap-2 sm:flex-row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><select name="project_id" class="form-input min-w-0 flex-1" {% if not current_user.default_project_id %}required{% endif %}><option value="">{% if current_user.default_project %}{{ _('Default: %(project)s', project=current_user.default_project.name) }}{% else %}{{ _('Choose project…') }}{% endif %}</option>{% for project in active_projects %}<option value="{{ project.id }}">{{ project.name }}</option>{% endfor %}</select><button class="btn btn-primary shrink-0 px-6"><i class="fas fa-play mr-2"></i>{{ _('Clock in') }}</button></form>
-    </div>
-    {% endif %}
-  </section>
 
-  <section class="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-tt-soft dark:border-slate-700 dark:bg-slate-900">
-    <div class="flex flex-col gap-3 border-b border-slate-200 p-5 dark:border-slate-700 sm:flex-row sm:items-center sm:justify-between sm:p-6"><div><h2 class="text-xl font-semibold text-slate-950 dark:text-white">{{ _('Weekly balance') }}</h2><p class="mt-1 text-sm text-slate-500">{{ _('Expected, worked and overtime by calendar week. Expand a week for projects or migration corrections.') }}</p></div><details class="relative"><summary class="btn btn-secondary cursor-pointer list-none"><i class="fas fa-plus mr-2"></i>{{ _('Add week') }}</summary><form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="absolute right-0 z-20 mt-2 w-80 space-y-3 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl dark:border-slate-700 dark:bg-slate-800"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="block text-sm font-medium">{{ _('Week starting') }}<input type="date" name="week_start" required class="form-input mt-1"></label><label class="block text-sm font-medium">{{ _('Expected hours') }}<input type="number" name="expected_hours" min="0" max="168" step="0.25" required class="form-input mt-1"></label><label class="block text-sm font-medium">{{ _('Actual hours (optional)') }}<input type="number" name="actual_hours" min="0" max="168" step="0.25" class="form-input mt-1"></label><button class="btn btn-primary w-full">{{ _('Save week') }}</button></form></details></div>
-    <div class="divide-y divide-slate-200 dark:divide-slate-700">
-      <div class="hidden grid-cols-[1.25fr_repeat(4,1fr)_2rem] gap-4 px-6 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 md:grid"><span>{{ _('Calendar week') }}</span><span>{{ _('Expected') }}</span><span>{{ _('Worked') }}</span><span>{{ _('Balance') }}</span><span>{{ _('Overtime total') }}</span><span></span></div>
-      {% for row in weekly_rows %}<details class="group"><summary class="grid cursor-pointer list-none grid-cols-2 gap-3 px-5 py-4 hover:bg-slate-50 dark:hover:bg-slate-800/60 md:grid-cols-[1.25fr_repeat(4,1fr)_2rem] md:items-center md:px-6"><div><span class="font-semibold text-slate-950 dark:text-white">KW {{ '%02d'|format(row.calendar_week) }}</span><span class="ml-2 text-xs text-slate-500">{{ row.week_start.strftime('%d.%m.') }}–{{ row.week_end.strftime('%d.%m.%Y') }}</span></div><div><span class="md:hidden text-xs text-slate-500">{{ _('Expected') }} · </span>{{ '%.2f'|format(row.expected_hours) }}h</div><div><span class="md:hidden text-xs text-slate-500">{{ _('Worked') }} · </span><strong>{{ '%.2f'|format(row.actual_hours) }}h</strong>{% if row.actual_hours_override is not none %}<span class="ml-1 text-xs text-primary" title="{{ _('Weekly override') }}">*</span>{% endif %}</div><div class="font-semibold {% if row.balance_hours > 0 %}text-emerald-600{% elif row.balance_hours < 0 %}text-red-600{% else %}text-slate-500{% endif %}">{% if row.balance_hours > 0 %}+{% endif %}{{ '%.2f'|format(row.balance_hours) }}h</div><div class="font-semibold {% if row.cumulative_overtime >= 0 %}text-emerald-600{% else %}text-red-600{% endif %}">{% if row.cumulative_overtime > 0 %}+{% endif %}{{ '%.2f'|format(row.cumulative_overtime) }}h</div><i class="fas fa-chevron-down text-slate-400 transition group-open:rotate-180"></i></summary>
-        <div class="grid gap-5 bg-slate-50 px-5 py-5 dark:bg-slate-800/40 md:grid-cols-2 md:px-6"><div><h3 class="mb-3 text-sm font-semibold uppercase tracking-wider text-slate-500">{{ _('Projects') }}</h3>{% if row.projects %}<div class="space-y-2">{% for project in row.projects %}<div class="flex justify-between rounded-xl bg-white px-3 py-2 text-sm dark:bg-slate-800"><span>{{ project.name }}</span><strong>{{ '%.2f'|format(project.hours) }}h</strong></div>{% endfor %}</div>{% else %}<p class="text-sm text-slate-500">{{ _('No project entries. This week does not affect totals unless you save an adjustment.') }}</p>{% endif %}</div>
-          <form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="grid grid-cols-2 gap-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="week_start" value="{{ row.week_start.isoformat() }}"><label class="text-sm">{{ _('Expected hours') }}<input type="number" name="expected_hours" min="0" max="168" step="0.25" value="{{ row.expected_hours }}" required class="form-input mt-1"></label><label class="text-sm">{{ _('Actual override') }}<input type="number" name="actual_hours" min="0" max="168" step="0.25" value="{{ row.actual_hours_override if row.actual_hours_override is not none else '' }}" placeholder="{{ row.tracked_hours }}" class="form-input mt-1"></label><label class="col-span-2 text-sm">{{ _('Note') }}<input type="text" name="notes" value="{{ row.goal.notes if row.goal and row.goal.notes else '' }}" class="form-input mt-1"></label><button class="btn btn-primary col-span-2 sm:col-span-1">{{ _('Save adjustment') }}</button></form></div>
-      </details>{% endfor %}
-    </div>
-  </section>
+      {% if recent_projects %}
+      <div class="mt-5 border-t border-slate-100 pt-4 dark:border-slate-800">
+        <div class="mb-3 flex items-center justify-between"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Recent projects') }}</p><p class="text-xs text-slate-400">{{ _('Click to clock in or switch') }}</p></div>
+        <div class="flex flex-wrap gap-2" aria-label="{{ _('Quick project actions') }}">
+          {% for project in recent_projects %}
+          {% set is_current = active_timer and active_timer.project_id == project.id %}
+          <form method="POST" action="{{ url_for('timer.switch_timer') if active_timer else url_for('timer.start_timer') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="project_id" value="{{ project.id }}">
+            <button type="submit" title="{{ project.name }}{% if is_current %} · {{ _('Currently tracking') }}{% elif active_timer %} · {{ _('Switch project') }}{% else %} · {{ _('Clock in') }}{% endif %}" aria-label="{{ project.name }}" class="group relative flex h-11 w-11 items-center justify-center overflow-hidden rounded-full border-2 {% if is_current %}border-emerald-500 ring-2 ring-emerald-500/20{% else %}border-white shadow-sm ring-1 ring-slate-200 hover:border-primary dark:border-slate-900 dark:ring-slate-700{% endif %}" {% if is_current %}disabled{% endif %}>
+              {% if project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=project.icon_filename) }}" alt="" class="h-full w-full object-cover">
+              {% else %}<span class="flex h-full w-full items-center justify-center text-xs font-bold text-white" style="background-color: {{ project.color or '#64748b' }}">{{ project.code_display[:3] }}</span>{% endif %}
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </section>
 
-  <section class="rounded-3xl border border-slate-200 bg-white p-5 shadow-tt-soft dark:border-slate-700 dark:bg-slate-900 sm:p-6"><div class="mb-4 flex items-center justify-between"><h2 class="text-xl font-semibold text-slate-950 dark:text-white">{{ _('Recent project time') }}</h2><a href="{{ url_for('timer.time_entries_overview') }}" class="text-sm font-medium text-primary hover:underline">{{ _('All entries') }}</a></div><div class="divide-y divide-slate-100 dark:divide-slate-800">{% for entry in recent_entries[:6] %}<div class="flex items-center justify-between gap-4 py-3"><div class="min-w-0"><p class="truncate font-medium text-slate-900 dark:text-white">{{ entry.project.name if entry.project else _('Legacy unassigned time') }}</p><p class="text-sm text-slate-500">{{ entry.start_time|user_date }} · {{ entry.start_time|user_time }}</p></div><span class="font-mono font-semibold tabular-nums">{{ entry.duration_formatted }}</span></div>{% else %}<p class="py-8 text-center text-sm text-slate-500">{{ _('No project time yet.') }}</p>{% endfor %}</div></section>
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900 lg:col-span-4">
+      <div class="flex items-start justify-between gap-3"><div><h2 class="font-semibold text-slate-950 dark:text-white">{{ _('This week') }}</h2><p class="text-xs text-slate-500">{% if current_week %}KW {{ '%02d'|format(current_week.calendar_week) }} · {{ current_week.week_start.strftime('%d.%m.') }}–{{ current_week.week_end.strftime('%d.%m.') }}{% endif %}</p></div><i class="fas fa-calendar-week text-primary"></i></div>
+      <div class="mt-4 grid grid-cols-7 gap-1.5">
+        {% for day in current_week_days %}
+        <div class="rounded-xl border px-1 py-2 text-center {% if day.is_today %}border-primary bg-primary/5{% else %}border-slate-100 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/50{% endif %} {% if day.is_future %}opacity-50{% endif %}" title="{{ day.date.strftime('%d.%m.%Y') }} · {{ day.hours|hours_minutes }} / {{ day.expected_hours|hours_minutes }}">
+          <p class="text-[10px] font-semibold uppercase text-slate-500">{{ day_names[loop.index0] }}</p><p class="mt-1 text-xs font-bold tabular-nums text-slate-900 dark:text-white">{{ day.hours|hours_minutes }}</p><p class="mt-0.5 text-[10px] text-slate-400">/ {{ day.expected_hours|hours_minutes }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      {% if current_week %}
+      <div class="mt-4 grid grid-cols-3 gap-3 border-t border-slate-100 pt-4 text-sm dark:border-slate-800">
+        <div><p class="text-xs text-slate-500">{{ _('Worked') }}</p><p class="font-semibold">{{ current_week.actual_hours|hours_minutes }}</p></div><div><p class="text-xs text-slate-500">{{ _('Expected hours') }}</p><p class="font-semibold">{{ current_week.expected_hours|hours_minutes }}</p></div><div><p class="text-xs text-slate-500">{{ _('Balance') }}</p><p class="font-semibold {% if current_week.balance_hours < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">{{ current_week.balance_hours|hours_minutes(true) }}</p></div>
+      </div>
+      {% endif %}
+    </section>
+  </div>
+
+  <div class="grid gap-4 sm:grid-cols-3">
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Worked today') }}</p><p id="eviltime-today-work" data-seconds="{{ today_work_seconds }}" class="mt-1 font-mono text-2xl font-semibold tabular-nums">00:00:00</p></section>
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Breaks today') }}</p><p id="eviltime-today-break" data-seconds="{{ today_break_seconds }}" class="mt-1 font-mono text-2xl font-semibold tabular-nums">00:00:00</p></section>
+    <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900"><div class="flex items-start justify-between gap-3"><div><p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{{ _('Break reminders') }}</p><p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{{ _('Get a browser notification after a 30-minute break.') }}</p></div><button id="enableBrowserNotifications" type="button" class="btn btn-secondary btn-sm shrink-0">{{ _('Enable') }}</button></div></section>
+  </div>
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="mb-2 flex items-center justify-between"><h2 class="font-semibold text-slate-950 dark:text-white">{{ _('Recent project time') }}</h2><a href="{{ url_for('timer.time_entries_overview') }}" class="text-sm font-medium text-primary hover:underline">{{ _('All entries') }}</a></div>
+    <div class="divide-y divide-slate-100 dark:divide-slate-800">{% for entry in recent_entries[:6] %}<div class="flex items-center justify-between gap-4 py-3"><div class="min-w-0"><p class="truncate font-medium text-slate-900 dark:text-white">{{ entry.project.name if entry.project else _('Legacy unassigned time') }}</p><p class="text-sm text-slate-500">{{ entry.start_time|user_date }} · {{ entry.start_time|user_time }}</p></div><span class="font-mono font-semibold tabular-nums">{{ entry.duration_formatted }}</span></div>{% else %}<p class="py-8 text-center text-sm text-slate-500">{{ _('No project time yet.') }}</p>{% endfor %}</div>
+  </section>
 </div>
-<script nonce="{{ csp_nonce() }}">(function(){const work=document.getElementById('eviltime-today-work'),breaks=document.getElementById('eviltime-today-break'),timer=document.getElementById('eviltime-active-timer');let ws=Number(work?.dataset.seconds||0),bs=Number(breaks?.dataset.seconds||0),ts=Number(timer?.dataset.seconds||0);const working={{ (active_timer and not is_paused)|tojson }},paused={{ is_paused|tojson }};function fmt(v){v=Math.max(0,Math.floor(v));return [Math.floor(v/3600),Math.floor(v%3600/60),v%60].map(n=>String(n).padStart(2,'0')).join(':')}function draw(){if(work)work.textContent=fmt(ws);if(breaks)breaks.textContent=fmt(bs);if(timer)timer.textContent=fmt(ts)}draw();setInterval(function(){if(working){ws++;ts++}if(paused)bs++;draw()},1000);if(typeof io!=='undefined'){const socket=io();socket.on('connect',()=>socket.emit('join_user_room',{user_id:{{ current_user.id }}}));['timer_started','timer_stopped','timer_paused','timer_resumed'].forEach(event=>socket.on(event,data=>{if(!data||data.user_id==={{ current_user.id }})location.reload()}))}})();</script>
+
+<script nonce="{{ csp_nonce() }}">
+(function(){
+  const work=document.getElementById('eviltime-today-work'),breaks=document.getElementById('eviltime-today-break'),timer=document.getElementById('eviltime-active-timer');let ws=Number(work?.dataset.seconds||0),bs=Number(breaks?.dataset.seconds||0),ts=Number(timer?.dataset.seconds||0);const working={{ (active_timer and not is_paused)|tojson }},paused={{ is_paused|tojson }};
+  function fmt(v){v=Math.max(0,Math.floor(v));return [Math.floor(v/3600),Math.floor(v%3600/60),v%60].map(n=>String(n).padStart(2,'0')).join(':')}function draw(){if(work)work.textContent=fmt(ws);if(breaks)breaks.textContent=fmt(bs);if(timer)timer.textContent=fmt(ts)}draw();setInterval(function(){if(working){ws++;ts++}if(paused)bs++;draw()},1000);
+  const notifyButton=document.getElementById('enableBrowserNotifications');function syncNotifyButton(){if(!notifyButton)return;if(!('Notification' in window)){notifyButton.disabled=true;notifyButton.textContent={{ _('Unavailable')|tojson }};return}if(Notification.permission==='granted'){notifyButton.disabled=true;notifyButton.textContent={{ _('Enabled')|tojson }}}syncNotifyButton();notifyButton?.addEventListener('click',async function(){try{await Notification.requestPermission();syncNotifyButton()}catch(e){}});
+  if(typeof io!=='undefined'){const socket=io();socket.on('connect',()=>socket.emit('join_user_room',{user_id:{{ current_user.id }}}));['timer_started','timer_stopped','timer_paused','timer_resumed'].forEach(event=>socket.on(event,data=>{if(!data||data.user_id==={{ current_user.id }})location.reload()}))}
+})();
+</script>
 {% endblock %}

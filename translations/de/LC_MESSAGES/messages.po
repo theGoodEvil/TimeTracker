@@ -7624,7 +7624,7 @@ msgstr "Warnung: Das Deaktivieren dieser Module betrifft auch abhängige Module:
 #: app/templates/integrations/list.html:47
 #: app/templates/integrations/list.html:87
 msgid "Enabled"
-msgstr "Ermöglicht"
+msgstr "Aktiviert"
 
 #: app/templates/admin/modules.html:265 app/templates/admin/oidc_debug.html:34
 #: app/templates/admin/settings.html:526
@@ -23924,7 +23924,7 @@ msgstr "Aufgabendetails werden geladen..."
 
 #: app/templates/tasks/_kanban.html:1313
 msgid "Tracked"
-msgstr "Verfolgt"
+msgstr "Erfasst"
 
 #: app/templates/tasks/_kanban.html:1357
 msgid "View Full Details"
@@ -24050,7 +24050,7 @@ msgstr "Schätzung verwendet"
 
 #: app/templates/tasks/edit.html:170 app/templates/weekly_goals/index.html:185
 msgid "Actual"
-msgstr "Tatsächlich"
+msgstr "Ist"
 
 #: app/templates/tasks/edit.html:183
 msgid "Current Task Info"
@@ -26060,3 +26060,179 @@ msgstr "Gesamt:"
 msgid "Please log in to access this page"
 msgstr "Bitte melden Sie sich an, um auf diese Seite zuzugreifen"
 
+# EvilTime dashboard and weekly working-time workflow
+msgid "My productivity"
+msgstr "Meine Produktivität"
+
+msgid "Weekly overview"
+msgstr "Wochenübersicht"
+
+msgid "Working time"
+msgstr "Arbeitszeit"
+
+msgid "Expected hours carry forward automatically until a later week changes them."
+msgstr "Die Sollstunden werden automatisch übernommen, bis sie in einer späteren Woche geändert werden."
+
+msgid "Set a schedule change"
+msgstr "Arbeitszeit ändern"
+
+msgid "Choose the first week of the new schedule. Later weeks inherit this value until the next change."
+msgstr "Wählen Sie die erste Woche der neuen Arbeitszeit. Folgende Wochen übernehmen den Wert bis zur nächsten Änderung."
+
+msgid "Schedule changes belong in the weekly overview."
+msgstr "Änderungen der Arbeitszeit werden in der Wochenübersicht verwaltet."
+
+msgid "Set a value once and later weeks inherit it automatically."
+msgstr "Legen Sie den Wert einmal fest; spätere Wochen übernehmen ihn automatisch."
+
+msgid "Open weekly overview"
+msgstr "Wochenübersicht öffnen"
+
+msgid "Save change"
+msgstr "Änderung speichern"
+
+msgid "Edit week"
+msgstr "Woche bearbeiten"
+
+msgid "No weekly data yet."
+msgstr "Noch keine Wochendaten vorhanden."
+
+msgid "Track project time and see your week at a glance."
+msgstr "Projektzeit erfassen und die Woche auf einen Blick sehen."
+
+msgid "Clocked in"
+msgstr "Eingestempelt"
+
+msgid "Clocked out"
+msgstr "Ausgestempelt"
+
+msgid "On break"
+msgstr "In der Pause"
+
+msgid "End break"
+msgstr "Pause beenden"
+
+msgid "Take break"
+msgstr "Pause starten"
+
+msgid "Clock in"
+msgstr "Einstempeln"
+
+msgid "Clock out"
+msgstr "Ausstempeln"
+
+msgid "Choose a project to clock in."
+msgstr "Wählen Sie ein Projekt zum Einstempeln."
+
+msgid "Recent projects"
+msgstr "Zuletzt verwendete Projekte"
+
+msgid "Click to clock in or switch"
+msgstr "Zum Einstempeln oder Wechseln anklicken"
+
+msgid "Quick project actions"
+msgstr "Projekt-Schnellaktionen"
+
+msgid "Currently tracking"
+msgstr "Wird gerade erfasst"
+
+msgid "Switch project"
+msgstr "Projekt wechseln"
+
+msgid "Worked today"
+msgstr "Heute gearbeitet"
+
+msgid "Breaks today"
+msgstr "Pausen heute"
+
+msgid "Break reminders"
+msgstr "Pausenerinnerungen"
+
+msgid "Get a browser notification after a 30-minute break."
+msgstr "Browser-Benachrichtigung nach 30 Minuten Pause erhalten."
+
+msgid "Break is over"
+msgstr "Pause ist vorbei"
+
+msgid "Your 30-minute break is over. End the break when you are ready to continue."
+msgstr "Ihre 30-minütige Pause ist vorbei. Beenden Sie die Pause, wenn Sie weiterarbeiten möchten."
+
+msgid "Project icon"
+msgstr "Projekt-Icon"
+
+msgid "Optional square image, up to 2 MB. Shown in quick project actions."
+msgstr "Optionales quadratisches Bild bis 2 MB. Es wird in den Projekt-Schnellaktionen angezeigt."
+
+msgid "Remove current icon"
+msgstr "Aktuelles Icon entfernen"
+
+msgid "Overtime total"
+msgstr "Überstunden gesamt"
+
+msgid "Balance"
+msgstr "Saldo"
+
+msgid "Unavailable"
+msgstr "Nicht verfügbar"
+
+msgid "Expected hours"
+msgstr "Sollstunden"
+
+msgid "Project time"
+msgstr "Projektzeit"
+
+msgid "Counted hours"
+msgstr "Angerechnete Stunden"
+
+#, python-format
+msgid "Plan includes %(hours)s per cycle (resets on day %(day)s)."
+msgstr "Das Kontingent umfasst %(hours)s pro Zeitraum (Zurücksetzung an Tag %(day)s)."
+
+#, python-format
+msgid "Consumed: %(consumed)s • Remaining: %(remaining)s"
+msgstr "Verbraucht: %(consumed)s • Verbleibend: %(remaining)s"
+
+msgid "Actual override"
+msgstr "Ist-Korrektur"
+
+msgid "Actual override (optional)"
+msgstr "Ist-Korrektur (optional)"
+
+msgid "Week starting"
+msgstr "Woche ab"
+
+msgid "Schedule changes in this week"
+msgstr "Arbeitszeit ändert sich in dieser Woche"
+
+msgid "Worked"
+msgstr "Gearbeitet"
+
+msgid "Recent project time"
+msgstr "Letzte Projektzeiten"
+
+msgid "All entries"
+msgstr "Alle Einträge"
+
+msgid "Enable"
+msgstr "Aktivieren"
+
+msgid "Mon"
+msgstr "Mo"
+
+msgid "Tue"
+msgstr "Di"
+
+msgid "Wed"
+msgstr "Mi"
+
+msgid "Thu"
+msgstr "Do"
+
+msgid "Fri"
+msgstr "Fr"
+
+msgid "Sat"
+msgstr "Sa"
+
+msgid "Sun"
+msgstr "So"

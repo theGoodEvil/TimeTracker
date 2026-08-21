@@ -244,21 +244,10 @@ class Config:
     # Comma-separated list of translation directories relative to instance root
     BABEL_TRANSLATION_DIRECTORIES = os.getenv("BABEL_TRANSLATION_DIRECTORIES", "translations")
 
-    # Versioning
-    # Prefer explicit app version from environment (e.g., Git tag)
-    APP_VERSION = os.getenv("APP_VERSION", os.getenv("GITHUB_TAG", None))
-    if not APP_VERSION:
-        # If no tag provided, create a dev-build identifier if available
-        github_run_number = os.getenv("GITHUB_RUN_NUMBER")
-        APP_VERSION = f"dev-{github_run_number}" if github_run_number else "3.1.0"
+    # EvilTime releases deliberately do not follow the upstream TimeTracker tags.
+    from app.version import get_eviltime_version
 
-    # GitHub release check (admin update notification). GITHUB_RELEASES_TOKEN is optional; never log it.
-    VERSION_CHECK_GITHUB_REPO = os.getenv("VERSION_CHECK_GITHUB_REPO", "DRYTRIX/TimeTracker").strip()
-    VERSION_CHECK_GITHUB_CACHE_TTL = int(os.getenv("VERSION_CHECK_GITHUB_CACHE_TTL", "43200"))  # 12h
-    VERSION_CHECK_GITHUB_STALE_TTL = int(os.getenv("VERSION_CHECK_GITHUB_STALE_TTL", "604800"))  # 7d
-    VERSION_CHECK_HTTP_TIMEOUT = int(os.getenv("VERSION_CHECK_HTTP_TIMEOUT", "10"))
-    GITHUB_RELEASES_TOKEN = os.getenv("GITHUB_RELEASES_TOKEN", "").strip() or None
-    ENABLE_PRE_RELEASE_NOTIFICATIONS = os.getenv("ENABLE_PRE_RELEASE_NOTIFICATIONS", "false").lower() == "true"
+    APP_VERSION = get_eviltime_version()
 
     # Settings secrets encryption (recommended for production).
     # Generate a key with: python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"

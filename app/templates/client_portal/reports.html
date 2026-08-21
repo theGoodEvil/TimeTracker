@@ -45,7 +45,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-green-600 dark:text-green-400 mb-1">{{ _('Total Hours') }}</p>
-                <p class="text-3xl font-bold text-green-900 dark:text-green-100">{{ "%.1f"|format(total_hours) }}</p>
+                <p class="text-3xl font-bold text-green-900 dark:text-green-100">{{ total_hours|hours_minutes }}</p>
                 <p class="text-xs text-green-600/70 dark:text-green-400/70 mt-1">{{ _('Hours tracked') }}</p>
             </div>
             <div class="bg-green-500/10 dark:bg-green-400/10 p-4 rounded-full">
@@ -131,17 +131,17 @@
                     <td class="py-4 px-6">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                             <i class="fas fa-clock mr-1.5 text-xs"></i>
-                            {{ "%.2f"|format(ph.hours) }}h
+                            {{ ph.hours|hours_minutes }}
                         </span>
                     </td>
                     <td class="py-4 px-6">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
                             <i class="fas fa-euro-sign mr-1.5 text-xs"></i>
-                            {{ "%.2f"|format(ph.billable_hours) }}h
+                            {{ ph.billable_hours|hours_minutes }}
                         </span>
                     </td>
                     <td class="py-4 px-6 text-sm text-text-muted-light dark:text-text-muted-dark">
-                        {% if ph.get('estimated_hours') %}{{ "%.1f"|format(ph.estimated_hours) }}h{% endif %}
+                        {% if ph.get('estimated_hours') %}{{ ph.estimated_hours|hours_minutes }}{% endif %}
                         {% if ph.get('estimated_hours') and ph.get('budget_amount') %} / {% endif %}
                         {% if ph.get('budget_amount') %}{{ "%.2f"|format(ph.budget_amount) }} EUR{% endif %}
                         {% if not ph.get('estimated_hours') and not ph.get('budget_amount') %}&mdash;{% endif %}
@@ -214,7 +214,7 @@
                 <tr class="hover:bg-background-light dark:hover:bg-background-dark transition-colors">
                     <td class="py-4 px-6 font-medium text-text-light dark:text-text-dark">{{ row.date }}</td>
                     <td class="py-4 px-6">
-                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{{ "%.2f"|format(row.hours) }}h</span>
+                        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">{{ row.hours|hours_minutes }}</span>
                     </td>
                 </tr>
                 {% endfor %}
@@ -262,7 +262,7 @@
                     <td class="py-4 px-6">
                         <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                             <i class="fas fa-clock mr-1.5 text-xs"></i>
-                            {{ "%.2f"|format(entry.duration_hours) }}h
+                            {{ entry.duration_hours|hours_minutes }}
                         </span>
                     </td>
                     <td class="py-4 px-6">

@@ -47,6 +47,33 @@
     // tab must never stop a persisted EvilTime work session.
     // Break reminder follows the active timer state; check on every tick.
     try { checkBreakNudge(active); } catch(e) {}
+    try { checkBreakFinished(active); } catch(e) {}
+  }
+
+  function checkBreakFinished(activeTimer){
+    if (!activeTimer || !activeTimer.paused || !activeTimer.paused_at) return;
+    if ((Number(activeTimer.paused_duration_seconds) || 0) < 30 * 60) return;
+    const key = 'eviltime-break-finished:' + activeTimer.id + ':' + activeTimer.paused_at;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, String(Date.now())); } catch(e) {}
+    const title = window.i18n?.messages?.breakFinishedTitle || 'Break is over';
+    const message = window.i18n?.messages?.breakFinishedMessage || 'Your 30-minute break is over.';
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(function(registration){
+            registration.showNotification(title, { body: message, icon: '/static/images/timetracker-logo.svg', tag: key, data: { url: '/' } });
+          }).catch(function(){ new Notification(title, { body: message, tag: key }); });
+        } else {
+          new Notification(title, { body: message, tag: key });
+        }
+      } catch(e) {}
+    }
+    if (!activeReminderToast) {
+      buildReminderToast('purple', escapeHtml(message), [
+        { label: (window.i18n?.messages?.endBreak || 'End break'), style: 'primary', onClick: function(){ window.floatingTimerBar?.resumeTimer(); } },
+        { label: (window.i18n?.messages?.dismiss || 'Dismiss'), style: 'link' }
+      ], 60000);
+    }
   }
 
   // Prime active-timer flag soon after load so early activity can heartbeat.

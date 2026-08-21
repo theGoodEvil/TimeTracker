@@ -76,6 +76,9 @@
                         {% if current_user.is_admin or has_permission('edit_users') %}
                         <a href="{{ url_for('admin.edit_user', user_id=user.id) }}" class="text-primary hover:underline text-sm">{{ _('Edit') }}</a>
                         {% endif %}
+                        {% if current_user.is_admin %}
+                        <a href="{{ url_for('weekly_goals.index', user_id=user.id) }}" class="text-primary hover:underline text-sm">{{ _('Weekly hours') }}</a>
+                        {% endif %}
                         {% if current_user.is_admin or has_permission('manage_user_roles') %}
                         <a href="{{ url_for('permissions.manage_user_roles', user_id=user.id) }}" class="text-primary hover:underline text-sm">{{ _('Roles') }}</a>
                         {% endif %}

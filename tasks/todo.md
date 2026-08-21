@@ -1,7 +1,7 @@
 # TODO
 
 <!-- Track current work items here. Check items off as you complete them. -->
-- [x] Rebrand user-facing web app as EvilTime / The Good Evil GmbH and apply #64b376 brand color
+- [x] Rebrand the user-facing web app as EvilTime and apply the primary brand color
 - [x] Make project timers the single source of attendance state; breaks pause active timer
 - [x] Remove activity-heartbeat auto-stop behavior and make timer state realtime
 - [x] Add per-user default project and Mesasix-compatible Slack project commands

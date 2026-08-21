@@ -436,10 +436,10 @@
                     </div>
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ _('e.g. 20 for a part-time week, 40 for full-time') }}</p>
                 </div>
-                <div>
-                    <label for="weekly_hours_effective_from" class="form-label">{{ _('Effective from week') }}</label>
-                    <input type="date" id="weekly_hours_effective_from" name="weekly_hours_effective_from" class="form-input">
-                    <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">{{ _('Stored for that calendar week and inherited by later weeks until changed again.') }}</p>
+                <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-gray-700 dark:text-gray-200">
+                    <p class="font-medium">{{ _('Schedule changes belong in the weekly overview.') }}</p>
+                    <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ _('Set a value once and later weeks inherit it automatically.') }}</p>
+                    <a href="{{ url_for('weekly_goals.index') }}" class="mt-2 inline-block font-medium text-primary hover:underline">{{ _('Open weekly overview') }}</a>
                 </div>
             </div>
                 

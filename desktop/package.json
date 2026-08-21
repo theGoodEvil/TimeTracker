@@ -1,7 +1,7 @@
 {
   "name": "eviltime-desktop",
   "version": "5.11.4",
-  "description": "EvilTime desktop app by The Good Evil GmbH",
+  "description": "EvilTime desktop app",
   "main": "src/main/main.js",
   "scripts": {
     "prestart": "npm run build:renderer",
@@ -27,7 +27,7 @@
     "electron"
   ],
   "author": {
-    "name": "The Good Evil GmbH"
+    "name": "EvilTime contributors"
   },
   "homepage": "https://github.com/DRYTRIX/TimeTracker",
   "license": "MIT",
@@ -102,7 +102,7 @@
       ],
       "icon": "assets/icon.png",
       "category": "Utility",
-      "maintainer": "The Good Evil GmbH",
+      "maintainer": "EvilTime contributors",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {

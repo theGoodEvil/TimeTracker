@@ -117,6 +117,7 @@ def _format_active_timer(timer) -> Optional[Dict[str, Any]]:
             "task_name": timer.task.name if getattr(timer, "task", None) else None,
             "start_time": timer.start_time.isoformat() if timer.start_time else None,
             "duration_seconds": int(timer.current_duration_seconds or 0),
+            "paused": bool(timer.is_paused),
         }
     except Exception:
         return None
@@ -187,31 +188,24 @@ class ProductivityService:
                 .one()
             )
 
-            today_hours = round(int(today_seconds) / 3600.0, 2)
+            today_total_sec = int(today_seconds)
             week_total_sec = int(week_rows.total_sec or 0)
             week_billable_sec = int(week_rows.billable_sec or 0)
-            week_hours = round(week_total_sec / 3600.0, 2)
 
             standard_hours = float(getattr(user, "standard_hours_per_day", 8.0) or 8.0)
 
-            # Resolve weekly goal: prefer WeeklyTimeGoal for current week, else
-            # fall back to standard_hours_per_day * 5, defaulting to 40.
+            # Weekly changes are schedule anchors: the latest earlier value is
+            # inherited until another calendar week defines a new value.
             week_goal_hours = round(standard_hours * 5, 2) if standard_hours else 40.0
             try:
-                from app.models import WeeklyTimeGoal
+                from app.services.weekly_work_service import WeeklyWorkService
 
-                wgoal = WeeklyTimeGoal.get_current_week_goal(uid)
-                if wgoal and getattr(wgoal, "target_hours", None):
-                    week_goal_hours = float(wgoal.target_hours)
+                week_goal_hours = WeeklyWorkService.expected_hours(user, week_start)
             except Exception:
-                # Table missing or any other issue — use fallback.
                 pass
 
             if not week_goal_hours or week_goal_hours <= 0:
                 week_goal_hours = 40.0
-
-            week_goal_percent = int(min(100, max(0, round(week_hours / week_goal_hours * 100))))
-            billable_percent_week = int(round(week_billable_sec / week_total_sec * 100)) if week_total_sec > 0 else 0
 
             top_project_week = cls._top_project_for_period(uid, week_start_dt, week_end_dt)
 
@@ -219,6 +213,22 @@ class ProductivityService:
                 active = TimeEntry.get_user_active_timer(uid)
             except Exception:
                 active = None
+
+            # Completed-entry aggregates intentionally exclude active rows. Add
+            # the persisted running duration so every API poll visibly advances.
+            if active is not None and active.start_time:
+                active_seconds = int(active.current_duration_seconds or 0)
+                if today_start <= active.start_time < today_end:
+                    today_total_sec += active_seconds
+                if week_start_dt <= active.start_time < week_end_dt:
+                    week_total_sec += active_seconds
+                    if active.billable:
+                        week_billable_sec += active_seconds
+
+            today_hours = round(today_total_sec / 3600.0, 2)
+            week_hours = round(week_total_sec / 3600.0, 2)
+            week_goal_percent = int(min(100, max(0, round(week_hours / week_goal_hours * 100))))
+            billable_percent_week = int(round(week_billable_sec / week_total_sec * 100)) if week_total_sec > 0 else 0
 
             workday_today_hours = WorkdaySession.get_total_hours_for_period(uid, today, today)
             workday_week_hours = WorkdaySession.get_total_hours_for_period(uid, week_start, today)
@@ -286,33 +296,24 @@ class ProductivityService:
             user_tz = get_timezone_for_user(user)
             app_tz = get_timezone_obj()
 
-            rows = (
-                db.session.query(
-                    TimeEntry.start_time,
-                    TimeEntry.duration_seconds,
-                    TimeEntry.billable,
-                )
-                .filter(
-                    TimeEntry.user_id == uid,
-                    TimeEntry.end_time.isnot(None),
-                    TimeEntry.start_time >= start_dt,
-                    TimeEntry.start_time < end_dt,
-                )
-                .all()
-            )
+            rows = TimeEntry.query.filter(
+                TimeEntry.user_id == uid,
+                TimeEntry.start_time >= start_dt,
+                TimeEntry.start_time < end_dt,
+            ).all()
 
             by_day_seconds: Dict[date, int] = defaultdict(int)
             by_day_billable: Dict[date, int] = defaultdict(int)
             by_day_count: Dict[date, int] = defaultdict(int)
 
-            for start_time, duration_seconds, billable in rows:
-                local_dt = _to_user_local(start_time, user_tz, app_tz)
+            for entry in rows:
+                local_dt = _to_user_local(entry.start_time, user_tz, app_tz)
                 if local_dt is None:
                     continue
                 d = local_dt.date()
-                sec = int(duration_seconds or 0)
+                sec = int(entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0))
                 by_day_seconds[d] += sec
-                if billable:
+                if entry.billable:
                     by_day_billable[d] += sec
                 by_day_count[d] += 1
 

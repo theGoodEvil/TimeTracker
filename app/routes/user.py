@@ -226,24 +226,6 @@ def settings():
                     # Allow clearing to use derived default (daily * 5)
                     current_user.standard_hours_per_week = None
 
-            effective_week_raw = (request.form.get("weekly_hours_effective_from") or "").strip()
-            if effective_week_raw and standard_hours_per_week is not None:
-                from datetime import datetime
-
-                from app.services.weekly_work_service import WeeklyWorkService
-
-                try:
-                    effective_date = datetime.strptime(effective_week_raw, "%Y-%m-%d").date()
-                except ValueError:
-                    flash(_("Invalid effective week."), "error")
-                    return redirect(url_for("user.settings"))
-                WeeklyWorkService.upsert_adjustment(
-                    current_user,
-                    effective_date,
-                    standard_hours_per_week,
-                    notes="Weekly schedule change from user settings",
-                )
-
             # Working time limit overrides (empty = use global settings)
             if hasattr(current_user, "daily_hour_limit_override"):
                 daily_override = request.form.get("daily_hour_limit_override", "").strip()

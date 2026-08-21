@@ -114,8 +114,20 @@
                 noTimerFound: {{ _("No timer found")|tojson }},
                 timerStoppedInactivity: {{ _("Timer stopped due to inactivity")|tojson }},
                 selectProjectOrClient: {{ _("Please select either a project or a client")|tojson }},
-                endTimeAfterStartTime: {{ _("End time must be after start time")|tojson }}
+                endTimeAfterStartTime: {{ _("End time must be after start time")|tojson }},
+                breakFinishedTitle: {{ _("Break is over")|tojson }},
+                breakFinishedMessage: {{ _("Your 30-minute break is over. End the break when you are ready to continue.")|tojson }},
+                endBreak: {{ _("End break")|tojson }},
+                dismiss: {{ _("Dismiss")|tojson }}
             }
+        };
+    </script>
+    <script nonce="{{ csp_nonce() }}">
+        window.formatHoursMinutes = function(value, showPlus) {
+            var hours = Number(value) || 0;
+            var totalMinutes = Math.round(Math.abs(hours) * 60);
+            var sign = hours < 0 ? '-' : (showPlus && hours > 0 ? '+' : '');
+            return sign + Math.floor(totalMinutes / 60) + ':' + String(totalMinutes % 60).padStart(2, '0') + 'h';
         };
     </script>
 
