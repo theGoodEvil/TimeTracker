@@ -3,15 +3,13 @@
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import Activity, Project, Settings, User
+from app.models import Activity, Project, User
 from app.utils.db import safe_commit
-from app.utils.donate_hide_code import system_id_log_prefix, verify_supporter_code
-from app.utils.license_utils import is_license_activated
 from app.utils.timezone import get_available_timezones
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
@@ -341,72 +339,6 @@ def settings():
         rounding_minimums=rounding_minimums,
         active_projects=active_projects,
     )
-
-
-@user_bp.route("/settings/license", methods=["GET", "POST"])
-@login_required
-def license():
-    """License management: supporter key validation (sets donate_ui_hidden / supporter instance flag)."""
-    settings_obj = Settings.get_settings()
-    if request.method == "POST":
-        if is_license_activated(settings_obj):
-            flash(_("This instance is already licensed."), "info")
-            return redirect(url_for("user.license"))
-        code = (request.form.get("license_key") or request.form.get("code") or "").strip()
-        system_id = Settings.get_system_instance_id()
-        sid_prefix = system_id_log_prefix(system_id)
-        valid, reason = verify_supporter_code(
-            code,
-            system_id,
-            public_key_pem=current_app.config.get("DONATE_HIDE_PUBLIC_KEY_PEM") or "",
-            secret=current_app.config.get("DONATE_HIDE_UNLOCK_SECRET") or "",
-        )
-        if not valid:
-            current_app.logger.warning("License verify failed: %s (system_id_prefix=%s)", reason, sid_prefix)
-            flash(_("Invalid code."), "error")
-            return redirect(url_for("user.license"))
-        settings_obj.donate_ui_hidden = True
-        if safe_commit(db.session):
-            current_app.logger.info("License activated (system_id_prefix=%s)", sid_prefix)
-            flash(_("License activated. Thank you for supporting EvilTime!"), "success")
-        else:
-            current_app.logger.warning("License verify failed: save_error (system_id_prefix=%s)", sid_prefix)
-            flash(_("Error saving settings."), "error")
-        return redirect(url_for("user.license"))
-    return render_template(
-        "user/license.html",
-        is_license_activated=is_license_activated(settings_obj),
-    )
-
-
-@user_bp.route("/settings/verify-donate-hide-code", methods=["POST"])
-@login_required
-def verify_donate_hide_code():
-    """Verify code (Ed25519 signature or HMAC) and set ui_show_donate=False."""
-
-    if not getattr(current_user, "ui_show_donate", True):
-        return jsonify({"success": True})
-
-    data = request.get_json() or {}
-    code = (data.get("code") or "").strip()
-    system_id = Settings.get_system_instance_id()
-    sid_prefix = system_id_log_prefix(system_id)
-    valid, reason = verify_supporter_code(
-        code,
-        system_id,
-        public_key_pem=current_app.config.get("DONATE_HIDE_PUBLIC_KEY_PEM") or "",
-        secret=current_app.config.get("DONATE_HIDE_UNLOCK_SECRET") or "",
-    )
-    if not valid:
-        current_app.logger.warning("Donate-hide verify failed: %s (system_id_prefix=%s)", reason, sid_prefix)
-        return jsonify({"error": _("Invalid code.")}), 400
-
-    current_user.ui_show_donate = False
-    if safe_commit(db.session):
-        current_app.logger.info("Donate-hide activated for user (system_id_prefix=%s)", sid_prefix)
-        return jsonify({"success": True})
-    current_app.logger.warning("Donate-hide verify failed: save_error (system_id_prefix=%s)", sid_prefix)
-    return jsonify({"error": _("Error saving settings")}), 500
 
 
 @user_bp.route("/api/preferences", methods=["PATCH"])

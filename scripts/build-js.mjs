@@ -42,21 +42,19 @@ const HEAD_SCRIPTS = ['pwa-enhancements.js'];
 /**
  * Classic global scripts, grouped in the exact order base.html loaded them.
  *
- * Why six groups instead of one bundle: base.html interleaves these <script src>
+ * Why multiple groups instead of one bundle: base.html interleaves these <script src>
  * tags with Jinja-rendered inline blocks that (a) run at parse time, not on
  * DOMContentLoaded, and (b) declare top-level globals such as `closeAllMenus`,
- * `themeToggleBtn` and `trackDonationClick`. Collapsing everything into a single
+ * `themeToggleBtn`. Collapsing everything into a single
  * bundle would move ~17 scripts across those inline blocks and change the order in
  * which globals are defined vs. consumed. Each group therefore sits exactly where its
- * members used to, preserving execution order while still cutting 32 requests to 9.
+ * members used to, preserving execution order while still reducing individual requests.
  *
  * Order within and between groups is load-bearing — do not sort.
  */
 const CORE_GROUPS = {
   // Ungated: loaded for anonymous and authenticated users alike.
   'core-a1': ['date-picker-init.js', 'enhanced-search.js', 'form-validation.js', 'toast-notifications.js'],
-  // Gated on `current_user.is_authenticated and support_ui_json`.
-  'core-support': ['support-ui.js'],
   // Ungated.
   'core-a2': ['enhanced-tables.js', 'interactions.js', 'offline-sync.js', 'mentions.js'],
   // Gated on `current_user.is_authenticated` — the floating timer bar and idle

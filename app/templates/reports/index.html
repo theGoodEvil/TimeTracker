@@ -15,13 +15,6 @@
     actions_html=None
 ) }}
 
-{% if current_user.is_authenticated and current_user.ui_show_donate and not is_license_activated %}
-<p class="text-sm text-text-muted-light dark:text-text-muted-dark mb-4">
-    {{ _('Enjoying EvilTime?') }} {{ _('Support development or get a supporter license — the app stays free for everyone.') }}
-    <button type="button" class="text-primary hover:underline font-medium js-open-support-modal">{{ _('Open support') }}</button>
-</p>
-{% endif %}
-
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6">
     {{ info_card(_("Total Hours"), "%.2f"|format(summary.total_hours), _("All time")) }}
     {{ info_card(_("Billable Hours"), "%.2f"|format(summary.billable_hours), _("All time")) }}

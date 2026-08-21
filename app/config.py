@@ -159,51 +159,6 @@ class Config:
     # Try Docker internal service names if external DNS fails (default: true)
     OIDC_USE_DOCKER_INTERNAL = os.getenv("OIDC_USE_DOCKER_INTERNAL", "true").lower() == "true"
 
-    # Donate UI: unlock code verification. Two options (public key preferred; no secret on server).
-    #
-    # Option A - Ed25519 (recommended): Server only has the PUBLIC key. You keep the private key
-    # and sign the system_id to generate codes. Set DONATE_HIDE_PUBLIC_KEY (PEM string) or
-    # DONATE_HIDE_PUBLIC_KEY_FILE (path to PEM file). If unset, a file named donate_hide_public.pem
-    # in the project root is used when present (local builds and Docker when copied into image).
-    _donate_public_key = os.getenv("DONATE_HIDE_PUBLIC_KEY", "").strip()
-    if not _donate_public_key:
-        _pk_file = os.getenv("DONATE_HIDE_PUBLIC_KEY_FILE", "").strip()
-        if not _pk_file:
-            # Default: project root (parent of app/) for local builds and Docker (/app)
-            _project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-            _default_pk = os.path.join(_project_root, "donate_hide_public.pem")
-            if os.path.isfile(_default_pk):
-                _pk_file = _default_pk
-        if _pk_file and os.path.isfile(_pk_file):
-            try:
-                with open(_pk_file, "r", encoding="utf-8") as f:
-                    _donate_public_key = f.read().strip()
-                # Refuse to load a private key on the server
-                if "PRIVATE KEY" in _donate_public_key and "PUBLIC KEY" not in _donate_public_key:
-                    _donate_public_key = ""
-            except OSError:
-                _donate_public_key = ""
-    DONATE_HIDE_PUBLIC_KEY_PEM = _donate_public_key
-    #
-    # Option B - HMAC: Code = HMAC-SHA256(secret, system_id). Requires secret on server.
-    # Use DONATE_HIDE_UNLOCK_SECRET or DONATE_HIDE_UNLOCK_SECRET_FILE (path, first line = secret).
-    _donate_secret = os.getenv("DONATE_HIDE_UNLOCK_SECRET", "").strip()
-    if not _donate_secret:
-        _secret_file = os.getenv("DONATE_HIDE_UNLOCK_SECRET_FILE", "").strip()
-        if _secret_file and os.path.isfile(_secret_file):
-            try:
-                with open(_secret_file, "r", encoding="utf-8") as f:
-                    _donate_secret = (f.read().strip().split("\n")[0] or "").strip()
-            except OSError:
-                _donate_secret = ""
-    DONATE_HIDE_UNLOCK_SECRET = _donate_secret
-
-    # Support & Purchase Key page URL (for links to purchase a key to hide donate UI)
-    SUPPORT_PURCHASE_URL = os.getenv("SUPPORT_PURCHASE_URL", "https://timetracker.drytrix.com/support.html").strip()
-    SUPPORT_PORTAL_BASE = os.getenv("SUPPORT_PORTAL_BASE", "https://timetracker.drytrix.com").strip()
-    # Optional one-line social proof for support modal (empty = omit block)
-    SUPPORT_SOCIAL_PROOF_TEXT = os.getenv("SUPPORT_SOCIAL_PROOF_TEXT", "").strip()
-
     # Backup settings
     BACKUP_RETENTION_DAYS = int(os.getenv("BACKUP_RETENTION_DAYS", 30))
     BACKUP_TIME = os.getenv("BACKUP_TIME", "02:00")

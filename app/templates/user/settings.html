@@ -8,28 +8,6 @@
         <p class="text-gray-600 dark:text-gray-400 mt-2">{{ _('Manage your account settings and preferences') }}</p>
     </div>
 
-    <details class="bg-card-light dark:bg-card-dark rounded-lg shadow-md group mb-6" open>
-        <summary class="flex items-center justify-between p-6 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
-                <i class="fas fa-heart mr-2 text-amber-600 dark:text-amber-400" aria-hidden="true"></i>{{ _('Support & Community') }}
-            </h2>
-            <i class="fas fa-chevron-down text-gray-400 transition-transform group-open:rotate-180 md:hidden"></i>
-        </summary>
-        <div class="px-6 pb-6 space-y-4 text-sm text-text-light dark:text-text-dark">
-            <p class="text-text-muted-light dark:text-text-muted-dark">{{ _('EvilTime is free and open source. Funding comes from optional donations and supporter licenses — never from locking features.') }}</p>
-            {% if is_license_activated %}
-            <p>{{ _('This instance already has a supporter license. Thank you — you can still donate or share the app anytime.') }}</p>
-            {% else %}
-            <p>{{ _('If the app saves you time, you can donate or buy a supporter license (€25). A license shows a Supporter badge; it does not change what you can use.') }}</p>
-            {% endif %}
-            <div class="flex flex-wrap gap-2">
-                <button type="button" class="btn btn-primary js-open-support-modal">{{ _('Support EvilTime') }}</button>
-                <a href="{{ url_for('user.license') }}" class="btn btn-secondary inline-flex items-center gap-2"><i class="fas fa-key" aria-hidden="true"></i>{{ _('License & supporter key') }}</a>
-                <a href="{{ support_purchase_url }}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">{{ _('Checkout on timetracker.drytrix.com') }} <i class="fas fa-external-link-alt text-xs" aria-hidden="true"></i></a>
-            </div>
-        </div>
-    </details>
-
     <form method="POST" class="space-y-8">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"/>
 
@@ -614,12 +592,6 @@
             </div>
             </div>
         </details>
-
-        <p class="text-sm text-text-muted-light dark:text-text-muted-dark">
-            {{ _('Support visibility (hiding donate/support UI) is configured system-wide by administrators in Admin → Settings.') }}
-            {{ _('Administrators can purchase a key to hide these prompts:') }}
-            <a href="{{ support_purchase_url }}" target="_blank" rel="noopener noreferrer" class="text-blue-600 dark:text-blue-400 hover:underline">{{ _('Support & Purchase Key') }}</a>.
-        </p>
 
         <!-- Save Button - Sticky on mobile -->
         <div class="sticky bottom-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-t border-border-light dark:border-border-dark -mx-4 px-4 py-3 sm:static sm:bg-transparent sm:dark:bg-transparent sm:backdrop-blur-none sm:border-0 sm:mx-0 sm:px-0 sm:py-0">

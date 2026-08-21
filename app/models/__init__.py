@@ -32,7 +32,6 @@ from .custom_report import CustomReportConfig
 from .deal import Deal
 from .deal_activity import DealActivity
 from .deleted_username import DeletedUsername
-from .donation_interaction import DonationInteraction
 from .expense import Expense
 from .expense_category import ExpenseCategory
 from .expense_gps import MileageTrack
@@ -245,7 +244,6 @@ __all__ = [
     "CustomFieldDefinition",
     "SalesmanEmailMapping",
     "Issue",
-    "DonationInteraction",
     "ClientNotification",
     "ClientNotificationPreferences",
     "NotificationType",

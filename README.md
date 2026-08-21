@@ -1,1209 +1,146 @@
 # EvilTime
 
-<div align="center">
+EvilTime is the self-hosted project time-tracking system used by The Good Evil GmbH. It keeps attendance and project tracking in one workflow: users clock directly into a project and clock out when they are finished.
 
-### Project-based time tracking for The Good Evil GmbH
+## What is different in EvilTime?
 
-**Clock into a project. Take a break. Know your weekly balance.**
+- Every running timer belongs to a project. There is no separate general-attendance clock.
+- Teams can create their own catch-all project for internal or general work; no project name is hardcoded.
+- Each user can choose a default project in **My Settings → Work tracking**.
+- Starting a timer without an explicit project uses that default when it is available and active.
+- Timer heartbeat and idle handling preserve healthy project timers instead of stopping them after a short period of browser inactivity.
+- Weekly time can be reviewed and corrected while keeping the underlying project entries visible.
+- The UI, metadata, manifests, and frontend package are branded as EvilTime by The Good Evil GmbH.
 
-[🆕 What's New](#-whats-new) • [📥 Download & Install](#-download--install) • [🚀 Quick Start](#-quick-start) • [✨ Features](#-features) • [📸 Screenshots](#-screenshots) • [📖 Getting Started](docs/GETTING_STARTED.md) • [📚 Documentation](docs/) • [🗑️ Uninstall](UNINSTALL.md) • [📋 Changelog](CHANGELOG.md) • [🐳 Deploy](#-deployment)
+EvilTime also retains the broader project, task, client, reporting, invoicing, API, authentication, and administration capabilities inherited from the upstream application.
 
----
+## Run with Docker
 
-</div>
+The main Compose stack builds EvilTime locally and starts PostgreSQL, the application, and an nginx HTTPS proxy.
 
-## 🎯 What is EvilTime?
+### Requirements
 
-EvilTime is The Good Evil GmbH's self-hosted work tracker. It uses project
-timers as the single source of truth for attendance and worked hours: users
-clock into a project, pause that timer for breaks, and clock out when done.
+- Docker Engine 20.10 or newer
+- Docker Compose v2
+- Git
+- About 2 GB of available memory
 
-### Fork attribution
-
-EvilTime is a fork of the open-source
-[TimeTracker project by DRYTRIX](https://github.com/DRYTRIX/TimeTracker).
-Credit and thanks go to its original authors and contributors for building the
-foundation this company-specific version is based on. Existing deployment
-names and upstream URLs are retained where required for compatibility.
-
-**Perfect for:**
-- 💼 **Freelancers** tracking billable hours across multiple clients
-- 👥 **Small Teams** managing projects and tracking productivity
-- 🏢 **Agencies** needing detailed reporting and client billing
-- 🔒 **Privacy-focused organizations** wanting self-hosted solutions
-
-You can [support the project and purchase a key](https://timetracker.drytrix.com/support.html) to hide donate prompts in your instance.
-
----
-
-## 📥 Download & Install
-
-| Method | Best for | Get started |
-|--------|----------|-------------|
-| **Docker image** | Servers, VPS, homelab | `docker pull ghcr.io/drytrix/timetracker:latest` or [Docker Hub](https://hub.docker.com/r/drytrix/timetracker) (`drytrix/timetracker`) |
-| **NAS compose** | QNAP, Synology, Portainer | Paste [`docker-compose.nas.yml`](docker-compose.nas.yml) — [NAS guide](docs/admin/deployment/NAS_DEPLOYMENT.md) |
-| **GitHub Release** | Compose files + desktop/mobile | [Releases](https://github.com/drytrix/TimeTracker/releases) |
-| **Cloud (Render)** | Managed hosting | [![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/drytrix/TimeTracker) |
-
-**Full list of install paths:** [Distribution Guide](docs/admin/deployment/DISTRIBUTION.md) (Portainer templates, Unraid, Railway, Fly.io, Coolify, [Docker Hub](https://hub.docker.com/r/drytrix/timetracker))
-
-> **Docker Hub namespace:** images are published at [`drytrix/timetracker`](https://hub.docker.com/r/drytrix/timetracker) (formerly `driesp/timetracker`).
-
----
-
-## 🛠️ Technology Stack
-
-TimeTracker is built with modern, reliable technologies:
-
-### Backend
-- **Python 3.11+** — Core programming language
-- **Flask 3.0.0** — Web framework
-- **SQLAlchemy 2.0.23** — ORM and database toolkit
-- **Flask-SocketIO 5.6.1** — WebSocket support for real-time updates
-- **Flask-Migrate 4.0.5** — Database migrations
-- **Flask-Babel 4.0.0** — Internationalization (i18n)
-
-### Frontend
-- **HTML5, JavaScript (ES6+)** — Modern web standards
-- **Tailwind CSS 3.3.5** — Utility-first CSS framework
-- **Chart.js** — Interactive data visualization
-- **Command Palette (cmdk)** — Keyboard-driven navigation
-- **Framer Motion** — Smooth animations and transitions
-
-### Database
-- **PostgreSQL** — Production database (recommended)
-- **SQLite** — Development and testing database
-
-### Deployment & Infrastructure
-- **Docker & Docker Compose** — Containerization and orchestration
-- **Nginx** — Reverse proxy and HTTPS termination
-- **Gunicorn** — Production WSGI server
-- **Eventlet** — Async networking library
-
-### Key Libraries & Tools
-- **WeasyPrint** — PDF generation for invoices
-- **Flask-WTF** — Form handling and CSRF protection
-- **Authlib** — OAuth/OIDC authentication
-- **APScheduler** — Background task scheduling
-- **Prometheus Client** — Metrics collection
-- **Sentry SDK** — Error monitoring (optional)
-- **Grafana OTLP** — Telemetry sink (optional)
-
-### Development & Testing
-- **pytest** — Testing framework
-- **black** — Code formatting
-- **flake8** — Linting
-- **coverage** — Test coverage analysis
-
-**📖 Documentation:** [Architecture overview](docs/ARCHITECTURE.md) · [Project Structure](docs/development/PROJECT_STRUCTURE.md) · [UI Guidelines](docs/UI_GUIDELINES.md)
-
----
-
-## 🖥️ UI overview
-
-The web app uses a **single main layout** with a sidebar and top header. Content is centered with a max width for readability. **Getting around:** **Dashboard** — overview, today’s stats, and the main **Timer** widget (start/stop, quick start, repeat last). **Timer** and **Time entries** are first-class in the sidebar for fast access. **Time entries** is the place to filter, review, and export all logged time. **Reports** (time, project, finance) are available from the sidebar (top-level **Reports** link or **Finance & Expenses → Reports** for Report Builder, Saved Views, Scheduled Reports). **Projects**, **Finance**, and **Settings** are available from the sidebar and navigation.
-
-On **narrow viewports** (below the `md` breakpoint), the sidebar is hidden in favor of a **fixed bottom navigation bar** (inline Heroicons): Dashboard, Timer, Time entries, Projects, and **More** (slide-up sheet for Invoices, Clients, Reports, and user Settings when those modules or routes apply). The hamburger control still opens the full sidebar overlay if you need every menu item. For design and component conventions, see [UI Guidelines](docs/UI_GUIDELINES.md).
-
----
-
-## 🆕 What's New
-
-TimeTracker has been continuously enhanced with powerful new features! Here's what's been added recently:
-
-> **📋 For complete release history, see [CHANGELOG.md](CHANGELOG.md)**
-
-**Current version** is defined in `setup.py` (single source of truth). See [CHANGELOG.md](CHANGELOG.md) for versioned release history.
-
-### ✨ Highlights of v5.11.4
-
-**Patch (5.11.4):** **Boundary rounding & minimum duration (#725)** — start/end boundary rounding, per-user minimum billable time, and admin interval fallback; rounding applied on remaining write paths. **Searchable client/project combobox (#728)** — filterable selects with inline create; client-only edits preserved. **Idle heartbeats (#722)** — server-side auto-stop and “Still working?” across web, extension, mobile, and desktop. **Fixes** — Approve button submit (#709), extension picker races (#700), idle-tab 503 toasts (#703), client API joinedload (#716). See [CHANGELOG.md](CHANGELOG.md#5114---2026-08-13).
-
-### ✨ Highlights of v5.11.3
-
-**Patch (5.11.3):** **Manual-entry rounding (#725)** — replaced deprecated `User.query.get` with `db.session.get` when resolving the rounding user, silencing the SQLAlchemy 2.x deprecation warning. Added integration tests for the start-timer 409 payload (#700), `calculate_duration` rounding, and explicit manual-entry duration rounding. See [CHANGELOG.md](CHANGELOG.md#5113---2026-08-11).
-
-### ✨ Highlights of v5.11.2
-
-**Patch (5.11.2):** **Attendance Approve (#709)** — correction review no longer treats a missing decision as Reject. **Extension task picker (#700)** — custom Kanban and on-hold tasks appear in the timer dropdown. **Idle auto-stop** — unanswered “Still working?” prompts stop the timer after a grace window. See [CHANGELOG.md](CHANGELOG.md#5112---2026-08-09).
-
-### ✨ Highlights of v5.11.1
-
-**Patch (5.11.1):** **Client version sync** — Electron desktop (`desktop/package.json`) and Flutter mobile (`mobile/pubspec.yaml`) bumped to match the webapp at **5.11.1**. See [CHANGELOG.md](CHANGELOG.md#5111---2026-08-06).
-
-### ✨ Highlights of v5.11.0
-
-**Minor (5.11.0):** **Auto-deduct break on clock-out** — admins can opt in to automatically inserting a meal break when a workday exceeds a configurable threshold, with smart deficit fill for partial manual breaks. **Mobile timer notification (#714)** — persistent Android/iOS notification shows project, task, and elapsed time while a timer runs. **Fixes** — overnight totals clipped (#706), extension task picker (#700), client projects API error (#716), OpenAPI Tasks/Clients endpoints. See [CHANGELOG.md](CHANGELOG.md#5110---2026-08-06).
-
-### ✨ Highlights of v5.10.1
-
-**Patch (5.10.1):** **Overnight clock-out (#706)** — prompt to correct leave time when a workday stays open past midnight. **Fixes** — Chrome extension connect (#700), compact time typing / edit date format (#704), dashboard “At work today” double-count. See [CHANGELOG.md](CHANGELOG.md#5101---2026-07-25).
-
-### ✨ Highlights of v5.10.0
-
-**Minor (5.10.0):** **Admins can book time for others (#701)** — manual, bulk, and API v1 creates. **Chromium timer extension (#700)** — toolbar start/stop with badge. **Self-hosted frontend** — vendored assets, esbuild pipeline, air-gapped-friendly CSP. **Fixes** — idle connection recovery (#702/#703), 24h time preference (#704), sidebar expand (#699). See [CHANGELOG.md](CHANGELOG.md#5100---2026-07-23).
-
-### ✨ Highlights of v5.9.4
-
-**Patch (5.9.4):** **Desktop & mobile catch-up** — timer pause/resume, workday/attendance, reports, Kanban, CRM, and deeper finance flows brought in line with the webapp. **API** — issues endpoints on REST API v1 for clients. See [CHANGELOG.md](CHANGELOG.md#594---2026-07-23).
-
-### ✨ Highlights of v5.9.3
-
-**Patch (5.9.3):** **Kanban** — per-column WIP limits, per-task checklists, and saveable board templates. **Comments** — @mention notifications for teammates. **Calendar** — holiday overlays in day/week views and fixed workday history dates. **Client portal** — native portal sessions stay in the portal UI ([#677](https://github.com/DRYTRIX/TimeTracker/issues/677)). **CI** — automated Docker Hub publishing with resilient credential handling. See [CHANGELOG.md](CHANGELOG.md#593---2026-07-16).
-
-### ✨ Highlights of v5.9.2
-
-**Patch (5.9.2):** **Distribution** — new distribution hub, Portainer/Unraid templates, Fly.io and Railway configs, and refreshed deploy scripts for installs without cloning the repo. **Docker Hub** — images now publish to `drytrix/timetracker` (replacing `driesp/timetracker`). See [CHANGELOG.md](CHANGELOG.md#592---2026-07-13).
-
-### ✨ Highlights of v5.9.1
-
-**Patch (5.9.1):** **Calendar** — restored holiday and time-off overlays with correct date handling and a dedicated `/api/calendar/data` feed. **Dashboard** — working-time limit banner only for pending justifications. **Compliance** — fixed attendance relationship eager-loading regression. **Deployment** — NAS-friendly compose stack and guide for QNAP, Synology, and Portainer. See [CHANGELOG.md](CHANGELOG.md#591---2026-07-13).
-
-### ✨ Highlights of v5.9.0
-
-**Minor (5.9.0):** **Workforce & attendance** — Belgium 2027 compliance module, missed clock-in reminders, retroactive workday corrections, and time-off request PDFs. **Calendar** — company holidays and time-off overlays on main and timer views. **Mobile** — shared Workday card on Home and Timer screens. **Slack** — `/in`, `/brb`, `/back`, `/out` slash commands for clock-in/out and breaks. **Client portal** — unified login at `/login` and correct logout redirect ([#677](https://github.com/DRYTRIX/TimeTracker/issues/677)). See [CHANGELOG.md](CHANGELOG.md#590---2026-07-06).
-
-### ✨ Highlights of v5.8.6
-
-**Patch (5.8.6):** **Client portal** — internal user accounts can be restricted to portal-only access (no main app), with hardened access checks for inactive users/clients, gateway-aware payment confirmation, safer document downloads, and currency-aware summaries. **Security** — deleted usernames are reserved to block recreation via self-registration, OIDC, or LDAP. **Peppol** — Peppyrus now authenticates with the `X-Api-Key` header. See [CHANGELOG.md](CHANGELOG.md#586---2026-06-28).
-
-### ✨ Highlights of v5.8.5
-
-**Patch (5.8.5):** **Invoice time entries and expenses (#662)** — clearer separation of logged hours vs expense-module records, diagnostic hints on generate-from-time, and optional one line per time entry. **Manual time entry** — task dropdown loads correctly when a project is selected ([#675](https://github.com/DRYTRIX/TimeTracker/issues/675)). See [CHANGELOG.md](CHANGELOG.md#585---2026-06-25).
-
-### ✨ Highlights of v5.8.4
-
-**Patch (5.8.4):** **Workflow template migration** — migration 161 no longer fails on PostgreSQL when seeding starter workflow templates. See [CHANGELOG.md](CHANGELOG.md#584---2026-06-19).
-
-### ✨ Highlights of v5.8.3
-
-**Patch (5.8.3):** **Peppol bridge** — self-hosted adapter with setup wizard. **Payments** — provider registry and unified checkout. **Workflows** — template library and event bridge. **Analytics** — profitability dashboard and utilization forecast. **Desktop/mobile** — tray minimize, shortcuts, invoice detail screen, and expanded finance APIs. See [CHANGELOG.md](CHANGELOG.md#583---2026-06-19).
-
-### ✨ Highlights of v5.8.2
-
-**Patch (5.8.2):** **Invoice expenses** — billable expenses from the Expenses module link to the invoice Expenses section (not invoice items), stay separate with their descriptions, and are no longer wiped when adding expenses to an existing invoice. See [CHANGELOG.md](CHANGELOG.md#582---2026-06-15).
-
-### ✨ Highlights of v5.8.1
-
-**Patch (5.8.1):** **Quote email** — sending a quote no longer flashes a false error after the email is delivered; fixes the follow-up regression to #652. See [CHANGELOG.md](CHANGELOG.md#581---2026-06-10).
-
-### ✨ Highlights of v5.8.0
-
-**Minor (5.8.0):** **Configurable quote numbering** — prefix, pattern, and start number in admin settings (migration **159**). **Quote email** fix — send from the web form without “recipient required” errors. **Invoice/payment fixes** — correct totals when creating invoices from time entries and when deleting payments. **Audit listener** fix — prevents duplicate flush callbacks in long test runs. See [CHANGELOG.md](CHANGELOG.md#580---2026-06-07).
-
-### ✨ Highlights of v5.7.0
-
-**Minor (5.7.0):** **Workday sessions** — clock in/out without a project; workday hours and project hours shown separately on the dashboard. **Working time limits** — configurable daily/weekly caps with email alerts and employee justification workflow. REST API and kiosk endpoints included. Run migration `158` after upgrade. See [CHANGELOG.md](CHANGELOG.md#570---2026-05-25) and [docs/features/WORKDAY_SESSIONS.md](docs/features/WORKDAY_SESSIONS.md).
-
-### ✨ Highlights of v5.6.3
-
-**Patch (5.6.3):** Comment API — v1 update/delete endpoints fixed (no more 500 on PATCH/DELETE), and comment edits persist correctly when settings are not yet seeded. Updated German translations. See [CHANGELOG.md](CHANGELOG.md#563---2026-05-24).
-
-**Patch (5.6.2):** Invoice PDF designer — items/expenses tables export at template page coordinates (fixes misalignment vs preview), **Generate Preview** uses the same ReportLab bytes as export, and table JSON uses `getClientRect()` after move/scale. See [CHANGELOG.md](CHANGELOG.md#562---2026-05-20).
-
-**Patch (5.6.1):** Dependency and Docker build fixes — `pydyf` for WeasyPrint 68, `PyJWT` 2.12.1 and `markdown` 3.8.1 security updates, `.dockerignore` for leaner image builds. See [CHANGELOG.md](CHANGELOG.md#561---2026-05-20).
-
-**Release (5.6.0):**
-
-- 🔌 **Personal integration connectors** — Per-user, opt-in **GitHub**, **Google Calendar**, and **Slack** connectors with signature-verified webhooks, OAuth, scheduled syncs, and a `/tt` Slack slash command ([GitHub](docs/integrations/GITHUB_CONNECTOR.md) · [Google Calendar](docs/integrations/GOOGLE_CALENDAR.md) · [Slack](docs/integrations/SLACK.md))
-- 🎨 **Custom themes** — Per-user theme picker with 8 built-in themes plus independent accent, sidebar, text-size, and corner-radius overrides ([docs](docs/features/CUSTOM_THEMES.md))
-- 📊 **Personal productivity dashboard** — New **My productivity** page with streaks, 14-day hours chart, project doughnut, focus stats, and a 12-week activity heatmap ([docs](docs/features/PRODUCTIVITY_DASHBOARD.md))
-- 🤖 **AI time entry suggestions** — Deterministic (and optional LLM-rich) project/task/notes suggestions in the Start Timer modal and manual entry **Autofill**
-- 🔮 **Project forecast panel** — `ForecastService` and a self-contained forecast card on active projects with estimated hours or budget ([docs](docs/BUDGET_ALERTS_AND_FORECASTING.md))
-- ⏰ **Smart reminders: break & end-of-day** — Optional Pomodoro-style break nudges, end-of-day wrap-up toasts, and browser push for eligible users ([docs](docs/features/SMART_NOTIFICATIONS.md))
-
-See [CHANGELOG.md](CHANGELOG.md) for all release notes and version history.
-
-### 🎯 **Major Feature Additions**
-
-#### 🧾 **Complete Invoicing System**
-- **Professional Invoice Generation** — Convert tracked time directly into polished invoices
-- **PDF Export** — Generate beautiful, branded PDF invoices with your company logo
-- **Multi-Currency Support** — Invoice clients in their preferred currency
-- **Tax Calculations** — Automatic tax computation with configurable rates
-- **Invoice Status Tracking** — Monitor draft, sent, paid, and overdue invoices
-- **Recurring Invoices** — Automate regular billing cycles
-- **Email Integration** — Send invoices directly to clients from the platform
-- **Peppol & ZugFerd e-Invoicing (EN 16931)** — Send invoices via Peppol (recommended self-hosted flow uses the included **Peppol Bridge** + setup wizard); embed EN 16931 XML in invoice PDFs (ZugFerd/Factur-X); optional PDF/A-3 normalization and veraPDF validation ([setup guide](docs/admin/configuration/PEPPOL_EINVOICING.md) · [bridge](docs/admin/configuration/PEPPOL_BRIDGE.md))
-
-#### 📋 **Advanced Task Management**
-- **Full Task System** — Create, assign, and track tasks with priorities and due dates
-- **Kanban Board** — Visual drag-and-drop task management with customizable columns
-- **Task Comments** — Collaborate with threaded comments on tasks
-- **Task Activity Tracking** — See complete history of task changes and updates
-- **Bulk Task Operations** — Manage multiple tasks at once
-
-#### 💼 **Complete CRM Suite** 🆕
-- **Multiple Contacts per Client** — Manage unlimited contacts for each client
-- **Sales Pipeline** — Visual Kanban-style pipeline for tracking deals and opportunities
-- **Deal Management** — Track deal value, probability, stages, and close dates
-- **Lead Management** — Capture, score, and convert leads into clients or deals
-- **Communication History** — Track all emails, calls, meetings, and notes with contacts
-- **Deal & Lead Activities** — Complete activity tracking for sales processes
-
-#### ⏱️ **Enhanced Time Tracking**
-- **Calendar View** — Visual calendar interface for viewing and managing time entries
-- **Bulk Time Entry** — Create multiple time entries for consecutive days with weekend skipping
-- **Time Entry Templates** — Save and reuse common time entries for faster logging
-- **Real-time Updates** — See live timer updates across all devices via WebSocket
-
-#### 💰 **Financial Management**
-- **Expense Tracking** — Track business expenses with receipts, categories, and approval workflows
-- **Payment Tracking** — Monitor invoice payments with multiple payment methods
-- **Billable Expenses** — Mark expenses as billable and automatically include in invoices
-- **Reimbursement Management** — Handle expense approvals and reimbursements
-
-#### 🔐 **Enterprise Security & Access**
-- **Role-Based Access Control (RBAC)** — Granular permissions system with custom roles
-- **OIDC/SSO Authentication** — Enterprise authentication support (Azure AD, Authelia, etc.)
-- **API Tokens** — Generate secure tokens for API access and integrations
-- **Audit Logs** — Track all system activity and user actions
-
-#### ⌨️ **Productivity Power-Ups**
-- **Command Palette** — Keyboard-driven navigation (Ctrl+K / Cmd+K)
-- **Keyboard Shortcuts** — 50+ shortcuts for lightning-fast navigation
-- **Quick Search** — Fast search across projects, tasks, clients, and more (Ctrl+K)
-- **Saved Filters** — Save frequently used report filters for instant access
-
-#### ✏️ **Content & Formatting**
-- **Markdown Support** — Rich text formatting in project and task descriptions
-- **Enhanced UI Components** — Modern, accessible interface components
-- **Toast Notifications** — Beautiful in-app notifications for actions and updates
-
-#### 🎨 **Modern UX & Layout Enhancements** 🆕
-- **Enterprise-Grade Tables** — Sortable columns, bulk actions, inline editing, and CSV export
-- **Enhanced Search** — Instant search with autocomplete, recent searches, and categorized results (Ctrl+K)
-- **Data Visualization** — Interactive charts with Chart.js (6 chart types, responsive, exportable)
-- **Progressive Web App (PWA)** — Install as mobile app, offline support, background sync
-- **Accessibility Excellence** — WCAG 2.1 AA compliant, keyboard navigation, screen reader support
-- **Interactive Onboarding** — Step-by-step product tours for new users
-- **Advanced Forms** — Auto-save, form state persistence, inline validation, smart defaults
-- **Design System** — Unified component library with 20+ reusable UI components
-- **Loading States** — Skeleton components and loading indicators throughout
-- **Enhanced Empty States** — Beautiful, actionable empty states with guidance
-
-#### 🏗️ **Architecture & Performance Improvements** 🆕
-- **Service Layer Migration** — Routes migrated to service layer pattern for better maintainability
-- **Query Optimization** — Fixed N+1 query problems, reduced database queries by 80-90%
-- **Environment Validation** — Comprehensive startup validation with helpful error messages
-- **Base CRUD Service** — Reusable service classes reducing code duplication
-- **API Token Security** — Enhanced token management with rotation, expiration, and scoping
-
----
-
-## ✨ Features
-
-TimeTracker includes **130+ features** across 13 major categories. See the [Complete Features Documentation](docs/FEATURES_COMPLETE.md) for a comprehensive overview.
-
-**📖 Quick Links:**
-- [📋 Complete Features List](docs/FEATURES_COMPLETE.md) — All features in detail
-- [⏱️ Time Tracking](docs/FEATURES_COMPLETE.md#time-tracking-features) — Timer and time entry features
-- [📊 Project Management](docs/FEATURES_COMPLETE.md#project-management) — Projects, tasks, and organization
-- [🧾 Invoicing](docs/INVOICE_FEATURE_README.md) — Invoice generation and billing
-- [💰 Financial Management](docs/FEATURES_COMPLETE.md#financial-management) — Expenses, payments, and tracking
-- [📈 Reporting & Analytics](docs/FEATURES_COMPLETE.md#reporting--analytics) — Reports and insights
-
-### ⏱️ **Smart Time Tracking**
-- **One-Click Timers** — Start tracking with a single click
-- **Persistent Timers** — Timers keep running even after browser closes
-- **Idle Detection** — Automatic pause after configurable idle time
-- **Manual Entry** — Add historical time entries with notes and tags
-- **Bulk Time Entry** — Create multiple entries for consecutive days with weekend skipping ([Guide](docs/BULK_TIME_ENTRY_README.md))
-- **Time Entry Templates** — Save and reuse common time entries for faster logging ([Guide](docs/TIME_ENTRY_TEMPLATES.md))
-- **Calendar View** — Visual calendar interface for viewing and managing time entries ([Guide](docs/CALENDAR_FEATURES_README.md))
-- **Focus Sessions** — Pomodoro-style focus session tracking
-- **Recurring Time Blocks** — Weekly recurring time block templates
-- **Time Rounding** — Configurable rounding intervals ([Guide](docs/TIME_ROUNDING_PREFERENCES.md))
-- **Real-time Updates** — See live timer updates across all devices via WebSocket
-
-### 📊 **Project & Task Management**
-- **Unlimited Projects & Tasks** — Organize work your way
-- **Client Management** — Store client details, contacts, and billing rates ([Guide](docs/CLIENT_MANAGEMENT_README.md))
-- **Task Board** — Visual task management with priorities and assignments
-- **Kanban Board** — Drag-and-drop task management with customizable columns
-- **Task Management** — Complete task tracking system ([Guide](docs/TASK_MANAGEMENT_README.md))
-- **Issue & Bug Tracking** — Full lifecycle issue and bug tracking system
-- **Status Tracking** — Monitor progress from to-do to completion
-- **Budget Tracking** — Monitor project budgets with alerts and forecasting ([Guide](docs/BUDGET_ALERTS_AND_FORECASTING.md))
-- **Project Costs** — Track direct project expenses
-- **Task Comments** — Collaborate with threaded comments on tasks
-- **Markdown Support** — Rich text formatting in project and task descriptions
-- **Project Favorites** — Quick access to frequently used projects
-
-### 💼 **CRM & Sales Management** 🆕
-- **Multiple Contacts per Client** — Manage unlimited contacts with roles and designations
-- **Sales Pipeline** — Visual Kanban-style pipeline for tracking deals and opportunities
-- **Deal Management** — Track deal value, probability, stages, and expected close dates
-- **Lead Management** — Capture, score, and convert leads into clients or deals
-- **Communication History** — Track all emails, calls, meetings, and notes with contacts
-- **Deal Activities** — Complete activity tracking for sales processes
-- **Lead Activities** — Track all interactions and activities for leads
-- **Lead Scoring** — Automated lead scoring (0-100) for prioritization
-- **Lead Conversion** — Convert leads to clients or deals with one click
-
-### 🧾 **Professional Invoicing**
-- **Generate from Time** — Convert tracked hours to invoices automatically
-- **Invoice System** — Complete invoicing solution ([Guide](docs/INVOICE_FEATURE_README.md))
-- **Custom Line Items** — Add manual items for expenses or services
-- **Tax Calculation** — Automatic tax calculations with configurable rates
-- **PDF Export** — Professional PDF invoice generation with customizable layouts
-- **PDF Invoice Layout** — Customize invoice and quote PDF layouts via Admin > PDF Layout; Items table includes time entries, extra goods, and expenses ([Guide](docs/PDF_LAYOUT_CUSTOMIZATION.md), [Extra Goods in PDF](docs/INVOICE_EXTRA_GOODS_PDF_EXPORT.md))
-- **Status Tracking** — Track draft, sent, paid, and overdue invoices
-- **Company Branding** — Add logos and custom company information
-- **Expense Integration** — Include tracked expenses in invoices
-- **Recurring Invoices** — Automate recurring billing
-- **Multi-Currency** — Support for multiple currencies with conversion
-- **Invoice Email** — Send invoices directly to clients
-- **Peppol & ZugFerd e-Invoicing (EN 16931)** — Send via Peppol (generic or native); embed EN 16931 XML in PDFs (ZugFerd/Factur-X); optional PDF/A-3 and veraPDF ([Setup Guide](docs/admin/configuration/PEPPOL_EINVOICING.md))
-
-### 💰 **Financial Management**
-- **Expense Tracking** — Track business expenses with receipts and categories ([Guide](docs/EXPENSE_TRACKING.md))
-- **Payment Tracking** — Monitor invoice payments and payment methods ([Guide](docs/PAYMENT_TRACKING.md))
-- **Reimbursement Management** — Handle expense approvals and reimbursements
-- **Billable Expenses** — Mark expenses as billable and add to invoices
-- **Payment Gateway Integration** — Track gateway transactions and fees
-- **Mileage Tracking** — Track business mileage with rate calculation
-- **Per Diem Tracking** — Manage per diem expenses and rates
-- **Multi-Currency** — Support for multiple currencies with conversion
-
-### 📈 **Analytics & Reporting**
-- **Visual Dashboards** — Charts and graphs for quick insights; dashboard includes **time-by-project chart (last 7 days)** and **weekly goal progress bar**
-- **Summary Report** — Today/week/month hours with **time-by-project** and **daily trend (14 days)** charts; **export summary as PDF**
-- **Detailed Reports** — Time breakdown by project, user, or date range
-- **CSV Export** — Export data for external analysis
-- **Billable vs Non-billable** — Separate tracking for accurate billing
-- **Custom Date Ranges** — Flexible reporting periods
-- **Saved Filters** — Save frequently used report filters for quick access
-- **User Analytics** — Individual performance metrics and productivity insights
-- **Budget Alerts** — Automatic alerts when budget thresholds are exceeded ([Guide](docs/BUDGET_ALERTS_AND_FORECASTING.md))
-- **Budget Forecasting** — Predict project completion dates based on burn rates
-- **Weekly Time Goals** — Set and track weekly hour targets ([Guide](docs/WEEKLY_TIME_GOALS.md))
-- **Overtime Tracking** — Monitor and report overtime hours
-
-### 🔐 **Multi-User & Security**
-- **Role-Based Access Control** — Granular permissions system with custom roles ([Guide](docs/ADVANCED_PERMISSIONS.md))
-- **User Management** — Add team members and manage access
-- **Self-Hosted** — Complete control over your data
-- **Flexible Authentication** — Username-only, OIDC/SSO (Azure AD, Authelia, etc.) ([Setup Guide](docs/admin/configuration/OIDC_SETUP.md))
-- **Session Management** — Secure cookies and session handling
-- **Profile Pictures** — Users can upload profile pictures
-- **API Tokens** — Generate tokens for API access and integrations ([API Docs](docs/api/REST_API.md))
-- **Audit Logs** — Track all system activity and user actions
-
-### ⌨️ **Productivity Features**
-- **Command Palette** — Keyboard-driven navigation with shortcuts (Ctrl+K / Cmd+K) ([Guide](docs/COMMAND_PALETTE_USAGE.md))
-- **Keyboard Shortcuts** — 50+ shortcuts for lightning-fast navigation and actions
-- **Quick Search** — Enhanced instant search with autocomplete and categorized results (Ctrl+K)
-- **Floating quick hub** — Bottom-right dock: unified Actions menu (timer, log time, new task/project/client, reports), optional team chat toggle with a fixed viewport panel, and AI Helper; see [UI guidelines](docs/UI_GUIDELINES.md#floating-hub-authenticated-layout)
-- **Enhanced Data Tables** — Sortable, filterable, inline-editable tables with bulk operations
-- **Email Notifications** — Configurable email alerts for tasks, invoices, and more
-- **Toast Notifications** — Beautiful in-app notifications; **post-timer toast** shows "Logged Xh on Project" with link to time entries
-- **Weekly Summaries** — Optional weekly time tracking summaries via email (enable in Settings)
-- **Remind to Log** — Optional end-of-day email reminder to log time (Settings → Remind me to log time at end of day; set time in your timezone)
-- **Activity Feed** — Track recent activity across the system
-- **Saved Filters** — Save frequently used report filters for quick access
-- **Recently Viewed** — Quick access to recently viewed items
-- **Favorites System** — Mark frequently used projects, clients, and tasks as favorites
-
-### 🛠️ **Technical Excellence**
-- **Docker Ready** — Deploy in minutes with Docker Compose
-- **Database Flexibility** — PostgreSQL for production, SQLite for testing
-- **Responsive Design** — Mobile-first design works perfectly on desktop, tablet, and mobile
-- **Native Mobile & Desktop Apps** — Flutter mobile app (iOS/Android) and Electron desktop app with time tracking, offline support, and API integration ([Build Guide](scripts/README-BUILD.md), [Docs](docs/mobile-desktop-apps/README.md))
-- **Real-time Sync** — WebSocket support for live updates across devices
-- **Automatic Backups** — Scheduled database backups (configurable)
-- **Progressive Web App (PWA)** — Install as mobile app with offline support and background sync
-- **Monitoring Stack** — Built-in Prometheus, Grafana, Loki for observability
-- **Internationalization** — Multiple language support (i18n) with translation system
-- **REST API** — Comprehensive REST API with token authentication and scoping
-- **HTTPS Support** — Automatic HTTPS setup with self-signed or trusted certificates
-- **Modern Architecture** — Service layer pattern, repository pattern, schema validation
-- **Performance Optimized** — Query optimization, eager loading, reduced N+1 queries
-- **Accessibility** — WCAG 2.1 AA compliant with full keyboard navigation and screen reader support
-
----
-
-## 📸 Screenshots
-
-<div align="center">
-
-### 🏠 Dashboard — Your Command Center
-<img src="assets/screenshots/Dashboard.png" alt="Dashboard" width="700">
-
-*Start timers, view recent entries, and see your productivity at a glance. **Daily workflow:** Start timer → work → stop → see recap toast with link to time entries; check dashboard for time-by-project chart (last 7 days) and weekly goal progress.*
-
----
-
-### 🔐 Simple Login & User Management
-<div>
-  <img src="assets/screenshots/Login.png" alt="Login" width="45%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/Profile.png" alt="Profile" width="45%" style="display: inline-block; margin: 5px;">
-</div>
-
-*Simple username-based authentication and customizable user profiles with avatar support*
-
----
-
-### 📁 Projects & Tasks — Stay Organized
-<div>
-  <img src="assets/screenshots/Projects.png" alt="Projects" width="45%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/Tasks.png" alt="Tasks" width="45%" style="display: inline-block; margin: 5px;">
-</div>
-
-*Manage multiple projects and break them down into actionable tasks*
-
----
-
-### 📋 Kanban Board — Visual Task Management
-<img src="assets/screenshots/Kanban.png" alt="Kanban Board" width="700">
-
-*Drag-and-drop task management with customizable columns and visual workflow*
-
----
-
-### ⏱️ Time Tracking — Flexible & Powerful
-<div>
-  <img src="assets/screenshots/LogTime.png" alt="Log Time" width="45%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/TimeEntryTemplates.png" alt="Time Entry Templates" width="45%" style="display: inline-block; margin: 5px;">
-</div>
-
-*Manual time entry and reusable templates for faster logging*
-
----
-
-### 🧾 Invoicing & Clients — Professional Billing
-<div>
-  <img src="assets/screenshots/Invoices.png" alt="Invoices" width="45%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/Clients.png" alt="Client Management" width="45%" style="display: inline-block; margin: 5px;">
-</div>
-
-*Generate invoices from tracked time and manage client relationships*
-
----
-
-### 📊 Reports & Analytics — Data-Driven Insights
-<div>
-  <img src="assets/screenshots/Reports.png" alt="Reports" width="45%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/UserReports.png" alt="User Reports" width="45%" style="display: inline-block; margin: 5px;">
-</div>
-
-*Comprehensive reporting and user analytics for informed decisions*
-
----
-
-### 🛠️ Admin Dashboard — Complete Control
-<img src="assets/screenshots/AdminDashboard.png" alt="Admin Dashboard" width="700">
-
-*Manage users, configure settings, and monitor system health*
-
----
-
-### 🎯 Easy Creation — Streamlined Workflows
-<div>
-  <img src="assets/screenshots/CreateProject.png" alt="Create Project" width="30%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/CreateTask.png" alt="Create Task" width="30%" style="display: inline-block; margin: 5px;">
-  <img src="assets/screenshots/CreateClient.png" alt="Create Client" width="30%" style="display: inline-block; margin: 5px;">
-</div>
-
-*Simple, intuitive forms for creating projects, tasks, and clients*
-
-</div>
-
----
-
-## 🚀 Quick Start
-
-For a full step-by-step guide, see **[INSTALLATION.md](INSTALLATION.md)**.
-
-### Prerequisites
-
-Before you begin, ensure you have:
-- **Docker** (20.10+) and **Docker Compose** (2.0+) installed
-- **Git** for cloning the repository
-- **2GB+ RAM** available for Docker containers
-- **Port 80/443** (HTTPS) or **8080** (HTTP) available
-
-> **💡 New to Docker?** See [Docker Installation Guide](https://docs.docker.com/get-docker/) for your platform.
-
-### Option 1: Docker with HTTPS (Recommended for Production)
-
-Get TimeTracker running in under 2 minutes with automatic HTTPS:
+### Start the production-style stack
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/drytrix/TimeTracker.git
-cd TimeTracker
-
-# 2. Create your environment file from the template
+git clone git@git.domisbu.de:Domi2803/EvilTime.git
+cd EvilTime
 cp env.example .env
-
-# 3. IMPORTANT: Edit .env and set a strong SECRET_KEY
-# Generate one with: python -c "import secrets; print(secrets.token_hex(32))"
-# Also set your timezone (TZ) and currency (CURRENCY)
-nano .env  # or use any text editor
-
-# 4. Start with Docker Compose (includes HTTPS via nginx with self-signed cert)
-docker-compose up -d
-
-# 5. Access at https://localhost
-# Your browser will warn about the self-signed certificate - that's normal
-# Click "Advanced" → "Proceed to localhost" to continue
+python -c "import secrets; print(secrets.token_hex(32))"
 ```
 
-**First login creates the admin account** — just enter your username! For setup problems, see [INSTALLATION.md](INSTALLATION.md).
+Copy the generated value into `.env` as `SECRET_KEY`. Review at least `TZ`, `ADMIN_USERNAMES`, `AUTH_METHOD`, the PostgreSQL credentials, and the cookie/CSRF settings before exposing the service to a network.
 
-**Default install (no bundled AI):** the main `docker-compose.yml` starts the app and PostgreSQL only. The optional **Ollama** stack is not started unless you opt in (see [AI Helper](#ai-helper-ollama-or-hosted) below).
-
-**📖 See the complete setup guide:** [`docs/admin/configuration/DOCKER_COMPOSE_SETUP.md`](docs/admin/configuration/DOCKER_COMPOSE_SETUP.md)
-
-**🗑️ Removing TimeTracker:** [UNINSTALL.md](UNINSTALL.md)
-
-**🔧 Troubleshooting:**
-- **Port already in use?** Change ports in `docker-compose.yml` or stop conflicting services
-- **Docker won't start?** See [Docker Startup Troubleshooting](docs/admin/configuration/DOCKER_STARTUP_TROUBLESHOOTING.md)
-- **CSRF errors?** See [CSRF Troubleshooting](docs/admin/security/CSRF_TROUBLESHOOTING.md)
-- **Database connection issues?** See [Database Troubleshooting](docker/TROUBLESHOOTING_DB_CONNECTION.md)
-
-### Option 2: Docker with Plain HTTP (Development/Testing)
-
-For local development or testing without HTTPS:
+Then build and start it:
 
 ```bash
-# 1. Clone and navigate to the repository
-git clone https://github.com/drytrix/TimeTracker.git
-cd TimeTracker
-
-# 2. Use the example compose file that exposes HTTP directly
-docker-compose -f docker-compose.example.yml up -d
-
-# 3. Access at http://localhost:8080
+docker compose up -d --build
+docker compose ps
 ```
 
-**Note:** This setup uses HTTP only. For production, use Option 1 with HTTPS.
+Open `https://localhost`. The bundled certificate is self-signed, so a browser warning is expected for a local installation. The application container runs database migrations during startup.
 
-### Option 3: Quick Test with SQLite
-
-Want to try it out without any configuration? Perfect for quick testing:
+Follow startup logs with:
 
 ```bash
-# 1. Clone the repository
-git clone https://github.com/drytrix/TimeTracker.git
-cd TimeTracker
-
-# 2. Start with the local test configuration (uses SQLite, no PostgreSQL)
-docker-compose -f docker/docker-compose.local-test.yml up --build
-
-# 3. Access at http://localhost:8080
+docker compose logs -f app
 ```
 
-**Benefits:**
-- ✅ No database setup required
-- ✅ No .env file configuration needed
-- ✅ Perfect for quick testing and evaluation
-- ⚠️ **Note:** SQLite is not recommended for production use
-
-**📖 Need help?** Check the [Getting Started Guide](docs/GETTING_STARTED.md) for detailed instructions.
-
-### Option 4: Install on a NAS (QNAP / Synology / Portainer)
-
-No git clone required — paste a single compose file into your NAS Docker UI:
-
-1. Copy [`docker-compose.nas.yml`](docker-compose.nas.yml) into Container Station, Synology Container Manager, or Portainer.
-2. Set **`SECRET_KEY`** — generate with: `openssl rand -hex 32`
-3. Deploy and open **`http://<your-nas-ip>:8080`**
-
-Works on **QNAP**, **Synology**, **Unraid/Portainer**, and other Docker-capable NAS devices (amd64 and arm64).
-
-**📖 Full step-by-step guide:** [NAS Deployment Guide](docs/admin/deployment/NAS_DEPLOYMENT.md)
-
----
-
-## 💻 System Requirements
-
-### Minimum Requirements
-
-**For Small Teams (1-5 users):**
-- **CPU**: 1 core (2.0 GHz+)
-- **RAM**: 2 GB
-- **Storage**: 10 GB free space
-- **OS**: Linux, macOS, or Windows (with Docker)
-- **Docker**: 20.10+ and Docker Compose 2.0+
-
-**For Production (5+ users):**
-- **CPU**: 2+ cores (2.4 GHz+)
-- **RAM**: 4 GB
-- **Storage**: 20 GB free space (SSD recommended)
-- **OS**: Linux (Ubuntu 20.04+, Debian 11+, or similar)
-- **Docker**: 20.10+ and Docker Compose 2.0+
-- **PostgreSQL**: 13+ (included in Docker Compose)
-
-### Recommended Requirements
-
-**For Optimal Performance:**
-- **CPU**: 4+ cores (3.0 GHz+)
-- **RAM**: 8 GB
-- **Storage**: 50+ GB SSD
-- **Network**: Stable internet connection (for updates and optional telemetry)
-- **Backup**: Automated backup solution for database
-
-### Platform Support
-
-- ✅ **Linux** (Ubuntu, Debian, CentOS, RHEL, etc.)
-- ✅ **macOS** (Intel and Apple Silicon)
-- ✅ **Windows** (Windows 10/11 with WSL2 or Docker Desktop)
-- ✅ **Raspberry Pi** (Raspberry Pi 4 with 2GB+ RAM)
-- ✅ **Cloud Platforms** (AWS, Azure, GCP, DigitalOcean, etc.)
-
-### Database Options
-
-- **PostgreSQL** (Recommended for production)
-  - Version 13+ required
-  - Included in Docker Compose setup
-  - Supports all features including full-text search
-
-- **SQLite** (Development/Testing only)
-  - No setup required
-  - Suitable for single-user or testing
-  - Limited concurrent write performance
-
-### Browser Support
-
-TimeTracker works with all modern browsers:
-- ✅ Chrome/Edge 90+
-- ✅ Firefox 88+
-- ✅ Safari 14+
-- ✅ Opera 76+
-
-**📖 For detailed requirements, see [Requirements Documentation](docs/REQUIREMENTS.md)**
-
----
-
-## 💡 Use Cases
-
-### For Freelancers
-Track time across multiple client projects, generate professional invoices, and understand where your time goes. TimeTracker helps you bill accurately and identify your most profitable clients.
-
-### For Teams
-Assign tasks, track team productivity, and generate reports for stakeholders. See who's working on what, identify bottlenecks, and optimize team performance.
-
-### For Agencies
-Manage multiple clients and projects simultaneously. Track billable hours, generate client invoices, and analyze project profitability — all in one place.
-
-### For Personal Projects
-Even if you're not billing anyone, understanding where your time goes is valuable. Track personal projects, hobbies, and learning activities to optimize your time.
-
----
-
-## 🌟 Why TimeTracker?
-
-| Feature | TimeTracker | Traditional Time Trackers |
-|---------|-------------|---------------------------|
-| **Self-Hosted** | ✅ Complete data control | ❌ Cloud-only, subscription fees |
-| **Open Source** | ✅ Free to use & modify | ❌ Proprietary, locked features |
-| **Persistent Timers** | ✅ Runs server-side | ❌ Browser-dependent |
-| **Docker Ready** | ✅ Deploy anywhere | ⚠️ Complex setup |
-| **Invoicing Built-in** | ✅ Track to bill workflow | ❌ Requires integration |
-| **No User Limits** | ✅ Unlimited users | ❌ Per-user pricing |
-
----
-
-## 📚 Documentation
-
-Comprehensive documentation is available in the [`docs/`](docs/) directory. See the [Documentation Index](docs/README.md) for a complete overview.
-
-### 📖 Documentation by Use Case
-
-**For New Users:**
-- **[Getting Started Guide](docs/GETTING_STARTED.md)** — Complete beginner's tutorial (⭐ Start here!)
-- **[Installation Guide](INSTALLATION.md)** — Step-by-step installation (Docker, SQLite test)
-- **[Docker Public Setup](docs/admin/configuration/DOCKER_PUBLIC_SETUP.md)** — Production deployment
-- **[Quick Start Guide](docs/guides/QUICK_START_GUIDE.md)** — Get up and running quickly
-
-**For Administrators:**
-- **[Docker Compose Setup](docs/admin/configuration/DOCKER_COMPOSE_SETUP.md)** — Production deployment guide
-- **[Configuration Guide](docs/admin/configuration/DOCKER_COMPOSE_SETUP.md)** — All configuration options
-- **[Uninstall / remove data](UNINSTALL.md)** — Tear down Docker, volumes, and optional AI (Ollama); [AI helper only](UNINSTALL.md#disabling-or-removing-the-ai-helper)
-- **[OIDC/SSO Setup](docs/admin/configuration/OIDC_SETUP.md)** — Enterprise authentication
-- **[Email Configuration](docs/admin/configuration/EMAIL_CONFIGURATION.md)** — Email setup
-- **[Version Management](docs/admin/deployment/VERSION_MANAGEMENT.md)** — Updates and releases
-
-**For Developers:**
-- **[Contributing](CONTRIBUTING.md)** — How to contribute (quick link)
-- **[Contributing Guidelines (full)](docs/development/CONTRIBUTING.md)** — Setup, standards, PR process
-- **[Development Guide](docs/DEVELOPMENT.md)** — Run locally, test, release process
-- **[Architecture](docs/ARCHITECTURE.md)** — System overview and design
-- **[Project Structure](docs/development/PROJECT_STRUCTURE.md)** — Codebase layout
-- **[API Documentation](docs/API.md)** — API quick reference · [Full REST API](docs/api/REST_API.md)
-- **[Database Migrations](migrations/README.md)** — Schema management
-- **[CI/CD Documentation](docs/cicd/CI_CD_DOCUMENTATION.md)** — Build and deployment
-
-**For Troubleshooting:**
-- **[Docker Startup Issues](docs/admin/configuration/DOCKER_STARTUP_TROUBLESHOOTING.md)** — Common startup problems
-- **[CSRF Token Issues](docs/admin/security/CSRF_TROUBLESHOOTING.md)** — Fix CSRF errors
-- **[Database Connection](docker/TROUBLESHOOTING_DB_CONNECTION.md)** — Database issues
-- **[Solution Guide](docs/SOLUTION_GUIDE.md)** — General problem solving
-
-### 🎯 Feature Documentation
-
-**Core Features:**
-- **[📋 Complete Features Overview](docs/FEATURES_COMPLETE.md)** — All 130+ features (⭐ Complete reference!)
-- **[Time Tracking](docs/FEATURES_COMPLETE.md#time-tracking-features)** — Timer and entry features
-- **[Task Management](docs/TASK_MANAGEMENT_README.md)** — Task tracking system
-- **[Client Management](docs/CLIENT_MANAGEMENT_README.md)** — Client relationships
-- **[Invoice System](docs/INVOICE_FEATURE_README.md)** — Invoice generation
-
-**Advanced Features:**
-- **[Calendar & Bulk Entry](docs/CALENDAR_FEATURES_README.md)** — Calendar view and bulk operations
-- **[Bulk Time Entry](docs/BULK_TIME_ENTRY_README.md)** — Create multiple entries
-- **[Time Entry Templates](docs/TIME_ENTRY_TEMPLATES.md)** — Reusable templates
-- **[Expense Tracking](docs/EXPENSE_TRACKING.md)** — Business expenses
-- **[Payment Tracking](docs/PAYMENT_TRACKING.md)** — Invoice payments
-- **[Budget Alerts & Forecasting](docs/BUDGET_ALERTS_AND_FORECASTING.md)** — Budget monitoring
-- **[Weekly Time Goals](docs/WEEKLY_TIME_GOALS.md)** — Weekly targets
-
-**Productivity:**
-- **[Command Palette](docs/COMMAND_PALETTE_USAGE.md)** — Keyboard shortcuts
-- **[Role-Based Permissions](docs/ADVANCED_PERMISSIONS.md)** — Access control
-- **[Multiple instances (independent companies)](docs/MULTI_INSTANCE_SETUP.md)** — One deployment per company
-
-**Integrations & Apps:**
-- **[Mobile & Desktop Apps](docs/mobile-desktop-apps/README.md)** — Flutter mobile and Electron desktop apps
-- **[Build Guide (Mobile & Desktop)](scripts/README-BUILD.md)** — Build scripts for Android, iOS, Windows, macOS, Linux
-- **[Peppol & ZugFerd e-Invoicing](docs/admin/configuration/PEPPOL_EINVOICING.md)** — Peppol sending and ZugFerd/Factur-X PDF embedding (EN 16931)
-- **[API Documentation](docs/api/REST_API.md)** — REST API reference
-- **[API Token Scopes](docs/api/API_TOKEN_SCOPES.md)** — Token permissions
-
-### 🔧 Technical Documentation
-
-- **[Project Structure](docs/development/PROJECT_STRUCTURE.md)** — Codebase architecture
-- **[Database Migrations](migrations/README.md)** — Schema management
-- **[Version Management](docs/admin/deployment/VERSION_MANAGEMENT.md)** — Release process
-- **[CSRF Configuration](docs/admin/security/CSRF_CONFIGURATION.md)** — Security setup
-- **[CI/CD Setup](docs/cicd/CI_CD_DOCUMENTATION.md)** — Continuous integration
-
-### 🔒 Security & Configuration
-
-- **[HTTPS Setup (Auto)](docs/admin/security/README_HTTPS_AUTO.md)** — Automatic HTTPS
-- **[HTTPS Setup (mkcert)](docs/admin/security/README_HTTPS.md)** — Manual HTTPS
-- **[CSRF Troubleshooting](docs/admin/security/CSRF_TROUBLESHOOTING.md)** — CSRF issues
-- **[CSRF IP Access Fix](docs/admin/security/CSRF_IP_ACCESS_FIX.md)** — IP access issues
-- **[OIDC/SSO Setup](docs/admin/configuration/OIDC_SETUP.md)** — Enterprise auth
-
-### 🤝 Contributing
-
-- **[Contributing Guidelines](docs/development/CONTRIBUTING.md)** — How to contribute
-- **[Code of Conduct](docs/development/CODE_OF_CONDUCT.md)** — Community standards
-- **[Development Setup](docs/development/LOCAL_TESTING_WITH_SQLITE.md)** — Local development
-
-### 📋 Reference
-
-- **[📋 Changelog](CHANGELOG.md)** — Complete release history (⭐ See what's new!)
-- **[Requirements](docs/REQUIREMENTS.md)** — System requirements
-- **[Documentation Index](docs/README.md)** — Complete documentation overview
-
----
-
-## 🐳 Deployment
-
-### Local Development
-```bash
-# Start with HTTPS (recommended)
-docker-compose up -d
-
-# Or use plain HTTP for development
-docker-compose -f docker-compose.example.yml up -d
-```
-
-### Production Deployment
-
-#### Option 1: Build from Source
-```bash
-# Clone the repository
-git clone https://github.com/drytrix/TimeTracker.git
-cd TimeTracker
-
-# Configure your .env file
-cp env.example .env
-# Edit .env with production settings:
-# - Set a strong SECRET_KEY: python -c "import secrets; print(secrets.token_hex(32))"
-# - Configure TZ (timezone) and CURRENCY
-# - Set PostgreSQL credentials (POSTGRES_PASSWORD, etc.)
-
-# Start the application
-docker-compose up -d
-```
-
-#### Option 2: Use Pre-built Images
-```bash
-# Use the remote compose file with published images
-docker-compose -f docker/docker-compose.remote.yml up -d
-```
-
-> **⚠️ Security Note:** Always set a unique `SECRET_KEY` in production! See [CSRF Configuration](docs/admin/security/CSRF_CONFIGURATION.md) for details.
-
-## AI Helper (Ollama or hosted)
-
-TimeTracker includes an optional **server-side AI helper** for the web app and API clients. **New installs default to AI off** (`AI_ENABLED=false` in `env.example` and in the root `docker-compose.yml` app service) so time tracking works without downloading a large language model.
-
-- **Enable (any setup)**: set `AI_ENABLED=true` (environment or **Admin → System Settings → AI Helper**).
-- **Ollama**: set `AI_PROVIDER=ollama`, `AI_MODEL=...`, and `AI_BASE_URL` to `http://ollama:11434` when Ollama runs in Docker on the same Compose network, or `http://127.0.0.1:11434` when Ollama runs on the host.
-- **Hosted OpenAI-compatible**: set `AI_PROVIDER=openai_compatible` and `AI_API_KEY=...`
-
-The AI helper is exposed as:
-
-- Session web UI JSON: `POST /api/ai/chat` (same-origin, login required)
-- REST API v1: `POST /api/v1/ai/chat` (API token required, scopes `read:ai`/`write:ai`)
-
-**Time entry suggestions** (when `AI_ENABLED=true`):
-
-- `GET /api/ai/suggest` — deterministic suggestions from recent patterns and active tasks; optional `?q=` filters by notes/project name; `?rich=true` merges LLM suggestions when configured. AI failures return deterministic results only.
-- **Start Timer** modal: horizontal suggestion chips above the project field (refresh for LLM-enhanced suggestions).
-- **Log Time** form: “✦ Autofill” popover and ghost-text autocomplete on the notes field (`app/static/js/ai_autocomplete.js`).
-
-All suggestion UI is hidden when AI is disabled (`ai_enabled` in template context).
-
-### Bundled Ollama service (Docker Compose, opt-in)
-
-The root `docker-compose.yml` defines a CPU-only **`ollama`** service and a one-shot **`ollama-init`** sidecar that pulls `AI_MODEL` (default `llama3.1`, ~4.7 GB) into the `ollama_data` volume. These services use the Compose **`ai`** profile so they **do not start by default**.
-
-**Enable bundled Ollama:**
-
-1. In `.env`, set `AI_ENABLED=true`, `AI_PROVIDER=ollama`, `AI_BASE_URL=http://ollama:11434`, and your desired `AI_MODEL`.
-2. Start the stack with the profile:
-
-   ```bash
-   docker compose --profile ai up -d
-   ```
-
-- The app reaches Ollama at `http://ollama:11434` over the Docker network — no host ports need to be opened.
-- Change the model by setting `AI_MODEL` in `.env` (e.g. `AI_MODEL=qwen2.5:3b` for lighter hardware) and re-running `docker compose --profile ai up -d`; the init sidecar will pull the new model when needed.
-- Pulled models are cached in the `ollama_data` named volume, so subsequent boots are faster.
-- Verify in the UI: **Admin → System Settings → AI helper**, then click *Test connection*.
-- To pull additional models manually: `docker compose exec ollama ollama pull <model>` (with the `ai` profile active).
-- **Hosted provider only (no Ollama containers):** set `AI_PROVIDER=openai_compatible`, `AI_BASE_URL`, and `AI_API_KEY` in `.env`; keep `docker compose up -d` without the `ai` profile.
-
-**Disable or remove AI** (turn off LLM calls, stop Ollama, revoke tokens, delete `ollama_data` safely): [UNINSTALL.md](UNINSTALL.md#disabling-or-removing-the-ai-helper).
-
-### Encrypting stored secrets (recommended)
-
-To store sensitive settings (OAuth secrets, mail password, AI API key, Peppol token, 2FA secret) encrypted at rest, set:
-
-- `SETTINGS_ENCRYPTION_KEY` (Fernet key), or
-- `SETTINGS_ENCRYPTION_KEY_FILE` (file path with the key on the first line)
-
-### Raspberry Pi Deployment
-TimeTracker runs perfectly on Raspberry Pi 4 (2GB+ RAM):
-```bash
-# Same Docker commands work on ARM architecture
-docker-compose up -d
-```
-
-### HTTPS Configuration
-
-#### Automatic HTTPS (Easiest)
-```bash
-# Uses self-signed certificates (generated automatically)
-docker-compose up -d
-# Access at https://localhost (accept browser warning)
-```
-
-#### Manual HTTPS with mkcert (No Browser Warnings)
-```bash
-# Use mkcert for locally-trusted certificates
-docker-compose -f docker/docker-compose.https-mkcert.yml up -d
-```
-**📖 See [HTTPS Setup Guide](docs/admin/security/README_HTTPS.md) for detailed instructions.** HTTPS helper scripts live in `scripts/` (e.g. from project root: `bash scripts/setup-https-mkcert.sh`, `bash scripts/start-https.sh`).
-
-### Monitoring & Analytics
-```bash
-# Alternate compose files (local-test, remote, analytics, https) are in docker/; use -f docker/docker-compose.xxx.yml
-
-# Deploy with full monitoring stack (Prometheus, Grafana, Loki)
-docker-compose -f docker-compose.yml -f docker/docker-compose.analytics.yml --profile monitoring up -d
-# Grafana: http://localhost:3000
-# Prometheus: http://localhost:9090
-```
-
-**📖 See [Deployment Guide](docs/admin/configuration/DOCKER_PUBLIC_SETUP.md) for detailed instructions**  
-**📖 See [Docker Compose Setup](docs/admin/configuration/DOCKER_COMPOSE_SETUP.md) for configuration options**
-
----
-
-## 🔧 Configuration
-
-TimeTracker is highly configurable through environment variables. For a comprehensive list and recommended values, see:
-
-- [`docs/admin/configuration/DOCKER_COMPOSE_SETUP.md`](docs/admin/configuration/DOCKER_COMPOSE_SETUP.md)
-- [`env.example`](env.example)
-
-Common settings:
+Stop the stack without deleting its database volumes:
 
 ```bash
-# Timezone and locale
-TZ=America/New_York
-CURRENCY=USD
-
-# Timer behavior
-SINGLE_ACTIVE_TIMER=true
-IDLE_TIMEOUT_MINUTES=30
-ROUNDING_MINUTES=1
-
-# User management
-# Note: Only the first username in ADMIN_USERNAMES is auto-created during initialization.
-# Additional usernames must self-register (if ALLOW_SELF_REGISTER=true) or be created manually.
-ADMIN_USERNAMES=admin,manager
-ALLOW_SELF_REGISTER=false
-
-# Security (production)
-SECRET_KEY=your-secure-random-key
-SESSION_COOKIE_SECURE=true
+docker compose down
 ```
 
----
+### Quick local Docker test
 
-## 📊 Analytics & Telemetry
-
-TimeTracker includes **optional** analytics and monitoring features to help improve the application and understand how it's being used. All analytics features are:
-
-- ✅ **Disabled by default** — You must explicitly opt-in
-- ✅ **Privacy-first** — No personally identifiable information (PII) is collected
-- ✅ **Self-hostable** — Run your own analytics infrastructure
-- ✅ **Transparent** — All data collection is documented
-
-### What We Collect (When Enabled)
-
-#### 1. **Structured Logs** (Always On, Local Only)
-- Request logs and error messages stored **locally** in `logs/app.jsonl`
-- Used for troubleshooting and debugging
-- **Never leaves your server**
-
-#### 2. **Prometheus Metrics** (Always On, Self-Hosted)
-- Request counts, latency, and performance metrics
-- Exposed at `/metrics` endpoint for your Prometheus server
-- **Stays on your infrastructure**
-
-#### 3. **Error Monitoring** (Optional - Sentry)
-- Captures uncaught exceptions and performance issues
-- Helps identify and fix bugs quickly
-- **Opt-in:** Set `SENTRY_DSN` environment variable
-
-#### 4. **Product Analytics** (Optional - Grafana OTLP)
-- Tracks feature usage and user behavior patterns with advanced features:
-  - **Person Properties**: Role, auth method, login history
-  - **Group Analytics**: Segment by version, platform, deployment
-  - **Rich Context**: Browser, device, environment on every event
-- **Sink config:** Set `GRAFANA_OTLP_ENDPOINT` and `GRAFANA_OTLP_TOKEN`
-
-**Rollouts and kill switches** in this application are not driven by remote PostHog feature flags. Use **environment variables** and [`app/config.py`](app/config.py) (for example `DEMO_MODE`, `ALLOW_SELF_REGISTER`, `ENABLE_TELEMETRY`, `SINGLE_ACTIVE_TIMER`). **Per-user UI visibility** preferences are stored on the user record in the database, not in PostHog. With **`DEMO_MODE`**, the auto-created login is a standard **user** (no admin or settings access); see [`docs/deploy/RENDER.md`](docs/deploy/RENDER.md) for demo setup and upgrading old demo databases.
-
-#### 5. **Installation Telemetry** (Optional, Anonymous)
-- Sends anonymous installation data via Grafana OTLP with:
-  - Anonymized fingerprint (SHA-256 hash, cannot be reversed)
-  - Application version
-  - Platform information
-- **No PII:** No IP addresses, usernames, or business data
-- **Opt-in:** Set `ENABLE_TELEMETRY=true` for detailed analytics; base telemetry remains anonymous
-
-### How to Enable Analytics
+For an isolated SQLite test instance on plain HTTP:
 
 ```bash
-# Enable Sentry error monitoring (optional)
-SENTRY_DSN=https://your-sentry-dsn@sentry.io/project-id
-SENTRY_TRACES_RATE=0.1  # 10% sampling for performance traces
-
-# Configure Grafana Cloud OTLP sink (optional)
-GRAFANA_OTLP_ENDPOINT=https://otlp-gateway-prod-eu-west-2.grafana.net/otlp/v1/logs
-GRAFANA_OTLP_TOKEN=your-grafana-otlp-token
-
-# Enable detailed analytics (optional)
-ENABLE_TELEMETRY=true
-TELE_SALT=your-unique-salt
-APP_VERSION=1.0.0
+docker compose -f docker/docker-compose.local-test.yml up --build
 ```
 
-### Self-Hosting Analytics
+Open `http://localhost:8080`. This mode is intended for development and evaluation, not production.
 
-You can self-host all analytics services for complete control:
+## Run directly for development
+
+Native development uses Python 3.11 and Node.js 18 or newer. The commands below use SQLite, build the frontend assets, apply migrations, and start Flask on port 8080.
 
 ```bash
-# Use docker-compose with monitoring profile
-docker-compose --profile monitoring up -d
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+npm install
+npm run build:assets
+mkdir -p instance logs
+export FLASK_ENV=development
+export FLASK_DEBUG=true
+export SECRET_KEY=eviltime-local-development-secret-key
+export DATABASE_URL="sqlite:///$PWD/instance/eviltime.db"
+export AUTH_METHOD=local
+export ADMIN_USERNAMES=admin
+flask --app app.py db upgrade
+python app.py
 ```
 
-This starts:
-- **Prometheus** — Metrics collection and storage
-- **Grafana** — Visualization dashboards
-- **Loki** (optional) — Log aggregation
-- **Promtail** (optional) — Log shipping
+Open `http://localhost:8080`. For production, use PostgreSQL and a production WSGI deployment such as the included Docker stack.
 
-### Privacy & Data Protection
+When frontend source files change, rebuild them with:
 
-> **Telemetry**: TimeTracker can optionally send anonymized usage data to help improve the product (errors, feature usage, install counts). All telemetry is **opt-in**. No personal data is collected. To disable telemetry, set `ENABLE_TELEMETRY=false` or simply don't set the environment variable (disabled by default).
+```bash
+npm run build:assets
+```
 
-**What we DON'T collect:**
-- ❌ Email addresses or usernames
-- ❌ IP addresses
-- ❌ Project names or descriptions
-- ❌ Time entry notes or client data
-- ❌ Any personally identifiable information (PII)
+## First-time setup
 
-**Your rights:**
-- 📥 **Access**: View all collected data
-- ✏️ **Rectify**: Correct inaccurate data
-- 🗑️ **Erase**: Delete your data at any time
-- 📤 **Export**: Export your data in standard formats
+The first username in `ADMIN_USERNAMES` is the initial administrator. With local authentication, sign in as that user and set a password when prompted. Then:
 
-**📖 See [Privacy Policy](docs/privacy.md) for complete details**  
-**📖 See [Analytics Documentation](docs/analytics.md) for configuration**  
-**📖 See [Events Schema](docs/events.md) for tracked events**
+1. Create the projects your team may clock into, including any desired internal/general project.
+2. Assign project access and permissions to users.
+3. Have each user select a default project under **My Settings → Work tracking**.
+4. Review timezone, rounding, authentication, backups, and module visibility under **Admin → Settings**.
 
----
+## Updating an installation
 
-## 🛣️ Roadmap
+Back up the database and uploaded files first, then rebuild from the new revision:
 
-### Planned Features
-- 📊 **Advanced Analytics** — More charts, insights, and reporting options
-- 🔌 **API Extensions** — Additional RESTful API endpoints for integrations
-- 🔔 **Push Notifications** — Real-time browser notifications
-- 📱 **Mobile & Desktop App Enhancements** — Additional features for the native Flutter mobile and Electron desktop apps
-- 🤖 **Automation Rules** — Automated workflows and task assignments
-- 📈 **Advanced Forecasting** — AI-powered project timeline predictions
+```bash
+git pull --ff-only
+docker compose up -d --build
+docker compose logs -f app
+```
 
-### 🎉 Recently Added Features
+The startup process applies pending Alembic migrations. Persistent data is stored in Docker volumes; do not use `docker compose down -v` unless you intentionally want to delete it.
 
-#### 💼 Business & CRM Features
-- ✅ **Complete CRM Suite** — Multiple contacts, sales pipeline, deal tracking, and lead management
-- ✅ **Invoice Generation** — Full invoicing system with PDF export, multi-currency, and tax calculations
-- ✅ **Expense Tracking** — Comprehensive expense management with receipts and categories
-- ✅ **Payment Tracking** — Monitor invoice payments with multiple payment methods
-- ✅ **Recurring Invoices** — Automate recurring billing cycles
+## Tests and checks
 
-#### 📋 Project & Task Management
-- ✅ **Task Management System** — Complete task tracking with priorities, assignments, and due dates
-- ✅ **Kanban Board** — Visual drag-and-drop task management with customizable columns
-- ✅ **Task Comments** — Threaded collaboration with comments on tasks
-- ✅ **Task Activity Tracking** — Complete history of all task changes
+```bash
+source .venv/bin/activate
+pytest
+python scripts/check_silent_excepts.py
+npm run build:assets
+```
 
-#### ⏱️ Time Tracking Enhancements
-- ✅ **Calendar View** — Visual calendar interface for viewing and managing time entries
-- ✅ **Bulk Time Entry** — Create multiple entries for consecutive days with weekend skipping
-- ✅ **Time Entry Templates** — Save and reuse common time entries for faster logging
-- ✅ **Real-time Updates** — Live timer synchronization across all devices via WebSocket
+## Configuration and documentation
 
-#### 🔐 Security & Access Control
-- ✅ **Role-Based Permissions (RBAC)** — Granular access control system with custom roles
-- ✅ **OIDC/SSO Authentication** — Enterprise authentication support (Azure AD, Authelia, etc.)
-- ✅ **API Tokens** — Secure token generation for API access and integrations
-- ✅ **Audit Logs** — Complete system activity and user action tracking
+- [`env.example`](env.example) documents the principal environment variables.
+- [`docs/`](docs/) contains the inherited administration, security, API, backup, and deployment guides.
+- [`CHANGELOG.md`](CHANGELOG.md) contains the upstream release history and project changes.
+- [`UNINSTALL.md`](UNINSTALL.md) explains how to remove an installation and its data.
 
-#### ⌨️ Productivity Features
-- ✅ **Command Palette** — Keyboard-driven navigation (Ctrl+K / Cmd+K)
-- ✅ **Keyboard Shortcuts** — 50+ shortcuts for power users
-- ✅ **Quick Search** — Fast search across all entities (Ctrl+K)
-- ✅ **Saved Filters** — Save frequently used report filters for quick access
+Some inherited documents still use the original TimeTracker name where they describe unchanged upstream subsystems.
 
-#### ✨ User Experience
-- ✅ **Custom Themes** — Per-user theme picker with 8 built-in themes plus accent colour, sidebar style, text size and corner radius overrides ([Guide](docs/features/CUSTOM_THEMES.md))
-- ✅ **Modern UX & Layout** — Complete UI/UX overhaul with 16 major improvements
-- ✅ **Enterprise-Grade Tables** — Sortable, filterable, inline-editable tables with bulk actions
-- ✅ **Enhanced Search** — Instant search with autocomplete and categorized results
-- ✅ **Data Visualization** — Interactive charts with Chart.js integration
-- ✅ **Progressive Web App** — Full PWA capabilities with offline support
-- ✅ **Accessibility Excellence** — WCAG 2.1 AA compliant with full keyboard navigation
-- ✅ **Interactive Onboarding** — Step-by-step product tours for new users
-- ✅ **Design System** — Unified component library with 20+ reusable components
-- ✅ **Markdown Support** — Rich text formatting in descriptions
-- ✅ **Toast Notifications** — Beautiful in-app notification system
-- ✅ **Enhanced UI Components** — Modern, accessible interface elements
+## Fork attribution
 
-#### 📱 Native Mobile & Desktop Apps
-- ✅ **Flutter Mobile App** — Native iOS and Android apps with time tracking, calendar view, offline sync, and API token authentication
-- ✅ **Electron Desktop App** — Windows, macOS, and Linux desktop app with system tray, time tracking, and offline support
-- ✅ **Build Scripts** — Cross-platform build scripts for mobile and desktop ([Build Guide](scripts/README-BUILD.md))
+EvilTime is a fork of [DRYTRIX/TimeTracker](https://github.com/DRYTRIX/TimeTracker). We are grateful to the original maintainers and contributors for the application this work builds upon.
 
-#### 🏗️ Architecture & Performance
-- ✅ **Service Layer Migration** — Routes migrated to service layer pattern
-- ✅ **Query Optimization** — Fixed N+1 queries, reduced database queries by 80-90%
-- ✅ **Environment Validation** — Comprehensive startup validation
-- ✅ **Base CRUD Services** — Reusable service classes reducing code duplication
-- ✅ **API Token Security** — Enhanced token management with rotation and scoping
+EvilTime-specific changes are maintained by The Good Evil GmbH in [Domi2803/EvilTime](https://git.domisbu.de/Domi2803/EvilTime).
 
----
+## License
 
-## 🤝 Contributing
-
-We welcome contributions! Whether it's:
-
-- 🐛 **Bug Reports** — Help us identify issues
-- 💡 **Feature Requests** — Share your ideas
-- 📝 **Documentation** — Improve our docs
-- 💻 **Code Contributions** — Submit pull requests
-
-### Quick Start for Contributors
-
-1. **Fork and Clone**
-   ```bash
-   git clone https://github.com/your-username/TimeTracker.git
-   cd TimeTracker
-   ```
-
-2. **Set Up Development Environment**
-   ```bash
-   # Use SQLite for quick local testing
-   docker-compose -f docker/docker-compose.local-test.yml up -d
-   ```
-
-3. **Make Your Changes**
-   - Follow the [Contributing guidelines](CONTRIBUTING.md) and [full Contributing doc](docs/development/CONTRIBUTING.md)
-   - Write tests for new features
-   - Update documentation as needed
-
-4. **Submit a Pull Request**
-   - Create a clear description of your changes
-   - Reference any related issues
-   - Ensure all tests pass
-
-**📖 [CONTRIBUTING.md](CONTRIBUTING.md)** — Quick contributing overview  
-**📖 [Full Contributing Guidelines](docs/development/CONTRIBUTING.md)** — Setup, standards, PR process  
-**📖 [DEVELOPMENT.md](docs/DEVELOPMENT.md)** — Run locally, tests, releases  
-**📖 [Local Testing with SQLite](docs/development/LOCAL_TESTING_WITH_SQLITE.md)** — Docker SQLite setup
-
----
-
-## 📄 License
-
-TimeTracker is licensed under the **GNU General Public License v3.0**.
-
-This means you can:
-- ✅ Use it commercially
-- ✅ Modify and adapt it
-- ✅ Distribute it
-- ✅ Use it privately
-
-**See [LICENSE](LICENSE) for full details**
-
----
-
-## 🆘 Support
-
-- 💙 **Support the project & purchase key:** [Support & Purchase Key](https://timetracker.drytrix.com/support.html) — donate or purchase a one-time key to remove donate/support prompts in your instance
-- 📖 **Documentation**: Check the [`docs/`](docs/) directory
-- 🐛 **Bug Reports**: [Open an issue](https://github.com/drytrix/TimeTracker/issues)
-- 💬 **Discussions**: [GitHub Discussions](https://github.com/drytrix/TimeTracker/discussions)
-- 📧 **Contact**: [Create an issue](https://github.com/drytrix/TimeTracker/issues) for support
-
----
-
-## ⭐ Star Us!
-
-If TimeTracker helps you track your time better, consider giving us a star on GitHub! It helps others discover the project.
-
-<div align="center">
-
-**[⭐ Star on GitHub](https://github.com/drytrix/TimeTracker)**
-
----
-
-**Built with ❤️ for the time-tracking community**
-
-</div>
+This project remains available under the upstream license. See [`LICENSE`](LICENSE) for the full terms and copyright notices.

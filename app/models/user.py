@@ -191,11 +191,6 @@ class User(UserMixin, db.Model):
     ui_show_team_chat = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide Team Chat
     ui_show_client_portal = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide Client Portal
     ui_show_kiosk = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide Kiosk Mode
-    ui_show_donate = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide donate/support UI
-
-    # Support UX: count of report generations (exports + custom report views) for stats in support modal
-    support_stats_reports_generated = db.Column(db.Integer, default=0, nullable=False)
-
     # GitHub login for the GitHubConnector integration (links a TimeTracker
     # user to a GitHub account so webhook events such as "issue assigned"
     # can act on the right account). Optional, not unique – a single GitHub

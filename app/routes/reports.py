@@ -27,7 +27,6 @@ from app.repositories import TimeEntryRepository
 from app.services.scheduled_report_service import ScheduledReportService
 from app.utils.excel_export import create_project_report_excel, create_time_entries_excel
 from app.utils.posthog_monitoring import track_error, track_export_performance, track_validation_error
-from app.utils.support_report_generation import record_report_generation_for_current_user
 
 # Optional PowerPoint export - only import if available
 try:
@@ -514,7 +513,6 @@ def export_csv():
             # Don't let tracking errors break the export
             pass
 
-        record_report_generation_for_current_user()
         return send_file(io.BytesIO(csv_content), mimetype="text/csv", as_attachment=True, download_name=filename)
     except Exception:
         current_app.logger.exception("CSV export failed (reports.export_csv)")
@@ -571,7 +569,6 @@ def export_summary_pdf():
         current_app.logger.warning("Summary report PDF export failed: %s", e, exc_info=True)
         flash(_("PDF export failed: %(error)s", error=str(e)), "error")
         return redirect(url_for("reports.summary_report"))
-    record_report_generation_for_current_user()
     filename = f"summary_report_{datetime.utcnow().strftime('%Y%m%d')}.pdf"
     return send_file(
         io.BytesIO(pdf_bytes),
@@ -980,7 +977,6 @@ def time_entries_export_excel():
         "export.excel",
         {"export_type": "time_entries_report", "num_rows": len(entries)},
     )
-    record_report_generation_for_current_user()
     return send_file(
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1043,7 +1039,6 @@ def time_entries_export_csv():
         writer.writerow(row)
     output.seek(0)
     filename = f"time_entries_report_{start_date}_to_{end_date}.csv"
-    record_report_generation_for_current_user()
     return send_file(
         io.BytesIO(output.getvalue().encode("utf-8")),
         mimetype="text/csv",
@@ -1123,7 +1118,6 @@ def export_excel():
         {"export_type": "time_entries", "num_rows": len(entries), "date_range_days": (end_dt - start_dt).days},
     )
 
-    record_report_generation_for_current_user()
     return send_file(
         output,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

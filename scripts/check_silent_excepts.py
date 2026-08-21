@@ -3,9 +3,7 @@
 Ratchet down silently-swallowed exceptions.
 
 The codebase has ~511 broad `except Exception:` handlers, 186 of which do nothing but
-`pass`. Those hide real faults: e.g. main.dashboard() falls back to recomputing
-donation stats when DonationInteraction raises, so a genuine database error surfaces
-only as a slow page.
+`pass`. Those hide real faults and make production problems difficult to diagnose.
 
 Fixing all 186 at once is not realistic, so this enforces a budget instead: the count
 may go down but never up. Lower MAX_SILENT_EXCEPTS as handlers are triaged.

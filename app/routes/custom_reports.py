@@ -14,7 +14,6 @@ from app.models import Client, Expense, Invoice, Project, SavedReportView, Task,
 from app.services.unpaid_hours_service import UnpaidHoursService
 from app.utils.db import safe_commit
 from app.utils.module_helpers import module_enabled
-from app.utils.support_report_generation import record_report_generation_for_current_user
 
 custom_reports_bp = Blueprint("custom_reports", __name__)
 
@@ -204,13 +203,11 @@ def view_custom_report(view_id):
     # Check if iterative report generation is enabled
     if saved_view.iterative_report_generation and saved_view.iterative_custom_field_name:
         # Generate reports for each custom field value
-        record_report_generation_for_current_user()
         return _generate_iterative_reports(saved_view, config, current_user.id)
 
     # Generate single report data based on config
     report_data = generate_report_data(config, current_user.id)
 
-    record_report_generation_for_current_user()
     return render_template("reports/custom_view.html", saved_view=saved_view, config=config, report_data=report_data)
 
 
