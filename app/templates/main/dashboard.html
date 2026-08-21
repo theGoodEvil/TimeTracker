@@ -177,9 +177,9 @@
         <div class="relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1200"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
           <div class="absolute inset-x-0 top-[91px] h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
           {% for hour in range(8, 21) %}
-          <div class="pointer-events-none absolute top-[84px] -translate-x-1/2" style="left: {{ ((hour - 8) / 12 * 100) }}%">
+          <div class="pointer-events-none absolute top-[84px] flex -translate-x-1/2 flex-col items-center" style="left: {{ ((hour - 8) / 12 * 100) }}%">
             <span class="block h-4 w-px bg-slate-300 dark:bg-slate-600"></span>
-            <span class="mt-1 block -translate-x-1/2 font-mono text-[11px] font-medium tabular-nums text-slate-400">{{ '%02d:00'|format(hour) }}</span>
+            <span class="mt-1 block font-mono text-[11px] font-medium tabular-nums text-slate-400">{{ '%02d:00'|format(hour) }}</span>
           </div>
           {% endfor %}
         {% for event in today_timeline %}
