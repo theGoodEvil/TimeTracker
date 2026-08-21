@@ -37,7 +37,9 @@
       <div class="p-5 sm:p-6">
       <div class="grid gap-6 md:grid-cols-[minmax(0,1fr)_auto] md:items-center">
         <div class="flex min-w-0 items-center gap-4">
-          {% if active_timer and active_timer.project and active_timer.project.icon_filename %}
+          {% if active_timer and active_timer.project and active_timer.project.icon_emoji %}
+          <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-3xl shadow-sm dark:border-slate-700 dark:bg-slate-800">{{ active_timer.project.icon_emoji }}</span>
+          {% elif active_timer and active_timer.project and active_timer.project.icon_filename %}
           <img src="{{ url_for('projects.project_icon', filename=active_timer.project.icon_filename) }}" alt="" class="h-14 w-14 shrink-0 rounded-2xl border border-slate-200 object-cover shadow-sm dark:border-slate-700">
           {% elif active_timer and active_timer.project %}
           <span class="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl text-sm font-bold text-white shadow-sm" style="background-color: {{ active_timer.project.color or '#64748b' }}">{{ active_timer.project.code_display[:3] }}</span>
@@ -101,7 +103,8 @@
           <form method="POST" action="{{ url_for('timer.switch_timer') if active_timer else url_for('timer.start_timer') }}" class="flex w-14 shrink-0 flex-col items-center gap-1.5">
             <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="project_id" value="{{ project.id }}">
             <button type="submit" title="{{ project.name }}{% if is_current %} · {{ _('Currently tracking') }}{% elif active_timer %} · {{ _('Switch project') }}{% else %} · {{ _('Clock in') }}{% endif %}" aria-label="{{ project.name }}" class="group relative flex h-12 w-12 items-center justify-center overflow-hidden rounded-full border-2 transition duration-150 ease-out hover:-translate-y-0.5 hover:scale-110 hover:shadow-md focus-visible:scale-110 {% if is_current %}border-emerald-500 ring-2 ring-emerald-500/20{% else %}border-white shadow-sm ring-1 ring-slate-200 hover:border-primary dark:border-slate-900 dark:ring-slate-700{% endif %}" {% if is_current %}disabled{% endif %}>
-              {% if project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=project.icon_filename) }}" alt="" class="h-full w-full object-cover">
+              {% if project.icon_emoji %}<span class="flex h-full w-full items-center justify-center bg-white text-2xl dark:bg-slate-800">{{ project.icon_emoji }}</span>
+              {% elif project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=project.icon_filename) }}" alt="" class="h-full w-full object-cover">
               {% else %}<span class="flex h-full w-full items-center justify-center text-xs font-bold text-white" style="background-color: {{ project.color or '#64748b' }}">{{ project.code_display[:3] }}</span>{% endif %}
             </button>
             <span class="max-w-12 truncate text-[10px] font-semibold uppercase tracking-wide text-slate-500" title="{{ project.code_display }}">{{ project.code_display }}</span>
@@ -162,7 +165,8 @@
       {% for entry in recent_entries[:6] %}
       <div class="group flex items-center justify-between gap-4 px-5 py-3 transition-colors hover:bg-slate-50/80 dark:hover:bg-slate-800/35">
         <div class="flex min-w-0 items-center gap-3">
-          {% if entry.project and entry.project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=entry.project.icon_filename) }}" alt="" class="h-9 w-9 shrink-0 rounded-lg border border-slate-200 object-cover dark:border-slate-700">
+          {% if entry.project and entry.project.icon_emoji %}<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-slate-200 bg-white text-xl dark:border-slate-700 dark:bg-slate-800">{{ entry.project.icon_emoji }}</span>
+          {% elif entry.project and entry.project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=entry.project.icon_filename) }}" alt="" class="h-9 w-9 shrink-0 rounded-lg border border-slate-200 object-cover dark:border-slate-700">
           {% else %}<span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-[10px] font-bold text-white" style="background-color: {{ entry.project.color if entry.project and entry.project.color else '#64748b' }}">{{ entry.project.code_display[:3] if entry.project else '—' }}</span>{% endif %}
           <div class="min-w-0"><p class="truncate font-medium text-slate-900 dark:text-white">{{ entry.project.name if entry.project else _('Legacy unassigned time') }}</p><p class="text-xs text-slate-500">{{ entry.start_time|user_date }} <span class="px-1 text-slate-300 dark:text-slate-700">·</span> {{ entry.start_time|user_time }}</p></div>
         </div>

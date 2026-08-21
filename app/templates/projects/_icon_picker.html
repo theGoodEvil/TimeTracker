@@ -1,0 +1,41 @@
+{% set editing_project = project if project is defined else none %}
+{% set saved_type = 'emoji' if editing_project and editing_project.icon_emoji else ('png' if editing_project and editing_project.icon_filename else 'none') %}
+{% set selected_type = request.form.get('project_icon_type', saved_type if editing_project else 'emoji') %}
+{% set selected_emoji = request.form.get('project_icon_emoji', editing_project.icon_emoji if editing_project and editing_project.icon_emoji else '🕒') %}
+
+<div data-project-icon-picker class="rounded-xl border border-border-light bg-background-light/50 p-4 dark:border-border-dark dark:bg-background-dark/40">
+    <label class="form-label">{{ _('Project icon') }}</label>
+    <input type="hidden" name="project_icon_type" value="{{ selected_type }}" data-project-icon-type>
+    <input type="hidden" name="project_icon_emoji" value="{{ selected_emoji }}" data-project-icon-emoji>
+
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+        <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border-light bg-card-light shadow-sm dark:border-border-dark dark:bg-card-dark" data-project-icon-preview>
+            <span class="text-3xl {% if selected_type != 'emoji' %}hidden{% endif %}" data-project-icon-preview-emoji>{{ selected_emoji }}</span>
+            <img {% if editing_project and editing_project.icon_filename %}src="{{ url_for('projects.project_icon', filename=editing_project.icon_filename) }}"{% endif %} alt="" class="h-full w-full object-cover {% if selected_type != 'png' or not editing_project or not editing_project.icon_filename %}hidden{% endif %}" data-project-icon-preview-image>
+            <i class="fas fa-image text-xl text-text-muted-light dark:text-text-muted-dark {% if selected_type == 'emoji' or (selected_type == 'png' and editing_project and editing_project.icon_filename) %}hidden{% endif %}" data-project-icon-preview-placeholder></i>
+        </div>
+
+        <div class="min-w-0 flex-1">
+            <div class="inline-flex rounded-lg border border-border-light bg-card-light p-1 dark:border-border-dark dark:bg-card-dark" role="group" aria-label="{{ _('Project icon type') }}">
+                <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors" data-project-icon-mode="emoji">{{ _('Emoji') }}</button>
+                <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors" data-project-icon-mode="png">{{ _('PNG upload') }}</button>
+                <button type="button" class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors" data-project-icon-mode="none">{{ _('No icon') }}</button>
+            </div>
+
+            <div class="mt-3 {% if selected_type != 'emoji' %}hidden{% endif %}" data-project-icon-panel="emoji">
+                <p class="mb-2 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Choose an emoji') }}</p>
+                <div class="grid max-w-md grid-cols-8 gap-1.5 rounded-xl border border-border-light bg-card-light p-2 dark:border-border-dark dark:bg-card-dark">
+                    {% for emoji in project_icon_emojis %}
+                    <button type="button" class="flex h-9 w-9 items-center justify-center rounded-lg text-xl transition hover:bg-primary/10 focus:outline-none focus:ring-2 focus:ring-primary/40 {% if emoji == selected_emoji %}bg-primary/10 ring-1 ring-primary/40{% endif %}" data-project-emoji="{{ emoji }}" aria-label="{{ _('Use %(emoji)s', emoji=emoji) }}" aria-pressed="{{ 'true' if emoji == selected_emoji else 'false' }}">{{ emoji }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="mt-3 {% if selected_type != 'png' %}hidden{% endif %}" data-project-icon-panel="png">
+                <input type="file" id="project_icon" name="project_icon" accept="image/png,.png" class="form-input" data-project-icon-file>
+                <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Upload a square PNG image up to 2 MB.') }}</p>
+                {% if editing_project and editing_project.icon_filename %}<p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Leave empty to keep the current PNG.') }}</p>{% endif %}
+            </div>
+        </div>
+    </div>
+</div>

@@ -26293,3 +26293,43 @@ msgstr "Erfasste Pausenzeit"
 
 msgid "Your latest completed sessions"
 msgstr "Zuletzt abgeschlossene Zeiterfassungen"
+
+msgid "Invalid project icon type"
+msgstr "Ungültiger Projekt-Icon-Typ"
+
+msgid "Choose an emoji from the project icon selector"
+msgstr "Emoji aus der Projekt-Icon-Auswahl auswählen"
+
+msgid "Choose a PNG file for the project icon"
+msgstr "PNG-Datei als Projekt-Icon auswählen"
+
+msgid "The project icon could not be read"
+msgstr "Das Projekt-Icon konnte nicht gelesen werden"
+
+msgid "Project icons must be valid PNG files"
+msgstr "Projekt-Icons müssen gültige PNG-Dateien sein"
+
+msgid "Project icon type"
+msgstr "Projekt-Icon-Typ"
+
+msgid "Emoji"
+msgstr "Emoji"
+
+msgid "PNG upload"
+msgstr "PNG hochladen"
+
+msgid "No icon"
+msgstr "Kein Icon"
+
+msgid "Choose an emoji"
+msgstr "Emoji auswählen"
+
+#, python-format
+msgid "Use %(emoji)s"
+msgstr "%(emoji)s verwenden"
+
+msgid "Upload a square PNG image up to 2 MB."
+msgstr "Lade ein quadratisches PNG-Bild mit maximal 2 MB hoch."
+
+msgid "Leave empty to keep the current PNG."
+msgstr "Leer lassen, um das aktuelle PNG beizubehalten."

@@ -23,6 +23,7 @@ from flask_babel import gettext as _
 from flask_login import current_user, login_required
 
 from app import db, log_event, track_event
+from app.constants import PROJECT_ICON_EMOJIS
 from app.models import (
     Activity,
     Client,
@@ -53,24 +54,70 @@ _project_service = ProjectService()
 projects_bp = Blueprint("projects", __name__)
 
 
+@projects_bp.app_context_processor
+def project_icon_choices():
+    """Expose the curated picker choices to project form templates."""
+    return {"project_icon_emojis": PROJECT_ICON_EMOJIS}
+
+
 def _save_project_icon(upload):
-    """Validate and persist a project icon, returning (filename, error)."""
+    """Validate and persist a PNG project icon, returning (filename, error)."""
     if not upload or not upload.filename:
         return None, None
     from pathlib import Path
 
-    from app.constants import ALLOWED_IMAGE_EXTENSIONS
     from app.utils.file_upload import validate_file_upload
 
-    valid, error = validate_file_upload(upload, allowed_extensions=ALLOWED_IMAGE_EXTENSIONS, max_size=2 * 1024 * 1024)
+    valid, error = validate_file_upload(upload, allowed_extensions={".png"}, max_size=2 * 1024 * 1024)
     if not valid:
         return None, _(error or "Invalid project icon")
+    try:
+        signature = upload.read(8)
+        upload.seek(0)
+    except (OSError, IOError):
+        return None, _("The project icon could not be read")
+    if signature != b"\x89PNG\r\n\x1a\n":
+        return None, _("Project icons must be valid PNG files")
     extension = Path(upload.filename).suffix.lower()
     filename = f"{uuid.uuid4().hex}{extension}"
     folder = os.path.join(current_app.config.get("UPLOAD_FOLDER", "/data/uploads"), "project-icons")
     os.makedirs(folder, exist_ok=True)
     upload.save(os.path.join(folder, filename))
     return filename, None
+
+
+def _read_project_icon_form(existing_project=None):
+    """Return normalized icon form state without allowing mixed emoji/file icons."""
+    upload = request.files.get("project_icon")
+    submitted_type = request.form.get("project_icon_type", "").strip().lower()
+    if not submitted_type:
+        if upload and upload.filename:
+            submitted_type = "png"
+        elif existing_project and existing_project.icon_emoji:
+            return existing_project.icon_emoji, None, None
+        elif existing_project and existing_project.icon_filename:
+            return None, existing_project.icon_filename, None
+        else:
+            submitted_type = "none"
+
+    if submitted_type not in {"emoji", "png", "none"}:
+        return None, None, _("Invalid project icon type")
+
+    if submitted_type == "emoji":
+        emoji = request.form.get("project_icon_emoji", "").strip()
+        if emoji not in PROJECT_ICON_EMOJIS:
+            return None, None, _("Choose an emoji from the project icon selector")
+        return emoji, None, None
+
+    if submitted_type == "png":
+        if upload and upload.filename:
+            filename, error = _save_project_icon(upload)
+            return None, filename, error
+        if existing_project and existing_project.icon_filename:
+            return None, existing_project.icon_filename, None
+        return None, None, _("Choose a PNG file for the project icon")
+
+    return None, None, None
 
 
 @projects_bp.route("/uploads/project-icons/<path:filename>")
@@ -361,8 +408,7 @@ def create_project():
     if request.method == "POST":
         from app.utils.validation import sanitize_input
 
-        icon_upload = request.files.get("project_icon")
-        icon_filename, icon_error = _save_project_icon(icon_upload)
+        icon_emoji, icon_filename, icon_error = _read_project_icon_form()
         if icon_error:
             flash(icon_error, "error")
             return render_template(
@@ -454,8 +500,8 @@ def create_project():
             return _create_form_error(_(result.get("message", "Could not create project")))
 
         project = result["project"]
-        if icon_filename:
-            project.icon_filename = icon_filename
+        project.icon_emoji = icon_emoji
+        project.icon_filename = icon_filename
 
         # Gantt color (hex e.g. #3b82f6)
         color_val = request.form.get("color", "").strip()
@@ -1008,7 +1054,7 @@ def edit_project(project_id):
         code = request.form.get("code", "").strip()
         budget_amount_raw = request.form.get("budget_amount", "").strip()
         budget_threshold_raw = request.form.get("budget_threshold_percent", "").strip()
-        icon_filename, icon_error = _save_project_icon(request.files.get("project_icon"))
+        icon_emoji, icon_filename, icon_error = _read_project_icon_form(project)
         if icon_error:
             flash(icon_error, "error")
             return render_template(
@@ -1108,10 +1154,8 @@ def edit_project(project_id):
             )
 
         project = result["project"]
-        if request.form.get("remove_project_icon") == "1":
-            project.icon_filename = None
-        if icon_filename:
-            project.icon_filename = icon_filename
+        project.icon_emoji = icon_emoji
+        project.icon_filename = icon_filename
 
         # Gantt color (hex e.g. #3b82f6)
         color_val = request.form.get("color", "").strip()

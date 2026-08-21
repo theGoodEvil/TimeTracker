@@ -131,6 +131,7 @@ def test_week_edit_uses_viewport_modal(authenticated_client):
 def test_project_icon_can_be_uploaded_and_served(admin_authenticated_client, app, project, tmp_path):
     app.config["UPLOAD_FOLDER"] = str(tmp_path)
     project_id = project.id
+    png_data = b"\x89PNG\r\n\x1a\nproject-icon-test"
     response = admin_authenticated_client.post(
         f"/projects/{project_id}/edit",
         data={
@@ -139,7 +140,8 @@ def test_project_icon_can_be_uploaded_and_served(admin_authenticated_client, app
             "description": project.description or "",
             "billable": "on",
             "hourly_rate": str(project.hourly_rate or ""),
-            "project_icon": (io.BytesIO(b"valid-enough-for-upload-validation"), "project.webp"),
+            "project_icon_type": "png",
+            "project_icon": (io.BytesIO(png_data), "project.png"),
         },
         content_type="multipart/form-data",
     )
@@ -147,7 +149,65 @@ def test_project_icon_can_be_uploaded_and_served(admin_authenticated_client, app
 
     db.session.expire_all()
     saved_project = db.session.get(Project, project_id)
-    assert saved_project.icon_filename.endswith(".webp")
+    assert saved_project.icon_filename.endswith(".png")
+    assert saved_project.icon_emoji is None
     icon_response = admin_authenticated_client.get(f"/uploads/project-icons/{saved_project.icon_filename}")
     assert icon_response.status_code == 200
-    assert icon_response.data == b"valid-enough-for-upload-validation"
+    assert icon_response.data == png_data
+
+
+def test_project_icon_can_use_emoji_and_is_rendered_on_dashboard(admin_authenticated_client, project):
+    project.icon_filename = "old-project.png"
+    db.session.commit()
+
+    response = admin_authenticated_client.post(
+        f"/projects/{project.id}/edit",
+        data={
+            "name": project.name,
+            "client_id": str(project.client_id),
+            "description": project.description or "",
+            "billable": "on",
+            "hourly_rate": str(project.hourly_rate or ""),
+            "project_icon_type": "emoji",
+            "project_icon_emoji": "🐙",
+        },
+    )
+    assert response.status_code == 302
+
+    db.session.expire_all()
+    saved_project = db.session.get(Project, project.id)
+    assert saved_project.icon_emoji == "🐙"
+    assert saved_project.icon_filename is None
+
+    dashboard = admin_authenticated_client.get("/dashboard")
+    assert dashboard.status_code == 200
+    assert "🐙".encode() in dashboard.data
+
+
+def test_project_icon_picker_only_accepts_valid_png(admin_authenticated_client, project, tmp_path, app):
+    app.config["UPLOAD_FOLDER"] = str(tmp_path)
+    response = admin_authenticated_client.post(
+        f"/projects/{project.id}/edit",
+        data={
+            "name": project.name,
+            "client_id": str(project.client_id),
+            "project_icon_type": "png",
+            "project_icon": (io.BytesIO(b"not a png"), "project.png"),
+        },
+        content_type="multipart/form-data",
+    )
+    assert response.status_code == 200
+    assert b"Project icons must be valid PNG files" in response.data
+
+
+def test_project_forms_render_emoji_png_selector(admin_authenticated_client, project):
+    create_response = admin_authenticated_client.get("/projects/create")
+    edit_response = admin_authenticated_client.get(f"/projects/{project.id}/edit")
+
+    assert create_response.status_code == 200
+    assert edit_response.status_code == 200
+    for response in (create_response, edit_response):
+        assert b"data-project-icon-picker" in response.data
+        assert b'data-project-icon-mode="emoji"' in response.data
+        assert b'data-project-icon-mode="png"' in response.data
+        assert b'accept="image/png,.png"' in response.data

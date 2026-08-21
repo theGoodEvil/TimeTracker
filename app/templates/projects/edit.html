@@ -43,15 +43,7 @@
                     </div>
                 </div>
 
-                <div>
-                    <label for="project_icon" class="form-label">{{ _('Project icon') }}</label>
-                    <div class="flex items-center gap-3">
-                        {% if project.icon_filename %}<img src="{{ url_for('projects.project_icon', filename=project.icon_filename) }}" alt="" class="h-12 w-12 rounded-xl object-cover">{% endif %}
-                        <input type="file" id="project_icon" name="project_icon" accept="image/png,image/jpeg,image/gif,image/webp" class="form-input">
-                    </div>
-                    {% if project.icon_filename %}<label class="mt-2 inline-flex items-center gap-2 text-sm"><input type="checkbox" name="remove_project_icon" value="1"> {{ _('Remove current icon') }}</label>{% endif %}
-                    <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Optional square image, up to 2 MB. Shown in quick project actions.') }}</p>
-                </div>
+                {% include 'projects/_icon_picker.html' %}
 
                 <div>
                     <div class="flex items-center justify-between">
@@ -233,4 +225,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

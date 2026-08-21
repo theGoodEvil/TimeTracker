@@ -80,6 +80,7 @@ const CORE_GROUPS = {
     'dashboard-widgets.js',
     'dashboard-enhancements.js',
     'eviltime-workflow.js',
+    'project-icon-picker.js',
     'activity-feed.js',
   ],
   // after the menus/support-banner inline block
