@@ -70,13 +70,13 @@
           {% if active_timer %}
             <p class="text-xs font-semibold uppercase tracking-wider text-slate-500">{% if is_paused %}{{ _('Current break') }}{% else %}{{ _('Current session') }}{% endif %}</p>
             <p id="eviltime-active-timer" data-seconds="{{ current_break_seconds if is_paused else active_timer.current_duration_seconds }}" class="mt-1 font-mono text-4xl font-semibold tabular-nums tracking-tight text-slate-950 dark:text-white">{{ current_break_formatted if is_paused else active_timer.duration_formatted }}</p>
-            <div class="grid grid-cols-2 gap-2">
+            <div class="mt-3 flex flex-wrap gap-2">
               {% if is_paused %}
-              <form method="POST" action="{{ url_for('timer.resume_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary w-full"><i class="fas fa-play mr-2"></i>{{ _('End break') }}</button></form>
+              <form method="POST" action="{{ url_for('timer.resume_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-primary btn-sm"><i class="fas fa-play"></i>{{ _('End break') }}</button></form>
               {% else %}
-              <form method="POST" action="{{ url_for('timer.pause_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary w-full"><i class="fas fa-mug-hot mr-2"></i>{{ _('Take break') }}</button></form>
+              <form method="POST" action="{{ url_for('timer.pause_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary btn-sm"><i class="fas fa-mug-hot"></i>{{ _('Take break') }}</button></form>
               {% endif %}
-              <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger w-full"><i class="fas fa-stop mr-2"></i>{{ _('Clock out') }}</button></form>
+              <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm"><i class="fas fa-stop"></i>{{ _('Clock out') }}</button></form>
             </div>
           {% else %}
             <form method="POST" action="{{ url_for('timer.start_timer') }}" class="flex gap-2">

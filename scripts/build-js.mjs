@@ -159,6 +159,25 @@ async function buildConcatBundle(name, files) {
   return [name, `dist/${filename}`];
 }
 
+/** Give the Tailwind output the same immutable, content-hashed caching as JS. */
+async function buildStylesheet() {
+  const sourcePath = join(DIST, 'output.css');
+  let css;
+  try {
+    css = await readFile(sourcePath, 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      // `npm run build:js` is also useful on its own during development. Keep
+      // its manifest complete even when Tailwind has not been run yet.
+      return ['styles', 'dist/output.css'];
+    }
+    throw error;
+  }
+  const filename = `styles.${hash(css)}.css`;
+  await writeFile(join(DIST, filename), css, 'utf8');
+  return ['styles', `dist/${filename}`];
+}
+
 /**
  * Deep-import aliases.
  *
@@ -233,10 +252,12 @@ async function build() {
   // Clear previously hashed JS bundles (leave output.css from the Tailwind build).
   for (const f of await readdir(DIST).catch(() => [])) {
     if (f.endsWith('.min.js')) await rm(join(DIST, f), { force: true });
+    if (f.startsWith('styles.') && f.endsWith('.css')) await rm(join(DIST, f), { force: true });
   }
 
   const manifest = Object.fromEntries(
     await Promise.all([
+      buildStylesheet(),
       buildConcatBundle('head', HEAD_SCRIPTS),
       ...Object.entries(CORE_GROUPS).map(([name, files]) => buildConcatBundle(name, files)),
       ...Object.entries(STANDALONE_GROUPS).map(([name, files]) => buildConcatBundle(name, files)),
