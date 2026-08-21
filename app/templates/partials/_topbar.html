@@ -11,12 +11,14 @@
 
                 <!-- Search (Ctrl+K opens command palette) -->
                 <div class="hidden sm:flex flex-1 min-w-0 justify-center px-2">
-                    <div class="w-full max-w-md relative">
-                        <form class="navbar-search" role="search" action="{{ url_for('main.search') }}" method="get" autocomplete="off">
-                            <label for="header-search" class="sr-only">{{ _('Search') }}</label>
-                            <input id="header-search" name="q" type="search" placeholder="{{ _('Search') }}" aria-label="{{ _('Search') }}" data-enhanced-search='{"endpoint": "/api/search", "minChars": 2, "maxResults": 10}' class="w-full bg-background-light dark:bg-gray-700 border border-transparent dark:border-transparent rounded-lg py-2 pl-10 pr-20 text-text-light dark:text-text-dark placeholder-text-muted-light dark:placeholder-text-muted-dark focus:outline-none focus:ring-2 focus:ring-primary" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false">
-                        </form>
-                        <kbd class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-xs font-medium bg-gray-100 dark:bg-gray-600 text-text-muted-light dark:text-text-muted-dark border border-gray-200 dark:border-gray-500" title="{{ _('Open command palette') }}">Ctrl+K</kbd>
+                    <div class="w-full max-w-md relative group">
+                        <button id="header-search" type="button" onclick="if(window.openCommandPalette) window.openCommandPalette();" class="w-full text-left bg-background-light dark:bg-gray-700/60 border border-transparent dark:border-gray-600/50 rounded-lg py-2 pl-10 pr-20 text-sm text-text-muted-light dark:text-text-muted-dark hover:bg-gray-100 dark:hover:bg-gray-700 hover:border-gray-300 dark:hover:border-gray-600 focus:outline-none focus:ring-2 focus:ring-primary transition-all cursor-pointer shadow-sm shadow-black/5" aria-label="{{ _('Search or jump to...') }}">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 group-hover:text-slate-600 dark:group-hover:text-slate-300 transition-colors">
+                                <i class="fas fa-search"></i>
+                            </span>
+                            {{ _('Search or jump to...') }}
+                        </button>
+                        <kbd class="absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 dark:bg-gray-800 text-slate-500 dark:text-slate-400 border border-gray-200 dark:border-gray-700 shadow-sm" title="{{ _('Open command palette') }}">Ctrl+K</kbd>
                     </div>
                 </div>
 
