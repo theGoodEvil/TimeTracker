@@ -63,6 +63,23 @@ def build_timeline(user, entries):
     
     timeline = []
     
+    # Filter out 0-duration breaks
+    valid_break_events = []
+    skip_ids = set()
+    for i, event in enumerate(break_events):
+        if event.id in skip_ids:
+            continue
+        if event.event_type == "break_start":
+            # Look ahead for a matching break_end at the exact same time
+            if i + 1 < len(break_events):
+                next_event = break_events[i + 1]
+                if next_event.event_type == "break_end" and next_event.time_entry_id == event.time_entry_id:
+                    if abs((next_event.occurred_at - event.occurred_at).total_seconds()) < 1:
+                        skip_ids.add(next_event.id)
+                        continue
+        valid_break_events.append(event)
+    break_events = valid_break_events
+
     for event in break_events:
         project = event.entry.project if event.entry else None
         

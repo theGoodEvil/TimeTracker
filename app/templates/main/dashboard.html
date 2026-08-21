@@ -1,5 +1,24 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Dashboard') }} · EvilTime{% endblock %}
+{% block title %}{{ _('Dashboard') }} · EvilTime
+<!-- Timeline Context Menu -->
+<div id="timelineContextMenu" class="hidden absolute z-50 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+    <div class="py-1">
+        <button id="timelineCtxEditBtn" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+            <i class="fas fa-edit w-5"></i> {{ _('Edit Event') }}
+        </button>
+        <form id="timelineCtxDeleteForm" method="POST" action="{{ url_for('main.delete_timeline_event') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="event_id" id="timelineCtxEventId" value="">
+            <input type="hidden" name="entry_id" id="timelineCtxEntryId" value="">
+            <input type="hidden" name="event_type" id="timelineCtxEventType" value="">
+            <button type="button" id="timelineCtxDeleteBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                <i class="fas fa-trash-alt w-5"></i> {{ _('Delete Event') }}
+            </button>
+        </form>
+    </div>
+</div>
+
+{% endblock %}
 {% block content %}
 {% set is_paused = active_timer and active_timer.is_paused %}
 {% set active_project_name = active_timer.project.name if active_timer and active_timer.project else _('Legacy unassigned time') %}
@@ -295,6 +314,25 @@
   </form>
 </div>
 {% endif %}
+
+
+<!-- Timeline Context Menu -->
+<div id="timelineContextMenu" class="hidden absolute z-50 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
+    <div class="py-1">
+        <button id="timelineCtxEditBtn" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+            <i class="fas fa-edit w-5"></i> {{ _('Edit Event') }}
+        </button>
+        <form id="timelineCtxDeleteForm" method="POST" action="{{ url_for('main.delete_timeline_event') }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <input type="hidden" name="event_id" id="timelineCtxEventId" value="">
+            <input type="hidden" name="entry_id" id="timelineCtxEntryId" value="">
+            <input type="hidden" name="event_type" id="timelineCtxEventType" value="">
+            <button type="button" id="timelineCtxDeleteBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
+                <i class="fas fa-trash-alt w-5"></i> {{ _('Delete Event') }}
+            </button>
+        </form>
+    </div>
+</div>
 
 {% endblock %}
 

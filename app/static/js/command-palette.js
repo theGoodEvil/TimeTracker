@@ -644,7 +644,11 @@ import { commandScore } from 'cmdk/command-score';
     const scored = items
       .map((it) => {
         const haystack = `${it.title} ${it.keywords || ''}`;
-        const score = fuzzyRank(haystack, q);
+        let score = fuzzyRank(haystack, q);
+        // Boost scores to enforce ordering for global project actions
+        if (it.id.startsWith('global:proj-clock:')) score += 0.03;
+        else if (it.id.startsWith('global:proj-view:')) score += 0.02;
+        else if (it.id.startsWith('global:proj-edit:')) score += 0.01;
         return { it, score };
       })
       .filter((x) => x.score > 0);

@@ -204,28 +204,66 @@ def delete_timeline_event():
         flash(_("You do not have permission to edit time entries."), "error")
         return redirect(url_for("main.dashboard"))
         
-    from app.models import TimerEvent
+    from app.models import TimerEvent, TimeEntry
+    from app.services.time_tracking_service import TimeTrackingService
     from app.utils.db import safe_commit
     
     event_id = request.form.get("event_id", type=int)
-    if not event_id:
-        flash(_("Event ID is missing."), "error")
+    entry_id = request.form.get("entry_id", type=int)
+    event_type = request.form.get("event_type")
+    
+    event = None
+    if event_id:
+        event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first()
+        if not event:
+            flash(_("Timeline event not found."), "error")
+            return redirect(url_for("main.dashboard"))
+        entry = event.entry
+        event_type = event.event_type
+    else:
+        if not entry_id:
+            flash(_("Missing event reference."), "error")
+            return redirect(url_for("main.dashboard"))
+        entry = TimeEntry.query.filter_by(id=entry_id, user_id=current_user.id).first()
+        if not entry:
+            flash(_("Related time entry not found."), "error")
+            return redirect(url_for("main.dashboard"))
+
+    if event_type == "clock_in":
+        # Deleting a clock_in deletes the whole entry
+        db.session.delete(entry)
+        if safe_commit("delete_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
+            flash(_("Work session deleted."), "success")
+        else:
+            flash(_("Failed to delete work session."), "error")
         return redirect(url_for("main.dashboard"))
         
-    event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first()
+    elif event_type == "clock_out":
+        # Resuming the timer by clearing end_time
+        can_start, _ = TimeTrackingService().can_start_timer(current_user.id)
+        if not can_start:
+            flash(_("You already have an active timer. Cannot resume this session."), "error")
+            return redirect(url_for("main.dashboard"))
+            
+        entry.end_time = None
+        entry.duration_seconds = None
+        entry.calculate_duration() # Will mark as active
+        if safe_commit("resume_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
+            flash(_("Clock-out event deleted. Timer resumed."), "success")
+        else:
+            flash(_("Failed to resume timer."), "error")
+        return redirect(url_for("main.dashboard"))
+        
+    elif event_type == "project_switch":
+        flash(_("Cannot directly delete a project switch. Please edit or delete the subsequent session instead."), "error")
+        return redirect(url_for("main.dashboard"))
+
     if not event:
-        flash(_("Timeline event not found."), "error")
+        flash(_("Cannot delete this inferred event."), "error")
         return redirect(url_for("main.dashboard"))
-        
-    entry = event.entry
-    if not entry:
-        db.session.delete(event)
-        db.session.commit()
-        flash(_("Timeline event deleted."), "success")
-        return redirect(url_for("main.dashboard"))
-        
-    # If it's a break, we should delete the pair (break_start and break_end)
-    if event.event_type in ["break_start", "break_end"]:
+
+    # For breaks, delete the pair
+    if event_type in ["break_start", "break_end"]:
         all_breaks = (
             TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
             .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
@@ -237,11 +275,11 @@ def delete_timeline_event():
         to_delete = [event]
         
         if event_index is not None:
-            if event.event_type == "break_start" and event_index + 1 < len(all_breaks):
+            if event_type == "break_start" and event_index + 1 < len(all_breaks):
                 next_ev = all_breaks[event_index + 1]
                 if next_ev.event_type == "break_end":
                     to_delete.append(next_ev)
-            elif event.event_type == "break_end" and event_index > 0:
+            elif event_type == "break_end" and event_index > 0:
                 prev_ev = all_breaks[event_index - 1]
                 if prev_ev.event_type == "break_start":
                     to_delete.append(prev_ev)
@@ -310,8 +348,8 @@ def edit_timeline_event():
     if event and (event.time_entry_id != entry.id or event.event_type != event_type):
         flash(_("Timeline event does not match this time entry."), "error")
         return redirect(url_for("main.dashboard"))
-    if not new_time or new_time > local_now():
-        flash(_("Choose a valid timestamp that is not in the future."), "error")
+    if not new_time:
+        flash(_("Choose a valid timestamp."), "error")
         return redirect(url_for("main.dashboard"))
 
     try:
@@ -495,8 +533,7 @@ def add_timeline_event():
             raise ValueError(_("The end time must be after the start time."))
         if start.date() != today or end.date() != today:
             raise ValueError(_("Dashboard timeline events must be within today."))
-        if end > local_now():
-            raise ValueError(_("Choose a valid timestamp that is not in the future."))
+
 
         if event_kind == "break":
             entry = (

@@ -24,25 +24,7 @@
                 {% set admin_data_open = ep == 'expense_categories.list_categories' or ep == 'per_diem.list_rates' or ep.startswith('time_entry_templates.') or ep.startswith('custom_field_definitions.') or ep.startswith('link_templates.') %}
                 {% set admin_maintenance_open = ep == 'admin.system_info' or ep == 'admin.backups_management' or ep == 'admin.telemetry_dashboard' %}
                 {% set pdf_open = ep == 'admin.pdf_layout' or ep == 'admin.quote_pdf_layout' %}
-                <div class="sidebar-toolbar mb-3">
-                    <span class="text-xs font-medium text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider sidebar-label block mb-2">{{ _('Navigation') }}</span>
-                    <button
-                        type="button"
-                        class="sidebar-expanded-only w-full flex items-center justify-between p-2 rounded-lg border border-border-light dark:border-border-dark bg-background-light/50 dark:bg-background-dark/50 hover:bg-background-light dark:hover:bg-background-dark"
-                        onclick="window.openCommandPalette?.()"
-                        aria-label="{{ _('Open command palette') }}"
-                        title="{{ _('Open command palette') }}"
-                    >
-                        <span class="inline-flex items-center gap-2 text-sm text-text-light dark:text-text-dark">
-                            <i class="fas fa-terminal text-text-muted-light dark:text-text-muted-dark"></i>
-                            <span class="sidebar-label">{{ _('Search or jump to...') }}</span>
-                        </span>
-                        <span class="sidebar-label inline-flex items-center gap-1">
-                            <kbd class="px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded text-[10px] text-text-muted-light dark:text-text-muted-dark">Ctrl</kbd>
-                            <kbd class="px-1.5 py-0.5 bg-white dark:bg-slate-800 border border-border-light dark:border-border-dark rounded text-[10px] text-text-muted-light dark:text-text-muted-dark">K</kbd>
-                        </span>
-                    </button>
-                </div>
+                <span class="text-xs font-medium text-text-muted-light dark:text-text-muted-dark uppercase tracking-wider sidebar-label block mb-2">{{ _('Navigation') }}</span>
                 <ul>
                     <li>
                         <a href="{{ url_for('main.dashboard') }}" class="sidebar-nav-item flex items-center p-2 rounded-lg border-l-4 {% if ep == 'main.dashboard' %}border-primary bg-primary/5 dark:bg-primary/10 text-primary font-semibold{% else %}border-transparent text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark{% endif %}" title="{{ _('Dashboard') }}">

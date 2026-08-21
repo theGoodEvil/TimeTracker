@@ -219,6 +219,75 @@
     var addModal = document.getElementById('timelineAddModal');
     var confirmModal = document.getElementById('timelineConfirmModal');
     var track = document.querySelector('[data-timeline-track]');
+
+    // Context Menu for Timeline Blobs
+    var ctxMenu = document.getElementById('timelineContextMenu');
+    var ctxEditBtn = document.getElementById('timelineCtxEditBtn');
+    var ctxDeleteBtn = document.getElementById('timelineCtxDeleteBtn');
+    var ctxDeleteForm = document.getElementById('timelineCtxDeleteForm');
+    var ctxEventId = document.getElementById('timelineCtxEventId');
+    var ctxEntryId = document.getElementById('timelineCtxEntryId');
+    var ctxEventType = document.getElementById('timelineCtxEventType');
+    var currentCtxBtn = null;
+
+    if (ctxMenu && track) {
+      document.addEventListener('click', function(e) {
+        if (!ctxMenu.contains(e.target)) {
+          ctxMenu.classList.add('hidden');
+        }
+      });
+
+      track.addEventListener('contextmenu', function(e) {
+        var editBtn = e.target.closest('[data-timeline-edit]');
+        if (editBtn) {
+          e.preventDefault();
+          currentCtxBtn = editBtn;
+          
+          ctxMenu.style.left = e.pageX + 'px';
+          ctxMenu.style.top = e.pageY + 'px';
+          ctxMenu.classList.remove('hidden');
+          
+          var hasEventId = !!editBtn.dataset.eventId;
+          if (hasEventId) {
+            ctxEventId.value = editBtn.dataset.eventId;
+            ctxEntryId.value = '';
+          } else {
+            ctxEventId.value = '';
+            ctxEntryId.value = editBtn.dataset.entryId;
+          }
+          if (ctxEventType) ctxEventType.value = editBtn.dataset.eventType || '';
+        }
+      });
+
+      ctxEditBtn.addEventListener('click', function() {
+        ctxMenu.classList.add('hidden');
+        if (currentCtxBtn) {
+          // Open standard Edit Modal or navigate
+          if (currentCtxBtn.dataset.entryId) {
+             window.location.href = '/timer/edit/' + currentCtxBtn.dataset.entryId;
+          }
+        }
+      });
+
+
+      ctxDeleteBtn.addEventListener('click', function() {
+        var evType = ctxEventType ? ctxEventType.value : '';
+        var msg = 'Are you sure you want to delete this event?';
+        if (evType === 'clock_in') {
+          msg = 'Deleting a clock-in event will delete the ENTIRE work session. Are you sure you want to delete this time entry?';
+        } else if (evType === 'break_start' || evType === 'break_end') {
+          msg = 'Are you sure you want to delete this entire break?';
+        } else if (evType === 'clock_out') {
+          msg = 'Are you sure you want to delete the clock-out event? This will resume the timer if no other timer is active.';
+        }
+        
+        if (confirm(msg)) {
+          ctxDeleteForm.submit();
+        }
+      });
+
+    }
+
     if (!modal || !track) return;
     var editForm = modal.querySelector('form');
     var label = document.getElementById('timelineEditLabel');
