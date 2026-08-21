@@ -18,9 +18,13 @@ EvilTime is The Good Evil GmbH's self-hosted work tracker. It uses project
 timers as the single source of truth for attendance and worked hours: users
 clock into a project, pause that timer for breaks, and clock out when done.
 
-This repository is a company customization of the upstream TimeTracker
-project. Existing deployment names and upstream URLs are retained where they
-are required for compatibility.
+### Fork attribution
+
+EvilTime is a fork of the open-source
+[TimeTracker project by DRYTRIX](https://github.com/DRYTRIX/TimeTracker).
+Credit and thanks go to its original authors and contributors for building the
+foundation this company-specific version is based on. Existing deployment
+names and upstream URLs are retained where required for compatibility.
 
 **Perfect for:**
 - 💼 **Freelancers** tracking billable hours across multiple clients
