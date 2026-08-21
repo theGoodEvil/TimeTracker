@@ -65,6 +65,25 @@ def test_paused_dashboard_and_status_show_live_break_duration(authenticated_clie
     assert b"Break started at" in dashboard_response.data
 
 
+def test_shared_timer_control_json_actions(authenticated_client, active_timer, multiple_projects):
+    paused = authenticated_client.post("/api/timer/pause-current")
+    assert paused.status_code == 200
+    db.session.refresh(active_timer)
+    assert active_timer.paused_at is not None
+
+    resumed = authenticated_client.post("/api/timer/resume-current")
+    assert resumed.status_code == 200
+    db.session.refresh(active_timer)
+    assert active_timer.paused_at is None
+
+    switched = authenticated_client.post(
+        "/api/timer/switch",
+        json={"project_id": multiple_projects[0].id},
+    )
+    assert switched.status_code == 200
+    assert switched.get_json()["timer"]["project_id"] == multiple_projects[0].id
+
+
 def test_dashboard_identifies_project_switch(authenticated_client, active_timer, user, project):
     active_timer.start_time = local_now() - timedelta(minutes=5)
     previous_start = active_timer.start_time - timedelta(hours=1)
@@ -94,6 +113,15 @@ def test_dashboard_behaviour_is_in_compiled_source():
     assert "data-week-edit" in source
     assert "eviltime-time-balance" in source
     assert "data-timeline-edit" in source
+
+    palette_source = Path("app/static/js/command-palette.js").read_text(encoding="utf-8")
+    assert "input?.addEventListener('keydown', onPaletteKeydown)" in palette_source
+    assert "setMode('projects'" in palette_source
+    assert "closePalette();\n        setTimeout" not in palette_source
+
+    timer_source = Path("app/static/timer-control.js").read_text(encoding="utf-8")
+    assert "/api/timer/switch" in timer_source
+    assert "action + '-current'" in timer_source
 
 
 def test_dashboard_project_bubbles_scroll_and_week_has_no_daily_target(authenticated_client, multiple_projects):
@@ -219,7 +247,7 @@ def test_project_forms_render_emoji_png_selector(admin_authenticated_client, pro
         assert b'accept="image/png,.png"' in response.data
 
 
-def test_each_user_can_create_and_revoke_a_migration_mcp_token(authenticated_client, user):
+def test_each_user_can_create_and_revoke_a_general_mcp_token(authenticated_client, user):
     page = authenticated_client.get("/settings/mcp")
     assert page.status_code == 200
     assert b"/mcp" in page.data
@@ -230,7 +258,7 @@ def test_each_user_can_create_and_revoke_a_migration_mcp_token(authenticated_cli
     )
     assert created.status_code == 200
     assert b"tt_" in created.data
-    token = ApiToken.query.filter_by(user_id=user.id, scopes="mcp:migrate").one()
+    token = ApiToken.query.filter_by(user_id=user.id, scopes="mcp:access").one()
     assert token.is_active is True
 
     revoked = authenticated_client.post(f"/settings/mcp/tokens/{token.id}/revoke")
@@ -256,7 +284,7 @@ def test_mcp_import_is_user_scoped_and_retry_safe(client, user, project):
         headers=headers,
     )
     assert initialized.status_code == 200
-    assert initialized.get_json()["result"]["serverInfo"]["name"] == "EvilTime migration MCP"
+    assert initialized.get_json()["result"]["serverInfo"]["name"] == "EvilTime MCP"
 
     context = client.post(
         "/mcp",
@@ -308,6 +336,22 @@ def test_mcp_rejects_tokens_without_migration_scope(client, user):
     assert response.status_code == 403
 
 
+def test_general_mcp_lists_everyday_tools(client, user, project):
+    token, plain = ApiToken.create_token(user_id=user.id, name="General MCP", scopes="mcp:access")
+    db.session.add(token)
+    db.session.commit()
+    headers = {"Authorization": f"Bearer {plain}"}
+
+    response = client.post(
+        "/mcp",
+        json={"jsonrpc": "2.0", "id": 1, "method": "tools/list"},
+        headers=headers,
+    )
+
+    names = {tool["name"] for tool in response.get_json()["result"]["tools"]}
+    assert {"eviltime_get_context", "eviltime_list_projects", "eviltime_timer"} <= names
+
+
 def test_dashboard_timeline_records_breaks_and_uses_overlay(authenticated_client, active_timer):
     paused = authenticated_client.post("/timer/pause")
     assert paused.status_code == 302
@@ -319,8 +363,71 @@ def test_dashboard_timeline_records_breaks_and_uses_overlay(authenticated_client
     dashboard = authenticated_client.get("/dashboard")
     assert dashboard.status_code == 200
     assert b'id="timelineEditModal"' in dashboard.data
+    assert b'id="timelineAddModal"' in dashboard.data
+    assert b"data-timeline-track" in dashboard.data
+    assert b"08:00" in dashboard.data
+    assert b"20:00" in dashboard.data
     assert b"Break started" in dashboard.data
     assert b"Break ended" in dashboard.data
+
+
+def test_timeline_can_insert_retroactive_break(authenticated_client, user, project, monkeypatch):
+    now = datetime.combine(local_now().date(), time(hour=15))
+    monkeypatch.setattr("app.routes.main.local_now", lambda: now)
+    entry = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=now - timedelta(hours=3),
+        end_time=now - timedelta(minutes=15),
+        source="auto",
+    )
+    db.session.add(entry)
+    db.session.commit()
+    break_start = now - timedelta(hours=2)
+    break_end = break_start + timedelta(minutes=25)
+
+    response = authenticated_client.post(
+        "/dashboard/timeline/add",
+        data={
+            "event_kind": "break",
+            "start_at": break_start.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": break_end.strftime("%Y-%m-%dT%H:%M"),
+        },
+    )
+
+    assert response.status_code == 302
+    db.session.refresh(entry)
+    assert entry.break_seconds == 25 * 60
+    assert entry.duration_seconds == int((entry.end_time - entry.start_time).total_seconds()) - 25 * 60
+    assert [
+        event.event_type
+        for event in TimerEvent.query.filter_by(time_entry_id=entry.id).order_by(TimerEvent.occurred_at).all()
+    ] == ["break_start", "break_end"]
+
+
+def test_timeline_can_insert_completed_project_session(authenticated_client, user, project, monkeypatch):
+    now = datetime.combine(local_now().date(), time(hour=15))
+    monkeypatch.setattr("app.routes.main.local_now", lambda: now)
+    end = now - timedelta(minutes=10)
+    start = end - timedelta(minutes=40)
+
+    response = authenticated_client.post(
+        "/dashboard/timeline/add",
+        data={
+            "event_kind": "work_session",
+            "project_id": project.id,
+            "start_at": start.strftime("%Y-%m-%dT%H:%M"),
+            "end_at": end.strftime("%Y-%m-%dT%H:%M"),
+        },
+    )
+
+    assert response.status_code == 302
+    entry = TimeEntry.query.filter_by(user_id=user.id, project_id=project.id, start_time=start).one()
+    assert entry.duration_seconds == 40 * 60
+    assert [
+        event.event_type
+        for event in TimerEvent.query.filter_by(time_entry_id=entry.id).order_by(TimerEvent.occurred_at).all()
+    ] == ["clock_in", "clock_out"]
 
 
 def test_timeline_break_edit_recalculates_duration(authenticated_client, user, project):

@@ -32,7 +32,13 @@ from app.services.llm_service import AIServiceError, LLMService
 from app.services.time_tracking_service import TimeTrackingService
 from app.utils.api_deprecation import deprecated_session_api
 from app.utils.db import safe_commit
-from app.utils.scope_filter import apply_client_scope, apply_project_scope, user_can_access_project
+from app.utils.scope_filter import (
+    apply_client_scope,
+    apply_project_scope,
+    get_active_clockable_projects_for_user,
+    user_can_access_project,
+    user_can_clock_project,
+)
 from app.utils.timezone import convert_app_datetime_to_user, parse_local_datetime, utc_to_local
 
 api_bp = Blueprint("api", __name__)
@@ -538,6 +544,49 @@ def api_stop_timer():
         current_app.logger.debug("Slack notify failed: %s", e)
 
     return jsonify({"success": True, "duration": entry.duration_formatted, "duration_hours": entry.duration_hours})
+
+
+@api_bp.route("/api/timer/switch", methods=["POST"])
+@login_required
+def api_switch_timer():
+    data = request.get_json(silent=True) or {}
+    project_id = data.get("project_id")
+    if not project_id or not user_can_clock_project(current_user, project_id):
+        return jsonify({"error": _("Choose a project available to you.")}), 403
+    result = TimeTrackingService().switch_timer(current_user.id, int(project_id))
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", _("Could not switch project."))}), 400
+    timer = result["timer"]
+    socketio.emit(
+        "timer_started",
+        {
+            "user_id": current_user.id,
+            "timer_id": timer.id,
+            "project_name": timer.project.name if timer.project else "",
+            "start_time": timer.start_time.isoformat(),
+        },
+    )
+    return jsonify({"success": True, "timer": timer.to_dict()})
+
+
+@api_bp.route("/api/timer/pause-current", methods=["POST"])
+@login_required
+def api_pause_current_timer():
+    result = TimeTrackingService().pause_timer(current_user.id)
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", _("Could not start break."))}), 400
+    socketio.emit("timer_paused", {"user_id": current_user.id, "timer_id": result["entry"].id})
+    return jsonify({"success": True, "timer": result["entry"].to_dict()})
+
+
+@api_bp.route("/api/timer/resume-current", methods=["POST"])
+@login_required
+def api_resume_current_timer():
+    result = TimeTrackingService().resume_timer(current_user.id)
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", _("Could not end break."))}), 400
+    socketio.emit("timer_resumed", {"user_id": current_user.id, "timer_id": result["entry"].id})
+    return jsonify({"success": True, "timer": result["entry"].to_dict()})
 
 
 # --- Retired idle control endpoint ---
@@ -1508,8 +1557,8 @@ def calendar_export():
 @deprecated_session_api("/api/v1/projects")
 def get_projects():
     """Get active projects"""
-    projects = Project.query.filter_by(status="active").order_by(Project.name).all()
-    return jsonify({"projects": [project.to_dict() for project in projects]})
+    projects = get_active_clockable_projects_for_user(current_user)
+    return jsonify({"projects": [project.to_dict(current_user) for project in projects]})
 
 
 @api_bp.route("/api/projects/<int:project_id>/tasks")

@@ -47,6 +47,7 @@ import { commandScore } from 'cmdk/command-score';
   const subheader = $(sel.subheader);
 
   const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const tr = (name, fallback) => root.dataset[name] || fallback;
 
   const urls = {
     dashboard: root.dataset.dashboardUrl || '/',
@@ -151,7 +152,8 @@ import { commandScore } from 'cmdk/command-score';
   }
 
   async function startTimerWithProject(projectId) {
-    const res = await fetch('/api/timer/start', {
+    const status = await fetch('/api/timer/status', { credentials: 'same-origin' }).then((response) => response.json());
+    const res = await fetch(status.active ? '/api/timer/switch' : '/api/timer/start', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -166,6 +168,13 @@ import { commandScore } from 'cmdk/command-score';
       throw new Error(json.error || json.message || 'Failed to start timer');
     }
     return json;
+  }
+
+  async function toggleBreak() {
+    const status = await fetch('/api/timer/status', { credentials: 'same-origin' }).then((response) => response.json());
+    if (!status.active) throw new Error('No active timer');
+    closePalette();
+    window.evilTimeTimerControl?.action(status.timer.paused ? 'resume' : 'pause');
   }
 
   function setMode(mode, headerText = '') {
@@ -191,24 +200,29 @@ import { commandScore } from 'cmdk/command-score';
     state.commands = [
       {
         id: 'start-timer',
-        title: 'Start Timer',
+        title: tr('clockCommand', 'Clock in or switch project'),
+        description: tr('clockDescription', 'Choose a project without leaving this panel'),
+        icon: 'fa-play',
         keywords: 'timer start track',
-        hint: isMac ? '⌘K' : 'Ctrl+K',
+        hint: 'T S',
         action: async () => {
           try {
             await fetchProjects();
-            setMode('projects', 'Start Timer → Select a project');
+            setMode('projects', tr('selectProject', 'Timer / Select a project'));
           } catch (e) {
             showToast(e.message || 'Failed to load projects', 'danger');
           }
         },
       },
-      { id: 'new-time-entry', title: 'New Time Entry', keywords: 'manual log add', action: () => nav(urls.newTimeEntry) },
-      { id: 'new-project', title: 'New Project', keywords: 'project create add', action: () => nav(urls.newProject) },
-      { id: 'new-invoice', title: 'New Invoice', keywords: 'invoice billing create', action: () => nav(urls.newInvoice) },
-      { id: 'goto-dashboard', title: 'Go to Dashboard', keywords: 'home overview main', action: () => nav(urls.dashboard) },
-      { id: 'goto-reports', title: 'Go to Reports', keywords: 'analytics insights', action: () => nav(urls.reports) },
-      { id: 'goto-clients', title: 'Go to Clients', keywords: 'crm customers companies', action: () => nav(urls.clients) },
+      { id: 'timer-controls', title: tr('timerCommand', 'Open timer controls'), description: tr('timerDescription', 'Pause, resume, clock out, or switch'), icon: 'fa-stopwatch', keywords: 'timer pause resume stop clock out', hint: 'T P', action: () => { closePalette(); window.evilTimeTimerControl?.open(); } },
+      { id: 'toggle-break', title: tr('breakCommand', 'Start or end break'), description: tr('breakDescription', 'Toggle the break on your active timer'), icon: 'fa-mug-hot', keywords: 'pause resume break', hint: 'T P', action: toggleBreak },
+      { id: 'clock-out', title: tr('clockOutCommand', 'Clock out'), description: tr('clockOutDescription', 'Stop the active project timer'), icon: 'fa-stop', keywords: 'timer stop clock out', hint: 'T O', action: () => { closePalette(); window.evilTimeTimerControl?.action('stop'); } },
+      { id: 'new-time-entry', title: tr('logCommand', 'Log time manually'), description: tr('logDescription', 'Add a completed time entry'), icon: 'fa-clock', keywords: 'manual log add', hint: 'T L', action: () => nav(urls.newTimeEntry) },
+      { id: 'goto-dashboard', title: tr('dashboardCommand', 'Dashboard'), description: tr('dashboardDescription', 'Return to your work overview'), icon: 'fa-grid-2', keywords: 'home overview main', hint: 'G D', action: () => nav(urls.dashboard) },
+      { id: 'goto-reports', title: tr('reportsCommand', 'Reports'), description: tr('reportsDescription', 'Review tracked time and analytics'), icon: 'fa-chart-line', keywords: 'analytics insights', hint: 'G R', action: () => nav(urls.reports) },
+      { id: 'goto-clients', title: tr('clientsCommand', 'Clients'), description: tr('clientsDescription', 'Open clients and companies'), icon: 'fa-building', keywords: 'crm customers companies', action: () => nav(urls.clients) },
+      { id: 'new-project', title: tr('projectCommand', 'Create project'), description: tr('projectDescription', 'Set up a new project'), icon: 'fa-folder-plus', keywords: 'project create add', hint: 'C P', action: () => nav(urls.newProject) },
+      { id: 'new-invoice', title: tr('invoiceCommand', 'Create invoice'), description: tr('invoiceDescription', 'Start a new invoice'), icon: 'fa-file-invoice', keywords: 'invoice billing create', action: () => nav(urls.newInvoice) },
     ];
   }
 
@@ -218,6 +232,8 @@ import { commandScore } from 'cmdk/command-score';
       return projects.map((p) => ({
         id: `project:${p.id}`,
         title: p.name || `Project #${p.id}`,
+        description: p.client_name ? `Switch to ${p.client_name}` : (p.code || 'Start or switch timer'),
+        icon: 'fa-folder',
         keywords: `${p.name || ''} ${p.client_name || ''}`.trim(),
         hint: p.client_name ? String(p.client_name) : '',
         action: async () => {
@@ -261,8 +277,9 @@ import { commandScore } from 'cmdk/command-score';
     $all('[data-tt-cp-idx]', list).forEach((el) => {
       const idx = Number(el.getAttribute('data-tt-cp-idx') || '0');
       const active = idx === state.selected;
-      el.classList.toggle('bg-background-light', active);
-      el.classList.toggle('dark:bg-background-dark', active);
+      el.classList.toggle('bg-primary/10', active);
+      el.classList.toggle('ring-1', active);
+      el.classList.toggle('ring-primary/30', active);
     });
   }
 
@@ -279,7 +296,7 @@ import { commandScore } from 'cmdk/command-score';
 
     const items = state.filtered || [];
     if (!items.length) {
-      if (state.mode === 'projects') renderEmpty('No projects found.');
+      if (state.mode === 'projects') renderEmpty(tr('noProjects', 'No projects found.'));
       else renderEmpty('No commands found.');
       return;
     }
@@ -290,24 +307,40 @@ import { commandScore } from 'cmdk/command-score';
       btn.type = 'button';
       btn.setAttribute('data-tt-cp-idx', String(idx));
       btn.className =
-        'px-3 py-2 text-left flex items-center justify-between gap-3 hover:bg-background-light dark:hover:bg-background-dark focus:outline-none focus:ring-2 focus:ring-primary';
+        'mx-2 rounded-xl px-3 py-2.5 text-left flex items-center justify-between gap-3 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary';
 
       const left = document.createElement('div');
-      left.className = 'min-w-0 flex-1';
-      left.innerHTML = `<div class="truncate">${cmd.title}</div>`;
+      left.className = 'min-w-0 flex flex-1 items-center gap-3';
+      const icon = document.createElement('span');
+      icon.className = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300';
+      const iconGlyph = document.createElement('i');
+      iconGlyph.className = `fas ${cmd.icon || 'fa-arrow-right'}`;
+      icon.appendChild(iconGlyph);
+      const copy = document.createElement('span');
+      copy.className = 'min-w-0';
+      const title = document.createElement('span');
+      title.className = 'block truncate text-sm font-semibold';
+      title.textContent = cmd.title || '';
+      const description = document.createElement('span');
+      description.className = 'block truncate text-xs text-text-muted-light dark:text-text-muted-dark';
+      description.textContent = cmd.description || '';
+      copy.appendChild(title);
+      copy.appendChild(description);
+      left.appendChild(icon);
+      left.appendChild(copy);
 
       const right = document.createElement('div');
       right.className = 'shrink-0 text-xs text-text-muted-light dark:text-text-muted-dark flex items-center gap-2';
       if (cmd.hint) {
-        right.innerHTML = `<span class="truncate">${cmd.hint}</span>`;
+        const hint = document.createElement('span');
+        hint.className = 'truncate';
+        hint.textContent = cmd.hint;
+        right.appendChild(hint);
       }
 
       btn.appendChild(left);
       btn.appendChild(right);
-      btn.addEventListener('click', () => {
-        closePalette();
-        setTimeout(() => cmd.action?.(), 30);
-      });
+      btn.addEventListener('click', () => runCommand(cmd));
 
       list.appendChild(btn);
     });
@@ -325,7 +358,14 @@ import { commandScore } from 'cmdk/command-score';
 
     if (ev.key === 'Escape') {
       ev.preventDefault();
-      closePalette();
+      if (state.mode === 'projects') setMode('commands');
+      else closePalette();
+      return;
+    }
+
+    if (ev.key === 'Backspace' && state.mode === 'projects' && !input?.value) {
+      ev.preventDefault();
+      setMode('commands');
       return;
     }
 
@@ -346,10 +386,18 @@ import { commandScore } from 'cmdk/command-score';
     if (ev.key === 'Enter') {
       ev.preventDefault();
       const cmd = state.filtered?.[state.selected];
-      if (cmd) {
-        closePalette();
-        setTimeout(() => cmd.action?.(), 30);
-      }
+      if (cmd) runCommand(cmd);
+    }
+  }
+
+  async function runCommand(command) {
+    if (!command || typeof command.action !== 'function') return;
+    const modeBefore = state.mode;
+    try {
+      await command.action();
+      if (state.open && state.mode === modeBefore && modeBefore !== 'projects') closePalette();
+    } catch (error) {
+      showToast(error.message || 'Action failed', 'danger');
     }
   }
 
@@ -397,6 +445,7 @@ import { commandScore } from 'cmdk/command-score';
     root.addEventListener('click', onRootClick);
     root.addEventListener('click', onBackdropClick);
     input?.addEventListener('input', onInput);
+    input?.addEventListener('keydown', onPaletteKeydown);
     closeBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       closePalette();
@@ -407,4 +456,3 @@ import { commandScore } from 'cmdk/command-score';
 
   init();
 })();
-

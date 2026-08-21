@@ -1,11 +1,11 @@
 {% extends "base.html" %}
-{% block title %}{{ _('MCP migration') }} · EvilTime{% endblock %}
+{% block title %}{{ _('MCP integration') }} · EvilTime{% endblock %}
 {% block content %}
 <div class="mx-auto max-w-4xl space-y-6 pb-10">
   <header>
     <a href="{{ url_for('user.settings') }}" class="text-sm font-medium text-primary hover:underline"><i class="fas fa-arrow-left mr-1"></i>{{ _('Back to settings') }}</a>
-    <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{{ _('MCP migration') }}</h1>
-    <p class="mt-2 text-sm text-slate-500">{{ _('Connect an agent to migrate your historical project time. Every token is limited to your own account and migration tools.') }}</p>
+    <h1 class="mt-3 text-3xl font-semibold tracking-tight text-slate-950 dark:text-white">{{ _('MCP integration') }}</h1>
+    <p class="mt-2 text-sm text-slate-500">{{ _('Connect an agent to your EvilTime account for timers, projects, reporting, and historical imports. Every token is limited to your own account.') }}</p>
   </header>
 
   {% if plain_token %}
@@ -38,14 +38,14 @@
     }
   }
 }</code></pre>
-      <p class="mt-3 text-xs text-slate-500">{{ _('Run a dry run first. Exact retries are detected automatically; overlapping entries are rejected.') }}</p>
+      <p class="mt-3 text-xs text-slate-500">{{ _('Agents can inspect and control your timer, list projects and time entries, and import historical entries. Use a dry run before an import.') }}</p>
     </section>
 
     <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-      <h2 class="font-semibold text-slate-950 dark:text-white">{{ _('Create migration token') }}</h2>
+      <h2 class="font-semibold text-slate-950 dark:text-white">{{ _('Create MCP token') }}</h2>
       <form method="POST" action="{{ url_for('user.create_mcp_token') }}" class="mt-4 space-y-4">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-        <div><label for="mcp-token-name" class="form-label">{{ _('Name') }}</label><input id="mcp-token-name" name="name" maxlength="100" value="Migration agent" class="form-input" required></div>
+        <div><label for="mcp-token-name" class="form-label">{{ _('Name') }}</label><input id="mcp-token-name" name="name" maxlength="100" value="EvilTime agent" class="form-input" required></div>
         <div><label for="mcp-token-expiry" class="form-label">{{ _('Expires after') }}</label><select id="mcp-token-expiry" name="expires_days" class="form-input"><option value="30">{{ _('30 days') }}</option><option value="90" selected>{{ _('90 days') }}</option><option value="365">{{ _('1 year') }}</option></select></div>
         <button class="btn btn-primary"><i class="fas fa-key"></i>{{ _('Create token') }}</button>
       </form>
@@ -53,14 +53,14 @@
   </div>
 
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
-    <div class="border-b border-slate-100 px-5 py-4 dark:border-slate-800"><h2 class="font-semibold text-slate-950 dark:text-white">{{ _('Your migration tokens') }}</h2></div>
+    <div class="border-b border-slate-100 px-5 py-4 dark:border-slate-800"><h2 class="font-semibold text-slate-950 dark:text-white">{{ _('Your MCP tokens') }}</h2></div>
     <div class="divide-y divide-slate-100 dark:divide-slate-800">
       {% for token in tokens %}
       <div class="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
         <div><p class="font-medium text-slate-900 dark:text-white">{{ token.name }}</p><p class="mt-1 text-xs text-slate-500"><span class="font-mono">{{ token.token_prefix }}…</span> · {{ _('Created') }} {{ token.created_at|user_date }}{% if token.expires_at %} · {{ _('Expires') }} {{ token.expires_at|user_date }}{% endif %}{% if token.last_used_at %} · {{ _('Last used') }} {{ token.last_used_at|user_date }}{% endif %}</p></div>
         {% if token.is_valid() %}<form method="POST" action="{{ url_for('user.revoke_mcp_token', token_id=token.id) }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm">{{ _('Revoke') }}</button></form>{% else %}<span class="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500 dark:bg-slate-800">{{ _('Inactive') }}</span>{% endif %}
       </div>
-      {% else %}<p class="px-5 py-8 text-center text-sm text-slate-500">{{ _('No migration tokens yet.') }}</p>{% endfor %}
+      {% else %}<p class="px-5 py-8 text-center text-sm text-slate-500">{{ _('No MCP tokens yet.') }}</p>{% endfor %}
     </div>
   </section>
 </div>

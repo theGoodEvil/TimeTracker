@@ -59,7 +59,7 @@ const CORE_GROUPS = {
   'core-a2': ['enhanced-tables.js', 'interactions.js', 'offline-sync.js', 'mentions.js'],
   // Gated on `current_user.is_authenticated` — the floating timer bar and idle
   // tracker must not load for anonymous visitors.
-  'core-auth': ['floating-actions.js', 'floating-timer-bar.js', 'idle.js'],
+  'core-auth': ['timer-control.js', 'floating-timer-bar.js', 'idle.js'],
   'core-ai': ['ai-helper.js'],
   // after the window.__BASE_INIT__ bootstrap
   'core-c': ['base-init.js', 'mobile.js'],

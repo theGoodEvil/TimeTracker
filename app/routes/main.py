@@ -151,6 +151,7 @@ def dashboard():
         status_action=status_action,
         status_action_at=status_action_at,
         today_timeline=today_timeline,
+        timeline_date=today_local,
         can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
     )
 
@@ -275,6 +276,150 @@ def edit_timeline_event():
             user_agent=request.headers.get("User-Agent"),
         )
         flash(_("Timeline updated."), "success")
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    return redirect(url_for("main.dashboard"))
+
+
+@main_bp.route("/dashboard/timeline/add", methods=["POST"])
+@login_required
+def add_timeline_event():
+    """Insert a complete retroactive break or work session into today's timeline."""
+    if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
+        flash(_("You do not have permission to edit your time entries."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    from sqlalchemy import or_
+
+    from app.models import TimerEvent
+    from app.utils.db import safe_commit
+    from app.utils.scope_filter import user_can_clock_project
+    from app.utils.timezone import parse_user_local_datetime_from_string
+
+    event_kind = (request.form.get("event_kind") or "break").strip()
+    start = parse_user_local_datetime_from_string(request.form.get("start_at"), user=current_user)
+    end = parse_user_local_datetime_from_string(request.form.get("end_at"), user=current_user)
+    today = local_now().date()
+
+    try:
+        if event_kind not in {"break", "work_session"}:
+            raise ValueError(_("Choose a valid timeline event."))
+        if not start or not end or end <= start:
+            raise ValueError(_("The end time must be after the start time."))
+        if start.date() != today or end.date() != today:
+            raise ValueError(_("Dashboard timeline events must be within today."))
+        if end > local_now():
+            raise ValueError(_("Choose a valid timestamp that is not in the future."))
+
+        if event_kind == "break":
+            entry = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.start_time < start,
+                    or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > end),
+                )
+                .order_by(TimeEntry.start_time.desc())
+                .first()
+            )
+            if not entry:
+                raise ValueError(_("A break must be fully inside one work session."))
+            break_events = (
+                TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+                .filter(
+                    TimerEvent.event_type.in_(["break_start", "break_end"]),
+                    TimerEvent.occurred_at >= entry.start_time,
+                )
+                .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+                .all()
+            )
+            open_break = None
+            for item in break_events:
+                if item.event_type == "break_start":
+                    open_break = item.occurred_at
+                elif open_break is not None:
+                    if open_break < end and item.occurred_at > start:
+                        raise ValueError(_("The new break would overlap an existing break."))
+                    open_break = None
+            if open_break is not None and open_break < end:
+                raise ValueError(_("The new break would overlap an existing break."))
+
+            break_start = TimerEvent(
+                user_id=current_user.id,
+                time_entry_id=entry.id,
+                event_type="break_start",
+                occurred_at=start,
+            )
+            break_end = TimerEvent(
+                user_id=current_user.id,
+                time_entry_id=entry.id,
+                event_type="break_end",
+                occurred_at=end,
+            )
+            db.session.add_all([break_start, break_end])
+            entry.break_seconds = (entry.break_seconds or 0) + int((end - start).total_seconds())
+            if entry.end_time:
+                entry.calculate_duration()
+            entity_id = entry.id
+            entity_name = "break"
+        else:
+            project_id = request.form.get("project_id", type=int)
+            project = db.session.get(Project, project_id) if project_id else None
+            if not project or project.status != "active" or not user_can_clock_project(current_user, project.id):
+                raise ValueError(_("Choose a project available to you."))
+            overlap = TimeEntry.query.filter(
+                TimeEntry.user_id == current_user.id,
+                TimeEntry.start_time < end,
+                or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > start),
+            ).first()
+            if overlap:
+                raise ValueError(_("The new work session would overlap an existing entry."))
+            entry = TimeEntry(
+                user_id=current_user.id,
+                project_id=project.id,
+                start_time=start,
+                end_time=end,
+                source="manual",
+                billable=project.billable,
+            )
+            db.session.add(entry)
+            db.session.flush()
+            db.session.add_all(
+                [
+                    TimerEvent(
+                        user_id=current_user.id,
+                        time_entry_id=entry.id,
+                        event_type="clock_in",
+                        occurred_at=start,
+                    ),
+                    TimerEvent(
+                        user_id=current_user.id,
+                        time_entry_id=entry.id,
+                        event_type="clock_out",
+                        occurred_at=end,
+                    ),
+                ]
+            )
+            entity_id = entry.id
+            entity_name = "work_session"
+
+        if not safe_commit(
+            "add_timeline_event",
+            {"user_id": current_user.id, "entry_id": entity_id, "event_kind": entity_name},
+        ):
+            raise ValueError(_("The timeline event could not be saved."))
+        Activity.log(
+            user_id=current_user.id,
+            action="created",
+            entity_type="timer_event",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            description=f"Inserted {entity_name} from {start.isoformat()} to {end.isoformat()}",
+            extra_data={"start": start.isoformat(), "end": end.isoformat()},
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        flash(_("Timeline event added."), "success")
     except ValueError as exc:
         db.session.rollback()
         flash(str(exc), "error")

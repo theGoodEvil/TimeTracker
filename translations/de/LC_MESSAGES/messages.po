@@ -26501,3 +26501,170 @@ msgstr "Noch keine Migrationstoken."
 
 msgid "Create your own scoped connection for agents that migrate historical project time."
 msgstr "Erstellen Sie eine eigene eingeschränkte Verbindung für Agenten, die historische Projektzeiten migrieren."
+msgid "Add an event to the timeline"
+msgstr "Einen Eintrag zur Zeitleiste hinzufügen"
+
+msgid "Add event"
+msgstr "Eintrag hinzufügen"
+
+msgid "Add timeline event"
+msgstr "Zeitleisten-Eintrag hinzufügen"
+
+msgid "Add to timeline"
+msgstr "Zur Zeitleiste hinzufügen"
+
+msgid "Agents can inspect and control your timer, list projects and time entries, and import historical entries. Use a dry run before an import."
+msgstr "Agenten können deinen Timer prüfen und steuern, Projekte und Zeiteinträge auflisten sowie historische Einträge importieren. Führe vor einem Import einen Testlauf durch."
+
+msgid "Back / close"
+msgstr "Zurück / schließen"
+
+msgid "Breaks must fit inside one work session. New work sessions cannot overlap existing time."
+msgstr "Pausen müssen vollständig innerhalb eines Arbeitsabschnitts liegen. Neue Arbeitsabschnitte dürfen sich nicht mit vorhandenen Zeiten überschneiden."
+
+msgid "Command panel"
+msgstr "Befehlspalette"
+
+msgid "Connect an agent to your EvilTime account for timers, projects, reporting, and historical imports. Every token is limited to your own account."
+msgstr "Verbinde einen Agenten mit deinem EvilTime-Konto für Timer, Projekte, Auswertungen und historische Importe. Jeder Token ist auf dein eigenes Konto beschränkt."
+
+msgid "Connect your own agent to timers, projects, reports, and historical imports for your account."
+msgstr "Verbinde deinen eigenen Agenten mit Timern, Projekten, Auswertungen und historischen Importen deines Kontos."
+
+msgid "Create MCP token"
+msgstr "MCP-Token erstellen"
+
+msgid "Drag an event to move it"
+msgstr "Ein Ereignis ziehen, um seine Zeit zu ändern"
+
+msgid "Insert a completed break or work session for today."
+msgstr "Füge für heute eine abgeschlossene Pause oder einen Arbeitsabschnitt ein."
+
+msgid "MCP integration"
+msgstr "MCP-Integration"
+
+msgid "Navigate"
+msgstr "Navigieren"
+
+msgid "No MCP tokens yet."
+msgstr "Noch keine MCP-Token vorhanden."
+
+msgid "No clock events today. Select the timeline to add one."
+msgstr "Heute gibt es noch keine Stempelereignisse. Wähle die Zeitleiste aus, um eines hinzuzufügen."
+
+msgid "Run"
+msgstr "Ausführen"
+
+msgid "Select an event to edit it"
+msgstr "Ereignis zum Bearbeiten auswählen"
+
+msgid "Select empty space to add time"
+msgstr "Freien Bereich auswählen, um Zeit hinzuzufügen"
+
+msgid "The timestamp must stay between its neighboring events. Work and break totals are recalculated automatically. You can also drag the marker directly on the timeline."
+msgstr "Der Zeitpunkt muss zwischen den benachbarten Ereignissen bleiben. Arbeits- und Pausenzeiten werden automatisch neu berechnet. Du kannst die Markierung auch direkt auf der Zeitleiste ziehen."
+
+msgid "What do you want to add?"
+msgstr "Was möchtest du hinzufügen?"
+
+msgid "Work session"
+msgstr "Arbeitsabschnitt"
+
+msgid "Your MCP tokens"
+msgstr "Deine MCP-Token"
+
+msgid "Your day from 08:00 to 20:00. Select the line to add time, or drag an event to adjust it."
+msgstr "Dein Tag von 08:00 bis 20:00 Uhr. Wähle die Linie aus, um Zeit hinzuzufügen, oder ziehe ein Ereignis, um die Zeit anzupassen."
+
+msgid "Project timer"
+msgstr "Projekt-Timer"
+
+msgid "Loading timer…"
+msgstr "Timer wird geladen …"
+
+msgid "Start or switch project"
+msgstr "Projekt starten oder wechseln"
+
+msgid "Search projects…"
+msgstr "Projekte durchsuchen …"
+
+msgid "Start break"
+msgstr "Pause starten"
+
+msgid "Clock in or switch project"
+msgstr "Einstempeln oder Projekt wechseln"
+
+msgid "Choose a project without leaving this panel"
+msgstr "Wähle ein Projekt aus, ohne die Befehlspalette zu verlassen"
+
+msgid "Open timer controls"
+msgstr "Timer-Steuerung öffnen"
+
+msgid "Pause, resume, clock out, or switch"
+msgstr "Pause starten oder beenden, ausstempeln oder Projekt wechseln"
+
+msgid "Log time manually"
+msgstr "Zeit manuell erfassen"
+
+msgid "Add a completed time entry"
+msgstr "Einen abgeschlossenen Zeiteintrag hinzufügen"
+
+msgid "Return to your work overview"
+msgstr "Zurück zu deiner Arbeitsübersicht"
+
+msgid "Review tracked time and analytics"
+msgstr "Erfasste Zeiten und Auswertungen ansehen"
+
+msgid "Open clients and companies"
+msgstr "Kunden und Unternehmen öffnen"
+
+msgid "Create project"
+msgstr "Projekt erstellen"
+
+msgid "Set up a new project"
+msgstr "Ein neues Projekt anlegen"
+
+msgid "Start a new invoice"
+msgstr "Eine neue Rechnung erstellen"
+
+msgid "Timer / Select a project"
+msgstr "Timer / Projekt auswählen"
+
+msgid "Ready to clock in"
+msgstr "Bereit zum Einstempeln"
+
+msgid "Select a project below"
+msgstr "Wähle unten ein Projekt aus"
+
+msgid "No projects found."
+msgstr "Keine Projekte gefunden."
+
+msgid "Start or end break"
+msgstr "Pause starten oder beenden"
+
+msgid "Toggle the break on your active timer"
+msgstr "Pause für den aktiven Timer starten oder beenden"
+
+msgid "Stop the active project timer"
+msgstr "Den aktiven Projekt-Timer beenden"
+
+msgid "Switching project…"
+msgstr "Projekt wird gewechselt …"
+
+msgid "Clocking in…"
+msgstr "Du wirst eingestempelt …"
+
+msgid "Project switched."
+msgstr "Projekt gewechselt."
+
+msgid "Clocking out…"
+msgstr "Du wirst ausgestempelt …"
+
+msgid "Updating break…"
+msgstr "Pause wird aktualisiert …"
+
+msgid "Clocked out."
+msgstr "Ausgestempelt."
+
+msgid "Timer updated."
+msgstr "Timer aktualisiert."

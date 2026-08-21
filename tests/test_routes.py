@@ -7,7 +7,6 @@ import pytest
 from datetime import datetime, timedelta, date
 from decimal import Decimal
 
-
 # ============================================================================
 # Smoke Tests - Critical Routes
 # ============================================================================
@@ -427,13 +426,13 @@ def test_analytics_page(authenticated_client):
 
 @pytest.mark.integration
 @pytest.mark.routes
-def test_dashboard_contains_start_timer_modal(authenticated_client):
-    """Dashboard should render Start Timer modal container in new UI."""
+def test_dashboard_contains_shared_timer_control(authenticated_client):
+    """Dashboard should render the shared project timer control."""
     response = authenticated_client.get("/dashboard")
     assert response.status_code == 200
     html = response.get_data(as_text=True)
-    assert 'id="startTimerModal"' in html
-    assert 'id="openStartTimer"' in html
+    assert 'id="eviltimeTimerControl"' in html
+    assert 'id="eviltimeTimerProjectSearch"' in html
 
 
 @pytest.mark.smoke

@@ -27,11 +27,6 @@
             </div>
         </details>
 
-        <a href="{{ url_for('user.mcp_settings') }}" class="flex items-center justify-between gap-4 rounded-lg bg-card-light p-6 shadow-md transition hover:ring-2 hover:ring-primary/30 dark:bg-card-dark">
-            <div><h2 class="text-xl font-semibold text-gray-900 dark:text-white"><i class="fas fa-plug mr-2 text-primary"></i>{{ _('MCP migration') }}</h2><p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Create your own scoped connection for agents that migrate historical project time.') }}</p></div>
-            <i class="fas fa-arrow-right text-primary"></i>
-        </a>
-        
         <!-- Profile Information -->
         <details class="bg-card-light dark:bg-card-dark rounded-lg shadow-md group" open>
             <summary class="flex items-center justify-between p-6 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
@@ -597,6 +592,11 @@
             </div>
             </div>
         </details>
+
+        <a href="{{ url_for('user.mcp_settings') }}" class="flex items-center justify-between gap-4 rounded-lg bg-card-light p-6 shadow-md transition hover:ring-2 hover:ring-primary/30 dark:bg-card-dark">
+            <div><h2 class="text-xl font-semibold text-gray-900 dark:text-white"><i class="fas fa-plug mr-2 text-primary"></i>{{ _('MCP integration') }}</h2><p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Connect your own agent to timers, projects, reports, and historical imports for your account.') }}</p></div>
+            <i class="fas fa-arrow-right text-primary"></i>
+        </a>
 
         <!-- Save Button - Sticky on mobile -->
         <div class="sticky bottom-0 z-10 bg-background-light/95 dark:bg-background-dark/95 backdrop-blur-sm border-t border-border-light dark:border-border-dark -mx-4 px-4 py-3 sm:static sm:bg-transparent sm:dark:bg-transparent sm:backdrop-blur-none sm:border-0 sm:mx-0 sm:px-0 sm:py-0">

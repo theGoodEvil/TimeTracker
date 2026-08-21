@@ -207,41 +207,156 @@
 
   function initTimelineEditModal() {
     var modal = document.getElementById('timelineEditModal');
-    if (!modal) return;
+    var addModal = document.getElementById('timelineAddModal');
+    var track = document.querySelector('[data-timeline-track]');
+    if (!modal || !track) return;
+    var editForm = modal.querySelector('form');
     var label = document.getElementById('timelineEditLabel');
     var occurredAt = document.getElementById('timelineOccurredAt');
     var eventId = document.getElementById('timelineEventId');
     var entryId = document.getElementById('timelineEntryId');
     var relatedEntryId = document.getElementById('timelineRelatedEntryId');
     var eventType = document.getElementById('timelineEventType');
+    var addKind = document.getElementById('timelineEventKind');
+    var addStart = document.getElementById('timelineStartAt');
+    var addEnd = document.getElementById('timelineEndAt');
+    var projectWrap = document.getElementById('timelineProjectWrap');
+    var projectSelect = document.getElementById('timelineProjectId');
     var lastTrigger = null;
+    var suppressClick = false;
+    var startMinute = Number(track.dataset.startMinute || 480);
+    var endMinute = Number(track.dataset.endMinute || 1200);
+    var spanMinutes = endMinute - startMinute;
 
-    function closeModal() {
+    function pad(value) { return String(value).padStart(2, '0'); }
+    function dateTimeValue(minutes) {
+      var clamped = Math.max(0, Math.min(1439, Math.round(minutes / 5) * 5));
+      return track.dataset.date + 'T' + pad(Math.floor(clamped / 60)) + ':' + pad(clamped % 60);
+    }
+    function minutesFromPointer(clientX) {
+      var bounds = track.getBoundingClientRect();
+      var ratio = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
+      return startMinute + ratio * spanMinutes;
+    }
+    function setBodyLocked(locked) {
+      document.body.classList.toggle('overflow-hidden', locked);
+    }
+    function openEdit(trigger) {
+      lastTrigger = trigger;
+      label.textContent = trigger.dataset.eventLabel || '';
+      occurredAt.value = trigger.dataset.occurredAt || '';
+      eventId.value = trigger.dataset.eventId || '';
+      entryId.value = trigger.dataset.entryId || '';
+      relatedEntryId.value = trigger.dataset.relatedEntryId || '';
+      eventType.value = trigger.dataset.eventType || '';
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+      setBodyLocked(true);
+      window.setTimeout(function () { occurredAt.focus(); }, 0);
+    }
+    function closeEdit() {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
-      document.body.classList.remove('overflow-hidden');
+      setBodyLocked(false);
       if (lastTrigger) lastTrigger.focus();
     }
+    function updateAddKind() {
+      if (!addKind || !projectWrap || !projectSelect) return;
+      var needsProject = addKind.value === 'work_session';
+      projectWrap.classList.toggle('hidden', !needsProject);
+      projectSelect.required = needsProject;
+    }
+    function openAdd(minutes) {
+      if (!addModal || !addStart || !addEnd) return;
+      var rounded = Math.round(minutes / 5) * 5;
+      addStart.value = dateTimeValue(rounded);
+      addEnd.value = dateTimeValue(Math.min(rounded + 30, endMinute));
+      addModal.classList.remove('hidden');
+      addModal.classList.add('flex');
+      setBodyLocked(true);
+      updateAddKind();
+      window.setTimeout(function () { addKind.focus(); }, 0);
+    }
+    function closeAdd() {
+      if (!addModal) return;
+      addModal.classList.add('hidden');
+      addModal.classList.remove('flex');
+      setBodyLocked(false);
+    }
+    function currentMinute() {
+      var now = new Date();
+      return Math.max(startMinute, Math.min(endMinute - 30, now.getHours() * 60 + now.getMinutes()));
+    }
+
     document.querySelectorAll('[data-timeline-edit]').forEach(function (trigger) {
-      trigger.addEventListener('click', function () {
-        lastTrigger = trigger;
-        label.textContent = trigger.dataset.eventLabel || '';
-        occurredAt.value = trigger.dataset.occurredAt || '';
-        eventId.value = trigger.dataset.eventId || '';
-        entryId.value = trigger.dataset.entryId || '';
-        relatedEntryId.value = trigger.dataset.relatedEntryId || '';
-        eventType.value = trigger.dataset.eventType || '';
-        modal.classList.remove('hidden');
-        modal.classList.add('flex');
-        document.body.classList.add('overflow-hidden');
-        window.setTimeout(function () { occurredAt.focus(); }, 0);
+      trigger.addEventListener('click', function (event) {
+        event.stopPropagation();
+        if (suppressClick) {
+          suppressClick = false;
+          return;
+        }
+        openEdit(trigger);
+      });
+      trigger.addEventListener('pointerdown', function (downEvent) {
+        if (downEvent.button !== 0) return;
+        var startX = downEvent.clientX;
+        var dragging = false;
+        var lastMinutes = null;
+        trigger.setPointerCapture(downEvent.pointerId);
+
+        function move(moveEvent) {
+          if (Math.abs(moveEvent.clientX - startX) < 5 && !dragging) return;
+          dragging = true;
+          lastMinutes = minutesFromPointer(moveEvent.clientX);
+          var percent = Math.max(0, Math.min(100, (lastMinutes - startMinute) / spanMinutes * 100));
+          trigger.style.left = percent + '%';
+          var timeLabel = trigger.querySelector('[data-timeline-time]');
+          if (timeLabel) timeLabel.textContent = dateTimeValue(lastMinutes).slice(-5);
+        }
+        function finish() {
+          trigger.removeEventListener('pointermove', move);
+          trigger.removeEventListener('pointerup', finish);
+          trigger.removeEventListener('pointercancel', finish);
+          if (!dragging || lastMinutes === null) return;
+          suppressClick = true;
+          occurredAt.value = dateTimeValue(lastMinutes);
+          eventId.value = trigger.dataset.eventId || '';
+          entryId.value = trigger.dataset.entryId || '';
+          relatedEntryId.value = trigger.dataset.relatedEntryId || '';
+          eventType.value = trigger.dataset.eventType || '';
+          editForm.requestSubmit();
+        }
+        trigger.addEventListener('pointermove', move);
+        trigger.addEventListener('pointerup', finish);
+        trigger.addEventListener('pointercancel', finish);
       });
     });
-    modal.querySelectorAll('[data-timeline-modal-close]').forEach(function (button) {
-      button.addEventListener('click', closeModal);
+    track.addEventListener('click', function (event) {
+      if (event.target.closest('[data-timeline-edit]')) return;
+      openAdd(minutesFromPointer(event.clientX));
     });
+    track.addEventListener('keydown', function (event) {
+      if ((event.key === 'Enter' || event.key === ' ') && event.target === track) {
+        event.preventDefault();
+        openAdd(currentMinute());
+      }
+    });
+    document.querySelectorAll('[data-timeline-add-button]').forEach(function (button) {
+      button.addEventListener('click', function () { lastTrigger = button; openAdd(currentMinute()); });
+    });
+    modal.querySelectorAll('[data-timeline-modal-close]').forEach(function (button) {
+      button.addEventListener('click', closeEdit);
+    });
+    if (addModal) {
+      addModal.querySelectorAll('[data-timeline-add-close]').forEach(function (button) {
+        button.addEventListener('click', closeAdd);
+      });
+    }
+    if (addKind) addKind.addEventListener('change', updateAddKind);
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+      if (event.key !== 'Escape') return;
+      if (!modal.classList.contains('hidden')) closeEdit();
+      else if (addModal && !addModal.classList.contains('hidden')) closeAdd();
     });
   }
 

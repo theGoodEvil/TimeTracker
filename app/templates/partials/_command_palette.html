@@ -9,34 +9,45 @@
   data-new-time-entry-url="{{ url_for('timer.manual_entry') }}"
   data-new-project-url="{{ url_for('projects.create_project') }}"
   data-new-invoice-url="{{ url_for('invoices.create_invoice') }}"
+  data-clock-command="{{ _('Clock in or switch project') }}"
+  data-clock-description="{{ _('Choose a project without leaving this panel') }}"
+  data-timer-command="{{ _('Open timer controls') }}"
+  data-timer-description="{{ _('Pause, resume, clock out, or switch') }}"
+  data-break-command="{{ _('Start or end break') }}"
+  data-break-description="{{ _('Toggle the break on your active timer') }}"
+  data-clock-out-command="{{ _('Clock out') }}"
+  data-clock-out-description="{{ _('Stop the active project timer') }}"
+  data-log-command="{{ _('Log time manually') }}"
+  data-log-description="{{ _('Add a completed time entry') }}"
+  data-dashboard-command="{{ _('Dashboard') }}"
+  data-dashboard-description="{{ _('Return to your work overview') }}"
+  data-reports-command="{{ _('Reports') }}"
+  data-reports-description="{{ _('Review tracked time and analytics') }}"
+  data-clients-command="{{ _('Clients') }}"
+  data-clients-description="{{ _('Open clients and companies') }}"
+  data-project-command="{{ _('Create project') }}"
+  data-project-description="{{ _('Set up a new project') }}"
+  data-invoice-command="{{ _('Create invoice') }}"
+  data-invoice-description="{{ _('Start a new invoice') }}"
+  data-select-project="{{ _('Timer / Select a project') }}"
+  data-no-projects="{{ _('No projects found.') }}"
 >
-  <div class="absolute inset-0 bg-black/50" data-tt-cp-close></div>
+  <div class="absolute inset-0 bg-slate-950/65 backdrop-blur-sm" data-tt-cp-close></div>
 
-  <div class="relative mx-auto mt-20 w-[92vw] max-w-2xl">
-    <div class="bg-card-light dark:bg-card-dark text-text-light dark:text-text-dark rounded-xl shadow-2xl border border-border-light dark:border-border-dark overflow-hidden">
-      <div class="flex items-center justify-between px-4 py-3 border-b border-border-light dark:border-border-dark">
-        <div class="text-xs text-text-muted-light dark:text-text-muted-dark">
-          <span class="hidden sm:inline">Press</span>
-          <kbd class="px-1.5 py-0.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded text-[11px]">Esc</kbd>
-          <span class="hidden sm:inline">to close,</span>
-          <kbd class="px-1.5 py-0.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded text-[11px]">↑</kbd>
-          <kbd class="px-1.5 py-0.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded text-[11px]">↓</kbd>
-          <span class="hidden sm:inline">to navigate,</span>
-          <kbd class="px-1.5 py-0.5 bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded text-[11px]">Enter</kbd>
-          <span class="hidden sm:inline">to run</span>
-        </div>
-        <button id="ttCommandPaletteClose" type="button" class="px-2 py-1 text-sm rounded hover:bg-background-light dark:hover:bg-background-dark">
-          Close
-        </button>
+  <div class="relative mx-auto mt-[10vh] w-[94vw] max-w-2xl">
+    <div class="overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-slate-700 dark:bg-slate-900 dark:text-white">
+      <div class="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-800">
+        <div><p class="text-xs font-semibold uppercase tracking-widest text-primary">EvilTime</p><p class="text-sm font-semibold">{{ _('Command panel') }}</p></div>
+        <button id="ttCommandPaletteClose" type="button" class="rounded-xl px-2.5 py-1.5 text-sm text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">{{ _('Close') }}</button>
       </div>
 
-      <div class="p-4">
-        <div class="flex items-center gap-2">
-          <i class="fas fa-terminal text-text-muted-light dark:text-text-muted-dark"></i>
+      <div class="p-3">
+        <div class="flex items-center gap-2 rounded-2xl bg-slate-100 px-3 dark:bg-slate-800">
+          <i class="fas fa-magnifying-glass text-slate-400"></i>
           <input
             id="ttCommandPaletteInput"
             type="text"
-            class="w-full bg-background-light dark:bg-background-dark border border-border-light dark:border-border-dark rounded-lg py-2.5 px-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            class="w-full border-0 bg-transparent py-3 text-base outline-none placeholder:text-slate-400 focus:ring-0"
             placeholder="{{ _('Type a command or search...') }}"
             autocomplete="off"
             autocapitalize="off"
@@ -46,11 +57,11 @@
         </div>
 
         <div class="mt-3">
-          <div id="ttCommandPaletteSubheader" class="text-xs text-text-muted-light dark:text-text-muted-dark mb-2 hidden"></div>
-          <div id="ttCommandPaletteList" class="flex flex-col max-h-[24rem] overflow-y-auto divide-y divide-border-light dark:divide-border-dark"></div>
+          <div id="ttCommandPaletteSubheader" class="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-primary hidden"></div>
+          <div id="ttCommandPaletteList" class="flex max-h-[26rem] flex-col gap-1 overflow-y-auto py-1"></div>
         </div>
       </div>
+      <footer class="flex items-center justify-between border-t border-slate-100 px-5 py-2.5 text-[11px] text-slate-400 dark:border-slate-800"><span><kbd class="rounded border px-1.5 py-0.5">↑↓</kbd> {{ _('Navigate') }} <kbd class="ml-2 rounded border px-1.5 py-0.5">Enter</kbd> {{ _('Run') }}</span><span><kbd class="rounded border px-1.5 py-0.5">Esc</kbd> {{ _('Back / close') }}</span></footer>
     </div>
   </div>
 </div>
-

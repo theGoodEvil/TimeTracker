@@ -6,6 +6,9 @@ from app import db
 from app.models import TimerEvent
 from app.utils.db import safe_commit
 
+TIMELINE_START_MINUTE = 8 * 60
+TIMELINE_END_MINUTE = 20 * 60
+
 
 def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=None):
     """Persist an event after a timer mutation; failures never roll back the timer itself."""
@@ -86,4 +89,12 @@ def build_timeline(user, entries):
                     "captured": False,
                 }
             )
-    return sorted(timeline, key=lambda item: (item["occurred_at"], item["event_id"] or 0))
+    timeline = sorted(timeline, key=lambda item: (item["occurred_at"], item["event_id"] or 0))
+    span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
+    for index, item in enumerate(timeline):
+        occurred_at = item["occurred_at"]
+        minute = occurred_at.hour * 60 + occurred_at.minute + occurred_at.second / 60
+        item["timeline_position"] = round(max(0, min(100, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
+        item["timeline_lane"] = index % 2
+        item["outside_timeline"] = minute < TIMELINE_START_MINUTE or minute > TIMELINE_END_MINUTE
+    return timeline

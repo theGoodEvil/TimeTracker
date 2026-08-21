@@ -1,4 +1,4 @@
-"""Per-user MCP endpoint for importing historical project time."""
+"""Per-user MCP endpoint for everyday EvilTime work and historical imports."""
 
 from __future__ import annotations
 
@@ -99,7 +99,7 @@ def _resolve_project(arguments, user):
     return project
 
 
-def _migration_context(user):
+def _context(user):
     projects = []
     for project in _project_query_for_user(user).all():
         projects.append(
@@ -112,12 +112,50 @@ def _migration_context(user):
                 "billable": project.billable,
             }
         )
+    timer = user.active_timer
     return {
         "user": {"id": user.id, "username": user.username},
         "timezone": getattr(user, "timezone", None) or get_app_timezone(),
         "projects": projects,
+        "active_timer": timer.to_dict() if timer else None,
         "import_limit": MAX_IMPORT_ENTRIES,
     }
+
+
+def _list_projects(user):
+    query = _project_query_for_user(user).filter(Project.status == "active")
+    return {"projects": [project.to_dict(user) for project in query.all()]}
+
+
+def _timer_action(arguments, user):
+    action = str(arguments.get("action") or "status").strip().lower()
+    active = user.active_timer
+    if action == "status":
+        return {"success": True, "active_timer": active.to_dict() if active else None}
+
+    service = TimeTrackingService()
+    if action == "start":
+        project = _resolve_project(arguments, user)
+        result = service.start_timer(user.id, project.id)
+    elif action == "switch":
+        project = _resolve_project(arguments, user)
+        result = service.switch_timer(user.id, project.id)
+    elif action == "pause":
+        result = service.pause_timer(user.id)
+    elif action == "resume":
+        result = service.resume_timer(user.id)
+    elif action == "stop":
+        result = service.stop_timer(user.id)
+    else:
+        raise ValueError("action must be status, start, switch, pause, resume, or stop")
+
+    payload = {"success": bool(result.get("success")), "message": result.get("message")}
+    if result.get("error"):
+        payload["error"] = result["error"]
+    timer = result.get("timer") or result.get("entry")
+    if timer:
+        payload["time_entry"] = timer.to_dict()
+    return payload
 
 
 def _list_time_entries(arguments, user):
@@ -230,13 +268,36 @@ def _import_time_entries(arguments, user):  # noqa: C901 - validation is intenti
 
 TOOLS = [
     {
-        "name": "eviltime_get_migration_context",
-        "description": "List the authenticated EvilTime user and projects available for historical time imports.",
+        "name": "eviltime_get_context",
+        "description": "Get the authenticated EvilTime user, timezone, clockable projects, and current timer.",
         "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
     },
     {
+        "name": "eviltime_list_projects",
+        "description": "List projects this user can clock time to.",
+        "inputSchema": {"type": "object", "properties": {}, "additionalProperties": False},
+    },
+    {
+        "name": "eviltime_timer",
+        "description": "Inspect or control this user's timer: start, switch, pause, resume, or stop.",
+        "inputSchema": {
+            "type": "object",
+            "required": ["action"],
+            "properties": {
+                "action": {
+                    "type": "string",
+                    "enum": ["status", "start", "switch", "pause", "resume", "stop"],
+                },
+                "project_id": {"type": "integer"},
+                "project_code": {"type": "string"},
+                "project_name": {"type": "string"},
+            },
+            "additionalProperties": False,
+        },
+    },
+    {
         "name": "eviltime_list_time_entries",
-        "description": "List this user's completed EvilTime entries to verify or plan a migration.",
+        "description": "List this user's completed time entries for reporting, verification, or migration.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -292,14 +353,14 @@ TOOLS = [
 
 @mcp_bp.route("", methods=["GET", "POST"])
 @mcp_bp.route("/", methods=["GET", "POST"])
-@require_api_token("mcp:migrate")
+@require_api_token(("mcp:access", "mcp:migrate"))
 def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endpoint
     if not _origin_is_allowed():
         return _jsonrpc_error(None, -32000, "Origin is not allowed", status=403)
     if request.method == "GET":
         return jsonify(
             {
-                "name": "EvilTime migration MCP",
+                "name": "EvilTime MCP",
                 "transport": "streamable-http",
                 "protocol_versions": list(SUPPORTED_PROTOCOL_VERSIONS),
                 "user": g.api_user.username,
@@ -323,8 +384,10 @@ def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endp
             {
                 "protocolVersion": version,
                 "capabilities": {"tools": {"listChanged": False}},
-                "serverInfo": {"name": "EvilTime migration MCP", "version": "1.0"},
-                "instructions": "Use a dry run before importing. All tools are restricted to the token owner.",
+                "serverInfo": {"name": "EvilTime MCP", "version": "1.1"},
+                "instructions": (
+                    "All tools are restricted to the token owner. Use a dry run before historical imports."
+                ),
             },
         )
     if method == "notifications/initialized":
@@ -345,14 +408,19 @@ def handle_mcp():  # noqa: C901 - JSON-RPC dispatch is clearer as one small endp
     if header_name and header_name != name:
         return _jsonrpc_error(request_id, -32600, "Mcp-Name header does not match the tool name", status=400)
     try:
-        if name == "eviltime_get_migration_context":
-            result = _migration_context(g.api_user)
+        if name in {"eviltime_get_context", "eviltime_get_migration_context"}:
+            result = _context(g.api_user)
+        elif name == "eviltime_list_projects":
+            result = _list_projects(g.api_user)
+        elif name == "eviltime_timer":
+            result = _timer_action(arguments, g.api_user)
         elif name == "eviltime_list_time_entries":
             result = _list_time_entries(arguments, g.api_user)
         elif name == "eviltime_import_time_entries":
             result = _import_time_entries(arguments, g.api_user)
         else:
             return _jsonrpc_error(request_id, -32602, f"Unknown tool: {name}")
-        return _jsonrpc_result(request_id, _tool_result(result, is_error=bool(result.get("failed"))))
+        is_error = bool(result.get("failed")) or result.get("success") is False
+        return _jsonrpc_result(request_id, _tool_result(result, is_error=is_error))
     except (TypeError, ValueError, PermissionError) as exc:
         return _jsonrpc_result(request_id, _tool_result({"error": str(exc)}, is_error=True))
