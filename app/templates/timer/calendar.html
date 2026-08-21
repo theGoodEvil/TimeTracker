@@ -350,7 +350,7 @@
 
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/fullcalendar/index.global.min.js') }}"></script>
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {

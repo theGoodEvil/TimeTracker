@@ -7,7 +7,7 @@
 {# Toast UI Editor CSS loaded dynamically on desktop only (Issue #557 mobile freeze fix) #}
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts_extra %}
 {% if can_edit_schedule %}
 <script src="{{ url_for('static', filename='searchable-select.js') }}"></script>
 <script src="{{ url_for('static', filename='inline-create-client.js') }}"></script>
