@@ -113,6 +113,7 @@ def test_dashboard_behaviour_is_in_compiled_source():
     assert "data-week-edit" in source
     assert "eviltime-time-balance" in source
     assert "data-timeline-edit" in source
+    assert "timelineConfirmModal" in source
 
     palette_source = Path("app/static/js/command-palette.js").read_text(encoding="utf-8")
     assert "input?.addEventListener('keydown', onPaletteKeydown)" in palette_source
@@ -364,6 +365,7 @@ def test_dashboard_timeline_records_breaks_and_uses_overlay(authenticated_client
     assert dashboard.status_code == 200
     assert b'id="timelineEditModal"' in dashboard.data
     assert b'id="timelineAddModal"' in dashboard.data
+    assert b'id="timelineConfirmModal"' in dashboard.data
     assert b"data-timeline-track" in dashboard.data
     assert b"08:00" in dashboard.data
     assert b"20:00" in dashboard.data

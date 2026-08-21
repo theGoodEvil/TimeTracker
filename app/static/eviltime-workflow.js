@@ -208,6 +208,7 @@
   function initTimelineEditModal() {
     var modal = document.getElementById('timelineEditModal');
     var addModal = document.getElementById('timelineAddModal');
+    var confirmModal = document.getElementById('timelineConfirmModal');
     var track = document.querySelector('[data-timeline-track]');
     if (!modal || !track) return;
     var editForm = modal.querySelector('form');
@@ -222,8 +223,13 @@
     var addEnd = document.getElementById('timelineEndAt');
     var projectWrap = document.getElementById('timelineProjectWrap');
     var projectSelect = document.getElementById('timelineProjectId');
+    var confirmEventLabel = document.getElementById('timelineConfirmEventLabel');
+    var confirmOldTime = document.getElementById('timelineConfirmOldTime');
+    var confirmNewTime = document.getElementById('timelineConfirmNewTime');
+    var confirmSubmitBtn = document.getElementById('timelineConfirmSubmit');
     var lastTrigger = null;
     var suppressClick = false;
+    var pendingMove = null;
     var startMinute = Number(track.dataset.startMinute || 480);
     var endMinute = Number(track.dataset.endMinute || 1200);
     var spanMinutes = endMinute - startMinute;
@@ -257,6 +263,38 @@
     function closeEdit() {
       modal.classList.add('hidden');
       modal.classList.remove('flex');
+      setBodyLocked(false);
+      if (lastTrigger) lastTrigger.focus();
+    }
+    function openConfirm(trigger, oldDateTime, newDateTime, originalLeft, originalTimeText) {
+      if (!confirmModal) return;
+      pendingMove = {
+        trigger: trigger,
+        oldDateTime: oldDateTime,
+        newDateTime: newDateTime,
+        originalLeft: originalLeft,
+        originalTimeText: originalTimeText
+      };
+      if (confirmEventLabel) confirmEventLabel.textContent = trigger.dataset.eventLabel || '';
+      if (confirmOldTime) confirmOldTime.textContent = oldDateTime ? oldDateTime.slice(-5) : '';
+      if (confirmNewTime) confirmNewTime.textContent = newDateTime ? newDateTime.slice(-5) : '';
+      confirmModal.classList.remove('hidden');
+      confirmModal.classList.add('flex');
+      setBodyLocked(true);
+      if (confirmSubmitBtn) {
+        window.setTimeout(function () { confirmSubmitBtn.focus(); }, 0);
+      }
+    }
+    function closeConfirm(revert) {
+      if (!confirmModal) return;
+      if (revert && pendingMove) {
+        pendingMove.trigger.style.left = pendingMove.originalLeft;
+        var timeLabel = pendingMove.trigger.querySelector('[data-timeline-time]');
+        if (timeLabel) timeLabel.textContent = pendingMove.originalTimeText;
+      }
+      pendingMove = null;
+      confirmModal.classList.add('hidden');
+      confirmModal.classList.remove('flex');
       setBodyLocked(false);
       if (lastTrigger) lastTrigger.focus();
     }
@@ -302,6 +340,10 @@
         var startX = downEvent.clientX;
         var dragging = false;
         var lastMinutes = null;
+        var originalLeft = trigger.style.left;
+        var timeLabel = trigger.querySelector('[data-timeline-time]');
+        var originalTimeText = timeLabel ? timeLabel.textContent : '';
+        var originalOccurredAt = trigger.dataset.occurredAt || '';
         trigger.setPointerCapture(downEvent.pointerId);
 
         function move(moveEvent) {
@@ -310,7 +352,6 @@
           lastMinutes = minutesFromPointer(moveEvent.clientX);
           var percent = Math.max(0, Math.min(100, (lastMinutes - startMinute) / spanMinutes * 100));
           trigger.style.left = percent + '%';
-          var timeLabel = trigger.querySelector('[data-timeline-time]');
           if (timeLabel) timeLabel.textContent = dateTimeValue(lastMinutes).slice(-5);
         }
         function finish() {
@@ -319,12 +360,23 @@
           trigger.removeEventListener('pointercancel', finish);
           if (!dragging || lastMinutes === null) return;
           suppressClick = true;
-          occurredAt.value = dateTimeValue(lastMinutes);
-          eventId.value = trigger.dataset.eventId || '';
-          entryId.value = trigger.dataset.entryId || '';
-          relatedEntryId.value = trigger.dataset.relatedEntryId || '';
-          eventType.value = trigger.dataset.eventType || '';
-          editForm.requestSubmit();
+          var newTimeStr = dateTimeValue(lastMinutes);
+          if (newTimeStr === originalOccurredAt) {
+            trigger.style.left = originalLeft;
+            if (timeLabel) timeLabel.textContent = originalTimeText;
+            return;
+          }
+          if (confirmModal) {
+            lastTrigger = trigger;
+            openConfirm(trigger, originalOccurredAt, newTimeStr, originalLeft, originalTimeText);
+          } else {
+            occurredAt.value = newTimeStr;
+            eventId.value = trigger.dataset.eventId || '';
+            entryId.value = trigger.dataset.entryId || '';
+            relatedEntryId.value = trigger.dataset.relatedEntryId || '';
+            eventType.value = trigger.dataset.eventType || '';
+            editForm.requestSubmit();
+          }
         }
         trigger.addEventListener('pointermove', move);
         trigger.addEventListener('pointerup', finish);
@@ -347,6 +399,24 @@
     modal.querySelectorAll('[data-timeline-modal-close]').forEach(function (button) {
       button.addEventListener('click', closeEdit);
     });
+    if (confirmModal) {
+      confirmModal.querySelectorAll('[data-timeline-confirm-close]').forEach(function (button) {
+        button.addEventListener('click', function () { closeConfirm(true); });
+      });
+      if (confirmSubmitBtn) {
+        confirmSubmitBtn.addEventListener('click', function () {
+          if (!pendingMove) return;
+          var moveData = pendingMove;
+          occurredAt.value = moveData.newDateTime;
+          eventId.value = moveData.trigger.dataset.eventId || '';
+          entryId.value = moveData.trigger.dataset.entryId || '';
+          relatedEntryId.value = moveData.trigger.dataset.relatedEntryId || '';
+          eventType.value = moveData.trigger.dataset.eventType || '';
+          closeConfirm(false);
+          editForm.requestSubmit();
+        });
+      }
+    }
     if (addModal) {
       addModal.querySelectorAll('[data-timeline-add-close]').forEach(function (button) {
         button.addEventListener('click', closeAdd);
@@ -355,7 +425,8 @@
     if (addKind) addKind.addEventListener('change', updateAddKind);
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape') return;
-      if (!modal.classList.contains('hidden')) closeEdit();
+      if (confirmModal && !confirmModal.classList.contains('hidden')) closeConfirm(true);
+      else if (!modal.classList.contains('hidden')) closeEdit();
       else if (addModal && !addModal.classList.contains('hidden')) closeAdd();
     });
   }
