@@ -1,9 +1,10 @@
 """Regression tests for dashboard timeline mutations (add / edit / delete events)."""
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from app import db
 from app.models import TimeEntry, TimerEvent
+from app.services.timer_event_service import current_timeline_position
 
 
 def _seed_day(app, user, project):
@@ -192,3 +193,44 @@ def test_dashboard_renders_now_indicator(app, client, authenticated_client, user
     _seed_day(app, user, project)
     html = client.get("/dashboard").get_data(as_text=True)
     assert 'id="timeline-now-indicator"' in html
+
+
+def test_now_position_uses_user_timezone(app, user):
+    """The now-marker must sit where 'now' falls in the USER's timezone, matching displayed times."""
+    from app.utils.timezone import get_timezone_for_user
+
+    user.timezone = "Asia/Tokyo"
+    db.session.commit()
+
+    # 03:00 UTC == 12:00 Tokyo on the same day
+    now_utc = datetime(2026, 8, 22, 3, 0, tzinfo=dt_timezone.utc)
+    position = current_timeline_position(now=now_utc, user=user)
+
+    tokyo_minute = 12 * 60  # 12:00 local
+    span = (22 - 8) * 60
+    expected = (tokyo_minute - 8 * 60) / span * 100
+    assert abs(position - expected) < 0.01
+
+    # Sanity: the app timezone differs from Tokyo, so the naive UTC reading must NOT match
+    utc_position = (3 * 60 - 8 * 60) / span * 100
+    assert abs(position - utc_position) > 1
+    assert get_timezone_for_user(user).key == "Asia/Tokyo"
+
+
+def test_marker_positions_match_displayed_user_time(app, client, authenticated_client, user, project):
+    """Marker percent positions must be computed on the same clock as the printed labels."""
+    entry = _seed_day(app, user, project)
+    from app.services.timer_event_service import build_timeline
+
+    # App tz is Europe/Rome; put the viewer in Tokyo (+7h ahead in August).
+    user.timezone = "Asia/Tokyo"
+    db.session.commit()
+
+    timeline = build_timeline(user, TimeEntry.query.filter_by(id=entry.id).all())
+    by_type = {item["event_type"]: item for item in timeline if item["event_type"] != "clock_out"}
+
+    # clock_in stored at 08:00 Rome == 15:00 Tokyo; label shows 15:00 via |user_time.
+    shown_minute = 15 * 60 + ((entry.start_time.minute) or 0)
+    expected = (shown_minute - 8 * 60) / ((22 - 8) * 60) * 100
+    assert abs(by_type["clock_in"]["timeline_position"] - expected) < 0.01
+

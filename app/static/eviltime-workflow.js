@@ -571,10 +571,36 @@
     if (!indicator || !track) return;
     var startMinute = Number(track.dataset.startMinute || 480);
     var endMinute = Number(track.dataset.endMinute || 1320);
+    var userTimezone = track.dataset.userTimezone || '';
+    var clockFormat = null;
+    try {
+      clockFormat = new Intl.DateTimeFormat('en-GB', {
+        timeZone: userTimezone || undefined,
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false,
+      });
+    } catch (_) {
+      clockFormat = null;
+    }
+
+    function minutesOfDay(date) {
+      if (!clockFormat) return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+      var parts = clockFormat.formatToParts(date);
+      var values = {};
+      parts.forEach(function (part) { values[part.type] = part.value; });
+      var hours = Number(values.hour) % 24;
+      var minutes = Number(values.minute);
+      var seconds = Number(values.second) || 0;
+      if ([hours, minutes].some(Number.isNaN)) {
+        return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
+      }
+      return hours * 60 + minutes + seconds / 60;
+    }
 
     function update() {
-      var now = new Date();
-      var minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      var minute = minutesOfDay(new Date());
       if (minute < startMinute || minute > endMinute) {
         indicator.classList.add('hidden');
         return;

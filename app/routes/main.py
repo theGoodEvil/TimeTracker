@@ -112,10 +112,12 @@ def dashboard():
         TimeEntry.start_time <= datetime.combine(today_local, datetime.max.time()),
     ).all()
     from app.services.timer_event_service import build_timeline, build_timeline_segments, current_timeline_position
+    from app.utils.timezone import get_app_timezone, get_user_timezone_name
 
     today_timeline = build_timeline(current_user, today_entries)
-    timeline_segments = build_timeline_segments(today_timeline)
-    timeline_now = current_timeline_position()
+    timeline_segments = build_timeline_segments(today_timeline, user=current_user)
+    timeline_now = current_timeline_position(user=current_user)
+    timeline_timezone = get_user_timezone_name(current_user) or get_app_timezone()
 
     today_work_seconds = sum(
         entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
@@ -157,6 +159,7 @@ def dashboard():
         timeline_segments=timeline_segments,
         timeline_date=local_now().date(),
         timeline_now=timeline_now,
+        timeline_timezone=timeline_timezone,
         can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
     )
 

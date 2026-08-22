@@ -177,7 +177,7 @@
     </div>
     <div class="overflow-x-auto px-5 py-4">
       <div class="min-w-[920px]">
-        <div class="relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1320" data-can-edit="{{ 'true' if can_edit_timeline else 'false' }}"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
+        <div class="relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1320" data-user-timezone="{{ timeline_timezone }}" data-can-edit="{{ 'true' if can_edit_timeline else 'false' }}"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
           <div class="absolute inset-x-0 top-[91px] h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
           {% for seg in timeline_segments %}
           {% set bg_color = 'bg-primary' if seg.type == 'active' else 'bg-amber-400' %}
@@ -190,8 +190,9 @@
           </div>
           {% endfor %}
           {% if timeline_now is not none %}
-          <div id="timeline-now-indicator" class="pointer-events-none absolute inset-y-3 w-px bg-rose-500/50" style="left: {{ timeline_now }}%" title="{{ _('Now') }}">
-            <span class="absolute -left-[3.5px] top-[85px] block h-2 w-2 rounded-full bg-rose-500 shadow ring-2 ring-white dark:ring-slate-900"></span>
+          <div id="timeline-now-indicator" class="pointer-events-none absolute inset-y-0 w-px" style="left: {{ timeline_now }}%" title="{{ _('Now') }}">
+            <span class="absolute inset-y-3 w-px bg-rose-500/50"></span>
+            <span class="absolute top-[89px] -left-[3.5px] block h-2 w-2 rounded-full bg-rose-500 shadow ring-2 ring-white dark:ring-slate-900"></span>
           </div>
           {% endif %}
         {% for event in today_timeline %}

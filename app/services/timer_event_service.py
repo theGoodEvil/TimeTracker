@@ -146,22 +146,39 @@ def fabricate_centered_break(entry, break_seconds, session_start, session_end):
     )
 
 
-def current_timeline_position(now=None):
+def _minute_in_user_timezone(dt, user):
+    """Minute-of-day of a datetime as seen in the user's timezone.
+
+    Aware datetimes are converted directly; naive ones are treated as stored
+    app-timezone values (the convention used across the database).
+    """
+    from app.utils.timezone import convert_app_datetime_to_user, get_timezone_for_user
+
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        shown = dt.astimezone(get_timezone_for_user(user))
+    else:
+        shown = convert_app_datetime_to_user(dt, user) or dt
+    return shown.hour * 60 + shown.minute + shown.second / 60
+
+
+def current_timeline_position(now=None, user=None):
     """Percent position of 'now' on the dashboard timeline, clamped to [0, 100].
 
-    Callers decide whether a clamped value inside the fixed 08:00-22:00 window
-    should be displayed (the live indicator hides itself outside the window).
+    Uses the user's timezone so the indicator lands where "now" actually sits
+    relative to the displayed event times, even when the app timezone differs.
     """
-    if now is None:
-        from app.models.time_entry import local_now
+    from app.utils.timezone import now_in_user_timezone
 
-        now = local_now()
-    minute = now.hour * 60 + now.minute + now.second / 60
+    if now is None:
+        now = now_in_user_timezone(user)
+    minute = _minute_in_user_timezone(now, user)
     span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
     return round(max(0.0, min(100.0, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
 
 
-def build_timeline_segments(timeline, now=None):
+def build_timeline_segments(timeline, now=None, user=None):
     """Derive colored work/break segments from an ordered timeline for rendering."""
     segments = []
     current_status = "none"
@@ -192,11 +209,7 @@ def build_timeline_segments(timeline, now=None):
         last_position = position
 
     if last_position is not None and current_status != "none":
-        if now is None:
-            from app.models.time_entry import local_now
-
-            now = local_now()
-        now_position = current_timeline_position(now)
+        now_position = current_timeline_position(now=now, user=user)
         if now_position > last_position:
             segments.append({"type": current_status, "start": last_position, "width": now_position - last_position})
 
@@ -312,11 +325,14 @@ def build_timeline(user, entries):
     # the other label row.
     lane_counters = {"boundary": 0, "break": 0}
     for item in timeline:
-        occurred_at = item["occurred_at"]
-        minute = occurred_at.hour * 60 + occurred_at.minute + occurred_at.second / 60
+        # Positions are derived from the same user-timezone view that renders
+        # the displayed times, so markers always line up with their labels.
+        minute = _minute_in_user_timezone(item["occurred_at"], user)
         item["timeline_position"] = round(max(0, min(100, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
         group = "break" if item["event_type"] in BREAK_EVENT_TYPES else "boundary"
         item["timeline_lane"] = lane_counters[group] % 2
         lane_counters[group] += 1
-        item["outside_timeline"] = minute < TIMELINE_START_MINUTE or minute > TIMELINE_END_MINUTE
+        item["outside_timeline"] = (
+            minute < TIMELINE_START_MINUTE or minute > TIMELINE_END_MINUTE
+        )
     return timeline
