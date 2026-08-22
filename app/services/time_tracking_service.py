@@ -463,32 +463,11 @@ class TimeTrackingService:
         db.session.flush()
 
         if break_seconds and break_seconds > 0:
-            from app.models.timer_event import TimerEvent
-            from datetime import timedelta
-            
-            # Create a dummy break in the middle of the session
-            midpoint = start_time + (end_time - start_time) / 2
-            half_break = timedelta(seconds=break_seconds / 2)
-            
-            break_start = midpoint - half_break
-            break_end = midpoint + half_break
-            
-            # Ensure it fits
-            if break_start < start_time: break_start = start_time
-            if break_end > end_time: break_end = end_time
-            
-            db.session.add(TimerEvent(
-                user_id=user_id,
-                time_entry_id=entry.id,
-                event_type="break_start",
-                occurred_at=break_start
-            ))
-            db.session.add(TimerEvent(
-                user_id=user_id,
-                time_entry_id=entry.id,
-                event_type="break_end",
-                occurred_at=break_end
-            ))
+            from app.services.timer_event_service import fabricate_centered_break
+
+            # Represent the recorded break total as a single break centered in the
+            # session so it shows up on the dashboard timeline.
+            fabricate_centered_break(entry, int(break_seconds), start_time, end_time)
 
         commit_data = {"user_id": user_id}
         if project_id:
@@ -828,9 +807,10 @@ class TimeTrackingService:
         entity_metadata = capture_timeentry_metadata(entry)
         ip_address, user_agent, request_path = get_request_info()
 
-        # Cascade delete TimerEvents
-        from app.models.timer_event import TimerEvent
-        TimerEvent.query.filter_by(time_entry_id=entry_id).delete(synchronize_session=False)
+        # Remove dependent timeline events before the entry itself
+        from app.services.timer_event_service import delete_entry_events
+
+        delete_entry_events(entry_id)
 
         if self.time_entry_repo.delete(entry):
             if safe_commit("delete_entry", {"user_id": user_id, "entry_id": entry_id}):

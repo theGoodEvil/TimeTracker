@@ -111,48 +111,12 @@ def dashboard():
         TimeEntry.start_time >= datetime.combine(today_local, datetime.min.time()),
         TimeEntry.start_time <= datetime.combine(today_local, datetime.max.time()),
     ).all()
-    from app.services.timer_event_service import build_timeline
+    from app.services.timer_event_service import build_timeline, build_timeline_segments, current_timeline_position
 
     today_timeline = build_timeline(current_user, today_entries)
-    
-    timeline_segments = []
-    current_status = "none"
-    last_event = None
-    
-    for event in today_timeline:
-        t = event["event_type"]
-        pos = event["timeline_position"]
-        
-        if last_event and current_status != "none":
-            # Add a segment from last_event to event
-            timeline_segments.append({
-                "type": current_status,
-                "start": last_event["timeline_position"],
-                "width": max(0, pos - last_event["timeline_position"])
-            })
-                
-        if t in ["clock_in", "project_switch", "break_end"]:
-            current_status = "active"
-        elif t == "break_start":
-            current_status = "break"
-        elif t == "clock_out":
-            current_status = "none"
-            
-        last_event = event
-        
-    if last_event and current_status != "none":
-        from app.services.timer_event_service import TIMELINE_START_MINUTE, TIMELINE_END_MINUTE
-        now_dt = local_now()
-        minute = now_dt.hour * 60 + now_dt.minute + now_dt.second / 60
-        span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
-        now_pos = round(max(0, min(100, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
-        if now_pos > last_event["timeline_position"]:
-            timeline_segments.append({
-                "type": current_status,
-                "start": last_event["timeline_position"],
-                "width": max(0, now_pos - last_event["timeline_position"])
-            })
-            
+    timeline_segments = build_timeline_segments(today_timeline)
+    timeline_now = current_timeline_position()
+
     today_work_seconds = sum(
         entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
         for entry in today_entries
@@ -192,6 +156,7 @@ def dashboard():
         today_timeline=today_timeline,
         timeline_segments=timeline_segments,
         timeline_date=local_now().date(),
+        timeline_now=timeline_now,
         can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
     )
 
@@ -242,14 +207,31 @@ def delete_timeline_event():
         
     elif event_type == "clock_out":
         # Resuming the timer by clearing end_time
-        can_start, _ = TimeTrackingService().can_start_timer(current_user.id)
+        can_start, block_reason = TimeTrackingService().can_start_timer(current_user.id)
         if not can_start:
             flash(_("You already have an active timer. Cannot resume this session."), "error")
             return redirect(url_for("main.dashboard"))
-            
+
+        # Resuming a session that has later sessions stacked after it would
+        # overlap them; refuse instead of silently corrupting the day.
+        has_later_session = (
+            TimeEntry.query.filter(
+                TimeEntry.user_id == current_user.id,
+                TimeEntry.id != entry.id,
+                TimeEntry.start_time > entry.start_time,
+            ).first()
+            is not None
+        )
+        if has_later_session:
+            flash(
+                _("This clock-out cannot be deleted because later sessions exist after it. Edit the times instead."),
+                "error",
+            )
+            return redirect(url_for("main.dashboard"))
+
         entry.end_time = None
         entry.duration_seconds = None
-        entry.calculate_duration() # Will mark as active
+        entry.calculate_duration()  # Will mark as active
         if safe_commit("resume_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
             flash(_("Clock-out event deleted. Timer resumed."), "success")
         else:
@@ -266,16 +248,13 @@ def delete_timeline_event():
 
     # For breaks, delete the pair
     if event_type in ["break_start", "break_end"]:
-        all_breaks = (
-            TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
-            .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
-            .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
-            .all()
-        )
-        
+        from app.services.timer_event_service import get_break_events
+
+        all_breaks = get_break_events(current_user.id, entry.id)
+
         event_index = next((index for index, item in enumerate(all_breaks) if item.id == event.id), None)
         to_delete = [event]
-        
+
         if event_index is not None:
             if event_type == "break_start" and event_index + 1 < len(all_breaks):
                 next_ev = all_breaks[event_index + 1]
@@ -285,30 +264,16 @@ def delete_timeline_event():
                 prev_ev = all_breaks[event_index - 1]
                 if prev_ev.event_type == "break_start":
                     to_delete.append(prev_ev)
-                    
+
         for ev in to_delete:
             db.session.delete(ev)
-            
+
         db.session.flush()
-        
+
         # Recompute exact break seconds from remaining break pairs
-        remaining_breaks = (
-            TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
-            .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
-            .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
-            .all()
-        )
-        total_break_sec = 0
-        cur_start = None
-        for b in remaining_breaks:
-            if b.event_type == "break_start":
-                cur_start = b.occurred_at
-            elif b.event_type == "break_end" and cur_start:
-                if b.occurred_at > cur_start:
-                    total_break_sec += int((b.occurred_at - cur_start).total_seconds())
-                cur_start = None
-                
-        entry.break_seconds = total_break_sec
+        from app.services.timer_event_service import get_break_events, sum_break_seconds
+
+        entry.break_seconds = sum_break_seconds(get_break_events(current_user.id, entry.id))
         if entry.end_time:
             entry.calculate_duration()
             
@@ -464,22 +429,9 @@ def edit_timeline_event():
                 entry.paused_at = new_time
 
             # Recompute exact break seconds from all recorded break pairs
-            all_breaks = (
-                TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
-                .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
-                .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
-                .all()
-            )
-            total_break_sec = 0
-            cur_start = None
-            for b in all_breaks:
-                if b.event_type == "break_start":
-                    cur_start = b.occurred_at
-                elif b.event_type == "break_end" and cur_start:
-                    if b.occurred_at > cur_start:
-                        total_break_sec += int((b.occurred_at - cur_start).total_seconds())
-                    cur_start = None
-            entry.break_seconds = total_break_sec
+            from app.services.timer_event_service import recompute_break_seconds
+
+            recompute_break_seconds(entry)
 
         if event:
             event.occurred_at = new_time
@@ -577,25 +529,18 @@ def add_timeline_event():
             db.session.flush()
             
             # Transfer breaks that fall after the split
-            breaks = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id).filter(TimerEvent.event_type.in_(["break_start", "break_end"])).all()
-            for b in breaks:
+            from app.services.timer_event_service import get_break_events
+
+            for b in get_break_events(current_user.id, entry.id):
                 if b.occurred_at >= start:
                     b.time_entry_id = new_entry.id
             db.session.flush()
             
-            # Recompute breaks
+            # Recompute breaks for both halves of the split session
+            from app.services.timer_event_service import get_break_events, sum_break_seconds
+
             for e in [entry, new_entry]:
-                b_evs = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=e.id).filter(TimerEvent.event_type.in_(["break_start", "break_end"])).order_by(TimerEvent.occurred_at.asc()).all()
-                tot = 0
-                cur = None
-                for b in b_evs:
-                    if b.event_type == "break_start":
-                        cur = b.occurred_at
-                    elif b.event_type == "break_end" and cur:
-                        if b.occurred_at > cur:
-                            tot += int((b.occurred_at - cur).total_seconds())
-                        cur = None
-                e.break_seconds = tot
+                e.break_seconds = sum_break_seconds(get_break_events(current_user.id, e.id))
                 if e.end_time:
                     e.calculate_duration()
             

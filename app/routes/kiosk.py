@@ -470,7 +470,7 @@ def kiosk_start_timer():
     if not user_can_access_project(current_user, project_id):
         return jsonify({"error": "You do not have access to this project"}), 403
 
-    can_start, _ = TimeTrackingService().can_start_timer(current_user.id)
+    can_start, _reason = TimeTrackingService().can_start_timer(current_user.id)
     if not can_start:
         return jsonify({"error": "You already have an active timer"}), 400
 

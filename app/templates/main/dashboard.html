@@ -1,24 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ _('Dashboard') }} · EvilTime
-<!-- Timeline Context Menu -->
-<div id="timelineContextMenu" class="hidden absolute z-50 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-    <div class="py-1">
-        <button id="timelineCtxEditBtn" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-            <i class="fas fa-edit w-5"></i> {{ _('Edit Event') }}
-        </button>
-        <form id="timelineCtxDeleteForm" method="POST" action="{{ url_for('main.delete_timeline_event') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="event_id" id="timelineCtxEventId" value="">
-            <input type="hidden" name="entry_id" id="timelineCtxEntryId" value="">
-            <input type="hidden" name="event_type" id="timelineCtxEventType" value="">
-            <button type="button" id="timelineCtxDeleteBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                <i class="fas fa-trash-alt w-5"></i> {{ _('Delete Event') }}
-            </button>
-        </form>
-    </div>
-</div>
-
-{% endblock %}
+{% block title %}{{ _('Dashboard') }} · EvilTime{% endblock %}
 {% block content %}
 {% set is_paused = active_timer and active_timer.is_paused %}
 {% set active_project_name = active_timer.project.name if active_timer and active_timer.project else _('Legacy unassigned time') %}
@@ -196,7 +177,7 @@
     </div>
     <div class="overflow-x-auto px-5 py-4">
       <div class="min-w-[920px]">
-        <div class="relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1320"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
+        <div class="relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1320" data-can-edit="{{ 'true' if can_edit_timeline else 'false' }}"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
           <div class="absolute inset-x-0 top-[91px] h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
           {% for seg in timeline_segments %}
           {% set bg_color = 'bg-primary' if seg.type == 'active' else 'bg-amber-400' %}
@@ -208,6 +189,11 @@
             <span class="mt-1 block font-mono text-[11px] font-medium tabular-nums text-slate-400">{{ '%02d:00'|format(hour) }}</span>
           </div>
           {% endfor %}
+          {% if timeline_now is not none %}
+          <div id="timeline-now-indicator" class="pointer-events-none absolute inset-y-3 w-px bg-rose-500/50" style="left: {{ timeline_now }}%" title="{{ _('Now') }}">
+            <span class="absolute -left-[3.5px] top-[85px] block h-2 w-2 rounded-full bg-rose-500 shadow ring-2 ring-white dark:ring-slate-900"></span>
+          </div>
+          {% endif %}
         {% for event in today_timeline %}
         {% set label = _('Clocked in') if event.event_type == 'clock_in' else _('Switched project') if event.event_type == 'project_switch' else _('Clocked out') if event.event_type == 'clock_out' else _('Break started') if event.event_type == 'break_start' else _('Break ended') %}
         {% set icon = 'fa-play' if event.event_type == 'clock_in' else 'fa-shuffle' if event.event_type == 'project_switch' else 'fa-stop' if event.event_type == 'clock_out' else 'fa-mug-hot' if event.event_type == 'break_start' else 'fa-rotate-left' %}
@@ -304,63 +290,23 @@
 </div>
 
 {% if can_edit_timeline %}
-<div id="timelineContextMenu" class="fixed z-[1000] hidden w-48 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-800 dark:shadow-none">
-  <button type="button" id="ctxEditEntry" class="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"><i class="fas fa-edit mr-2.5 w-4 text-center text-slate-400"></i>{{ _('Edit time entry') }}</button>
+<div id="timelineContextMenu"
+     class="fixed z-[1000] hidden w-52 rounded-xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-200/50 dark:border-slate-700 dark:bg-slate-800 dark:shadow-none"
+     role="menu"
+     data-confirm-session="{{ _('Deleting the clock-in event removes the ENTIRE work session. Delete this time entry?') }}"
+     data-confirm-break="{{ _('Are you sure you want to delete this entire break?') }}"
+     data-confirm-clock-out="{{ _('Delete this clock-out event? This will resume the timer if no other timer is active.') }}"
+     data-confirm-default="{{ _('Are you sure you want to delete this event?') }}">
+  <button type="button" id="ctxEditEntry" role="menuitem" class="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-700"><i class="fas fa-edit mr-2.5 w-4 text-center text-slate-400"></i>{{ _('Edit time entry') }}</button>
   <div class="my-1 h-px bg-slate-100 dark:bg-slate-700"></div>
-  <form id="ctxDeleteForm" method="POST" action="">
+  <form id="ctxDeleteForm" method="POST" action="{{ url_for('main.delete_timeline_event') }}">
     <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-    <input type="hidden" id="ctxEventId" name="event_id" value="">
-    <button type="submit" id="ctxDeleteEntry" class="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10" onclick="return confirm('{{ _('Are you sure you want to delete this?') }}')"><i class="fas fa-trash-alt mr-2.5 w-4 text-center text-red-400 dark:text-red-400/80"></i><span id="ctxDeleteText">{{ _('Delete entry') }}</span></button>
+    <input type="hidden" name="event_id" id="ctxEventId" value="">
+    <input type="hidden" name="entry_id" id="ctxEntryId" value="">
+    <input type="hidden" name="event_type" id="ctxEventType" value="">
+    <button type="button" id="ctxDeleteBtn" role="menuitem" class="flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium text-red-600 hover:bg-red-50 hover:text-red-700 dark:text-red-400 dark:hover:bg-red-500/10"><i class="fas fa-trash-alt mr-2.5 w-4 text-center text-red-400 dark:text-red-400/80"></i><span id="ctxDeleteText">{{ _('Delete event') }}</span></button>
   </form>
 </div>
 {% endif %}
 
-
-<!-- Timeline Context Menu -->
-<div id="timelineContextMenu" class="hidden absolute z-50 w-48 bg-white dark:bg-slate-800 rounded-md shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none">
-    <div class="py-1">
-        <button id="timelineCtxEditBtn" class="w-full text-left px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-            <i class="fas fa-edit w-5"></i> {{ _('Edit Event') }}
-        </button>
-        <form id="timelineCtxDeleteForm" method="POST" action="{{ url_for('main.delete_timeline_event') }}">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-            <input type="hidden" name="event_id" id="timelineCtxEventId" value="">
-            <input type="hidden" name="entry_id" id="timelineCtxEntryId" value="">
-            <input type="hidden" name="event_type" id="timelineCtxEventType" value="">
-            <button type="button" id="timelineCtxDeleteBtn" class="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center">
-                <i class="fas fa-trash-alt w-5"></i> {{ _('Delete Event') }}
-            </button>
-        </form>
-    </div>
-</div>
-
-{% endblock %}
-
-{% block scripts_extra %}
-{% if can_edit_timeline %}
-<script nonce="{{ csp_nonce() }}">
-document.addEventListener("DOMContentLoaded", function() {
-    const track = document.querySelector('[data-timeline-track]');
-    if (!track) return;
-    const indicator = document.createElement('div');
-    indicator.className = 'absolute top-[80px] pointer-events-none hidden text-primary/80 transform -translate-x-1/2 transition-opacity z-10';
-    indicator.innerHTML = '<i class="fas fa-plus-circle text-2xl bg-white dark:bg-slate-900 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-900"></i>';
-    track.appendChild(indicator);
-    
-    track.addEventListener('mouseenter', () => indicator.classList.remove('hidden'));
-    track.addEventListener('mouseleave', () => indicator.classList.add('hidden'));
-    track.addEventListener('mousemove', (e) => {
-        if (e.target.closest('button')) {
-            indicator.classList.add('hidden');
-            return;
-        } else {
-            indicator.classList.remove('hidden');
-        }
-        const rect = track.getBoundingClientRect();
-        const pct = ((e.clientX - rect.left) / rect.width) * 100;
-        indicator.style.left = `${pct}%`;
-    });
-});
-</script>
-{% endif %}
 {% endblock %}

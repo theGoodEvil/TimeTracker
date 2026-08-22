@@ -73,7 +73,7 @@
       if (weekProgress) {
         var overtimeProgress = document.getElementById('eviltime-week-progress-overtime');
         var progressRaw = expectedWeekSeconds > 0 ? (liveWeekSeconds / expectedWeekSeconds * 100) : 0;
-        
+
         if (progressRaw > 100) {
             var normalWidth = (100 / progressRaw) * 100;
             weekProgress.style.width = normalWidth + '%';
@@ -173,6 +173,22 @@
     }
   }
 
+  function openModal(modal) {
+    modal.classList.remove('hidden');
+    modal.classList.add('flex');
+    document.body.classList.add('overflow-hidden');
+  }
+
+  function closeModal(modal) {
+    modal.classList.add('hidden');
+    modal.classList.remove('flex');
+    document.body.classList.remove('overflow-hidden');
+  }
+
+  function isOpen(modal) {
+    return modal && !modal.classList.contains('hidden');
+  }
+
   function initWeeklyEditModal() {
     var modal = document.getElementById('weeklyEditModal');
     if (!modal) return;
@@ -183,34 +199,122 @@
     var notes = document.getElementById('weeklyEditNotes');
     var lastTrigger = null;
 
-    function openModal(trigger) {
+    function open(trigger) {
       lastTrigger = trigger;
       label.textContent = trigger.dataset.weekLabel || '';
       start.value = trigger.dataset.weekStart || '';
       expected.value = trigger.dataset.expectedHours || '';
       actual.value = trigger.dataset.actualHours || '';
       notes.value = trigger.dataset.notes || '';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      document.body.classList.add('overflow-hidden');
+      openModal(modal);
       window.setTimeout(function () { expected.focus(); expected.select(); }, 0);
     }
 
-    function closeModal() {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      document.body.classList.remove('overflow-hidden');
+    function close() {
+      closeModal(modal);
       if (lastTrigger) lastTrigger.focus();
     }
 
     document.querySelectorAll('[data-week-edit]').forEach(function (trigger) {
-      trigger.addEventListener('click', function () { openModal(trigger); });
+      trigger.addEventListener('click', function () { open(trigger); });
     });
     modal.querySelectorAll('[data-week-modal-close]').forEach(function (button) {
-      button.addEventListener('click', closeModal);
+      button.addEventListener('click', close);
     });
     document.addEventListener('keydown', function (event) {
-      if (event.key === 'Escape' && !modal.classList.contains('hidden')) closeModal();
+      if (event.key === 'Escape' && isOpen(modal)) close();
+    });
+  }
+
+  function initContextMenu(track) {
+    var menu = document.getElementById('timelineContextMenu');
+    if (!menu || !track) return;
+
+    var editBtn = document.getElementById('ctxEditEntry');
+    var deleteBtn = document.getElementById('ctxDeleteBtn');
+    var deleteForm = document.getElementById('ctxDeleteForm');
+    var eventIdInput = document.getElementById('ctxEventId');
+    var entryIdInput = document.getElementById('ctxEntryId');
+    var eventTypeInput = document.getElementById('ctxEventType');
+    var currentTrigger = null;
+
+    function hideMenu() {
+      menu.classList.add('hidden');
+    }
+
+    function showFor(trigger, positionX, positionY) {
+      currentTrigger = trigger;
+      eventIdInput.value = trigger.dataset.eventId || '';
+      entryIdInput.value = trigger.dataset.entryId || '';
+      eventTypeInput.value = trigger.dataset.eventType || '';
+      menu.classList.remove('hidden');
+      var menuRect = menu.getBoundingClientRect();
+      var maxX = window.innerWidth - menuRect.width - 8;
+      var maxY = window.innerHeight - menuRect.height - 8;
+      menu.style.left = Math.min(positionX, maxX) + 'px';
+      menu.style.top = Math.min(positionY, maxY) + 'px';
+    }
+
+    document.addEventListener('click', function (event) {
+      if (!menu.contains(event.target)) hideMenu();
+    });
+    document.addEventListener('keydown', function (event) {
+      if (event.key === 'Escape') hideMenu();
+    });
+    window.addEventListener('blur', hideMenu);
+    window.addEventListener('resize', hideMenu);
+
+    if (editBtn) {
+      editBtn.addEventListener('click', function () {
+        hideMenu();
+        var entryId = currentTrigger && currentTrigger.dataset.entryId;
+        if (entryId) window.location.href = '/timer/edit/' + encodeURIComponent(entryId);
+      });
+    }
+
+    if (deleteBtn && deleteForm) {
+      deleteBtn.addEventListener('click', function () {
+        var eventType = eventTypeInput ? eventTypeInput.value : '';
+        var message
+          = eventType === 'clock_in' ? menu.dataset.confirmSession
+          : (eventType === 'break_start' || eventType === 'break_end') ? menu.dataset.confirmBreak
+          : eventType === 'clock_out' ? menu.dataset.confirmClockOut
+          : menu.dataset.confirmDefault;
+        hideMenu();
+        if (!currentTrigger || !window.confirm(message || menu.dataset.confirmDefault)) return;
+        if (!eventIdInput.value && !entryIdInput.value) return;
+        deleteForm.submit();
+      });
+    }
+
+    // Right-click anywhere on a marker opens the menu for that marker.
+    track.addEventListener('contextmenu', function (event) {
+      var trigger = event.target.closest('[data-timeline-edit]');
+      if (!trigger) return;
+      event.preventDefault();
+      showFor(trigger, event.clientX, event.clientY);
+    });
+  }
+
+  function initHoverIndicator(track) {
+    if (!track || track.dataset.canEdit !== 'true' || track.dataset.hoverIndicatorBound === 'true') return;
+    track.dataset.hoverIndicatorBound = 'true';
+
+    var indicator = document.createElement('div');
+    indicator.className = 'absolute top-[80px] pointer-events-none hidden text-primary/80 transform -translate-x-1/2 transition-opacity z-10';
+    indicator.innerHTML = '<i class="fas fa-plus-circle text-2xl bg-white dark:bg-slate-900 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-900"></i>';
+    track.appendChild(indicator);
+
+    track.addEventListener('mouseenter', function () { indicator.classList.remove('hidden'); });
+    track.addEventListener('mouseleave', function () { indicator.classList.add('hidden'); });
+    track.addEventListener('mousemove', function (event) {
+      if (event.target.closest('button')) {
+        indicator.classList.add('hidden');
+        return;
+      }
+      indicator.classList.remove('hidden');
+      var rect = track.getBoundingClientRect();
+      indicator.style.left = (((event.clientX - rect.left) / rect.width) * 100) + '%';
     });
   }
 
@@ -219,76 +323,11 @@
     var addModal = document.getElementById('timelineAddModal');
     var confirmModal = document.getElementById('timelineConfirmModal');
     var track = document.querySelector('[data-timeline-track]');
-
-    // Context Menu for Timeline Blobs
-    var ctxMenu = document.getElementById('timelineContextMenu');
-    var ctxEditBtn = document.getElementById('timelineCtxEditBtn');
-    var ctxDeleteBtn = document.getElementById('timelineCtxDeleteBtn');
-    var ctxDeleteForm = document.getElementById('timelineCtxDeleteForm');
-    var ctxEventId = document.getElementById('timelineCtxEventId');
-    var ctxEntryId = document.getElementById('timelineCtxEntryId');
-    var ctxEventType = document.getElementById('timelineCtxEventType');
-    var currentCtxBtn = null;
-
-    if (ctxMenu && track) {
-      document.addEventListener('click', function(e) {
-        if (!ctxMenu.contains(e.target)) {
-          ctxMenu.classList.add('hidden');
-        }
-      });
-
-      track.addEventListener('contextmenu', function(e) {
-        var editBtn = e.target.closest('[data-timeline-edit]');
-        if (editBtn) {
-          e.preventDefault();
-          currentCtxBtn = editBtn;
-          
-          ctxMenu.style.left = e.pageX + 'px';
-          ctxMenu.style.top = e.pageY + 'px';
-          ctxMenu.classList.remove('hidden');
-          
-          var hasEventId = !!editBtn.dataset.eventId;
-          if (hasEventId) {
-            ctxEventId.value = editBtn.dataset.eventId;
-            ctxEntryId.value = '';
-          } else {
-            ctxEventId.value = '';
-            ctxEntryId.value = editBtn.dataset.entryId;
-          }
-          if (ctxEventType) ctxEventType.value = editBtn.dataset.eventType || '';
-        }
-      });
-
-      ctxEditBtn.addEventListener('click', function() {
-        ctxMenu.classList.add('hidden');
-        if (currentCtxBtn) {
-          // Open standard Edit Modal or navigate
-          if (currentCtxBtn.dataset.entryId) {
-             window.location.href = '/timer/edit/' + currentCtxBtn.dataset.entryId;
-          }
-        }
-      });
-
-
-      ctxDeleteBtn.addEventListener('click', function() {
-        var evType = ctxEventType ? ctxEventType.value : '';
-        var msg = 'Are you sure you want to delete this event?';
-        if (evType === 'clock_in') {
-          msg = 'Deleting a clock-in event will delete the ENTIRE work session. Are you sure you want to delete this time entry?';
-        } else if (evType === 'break_start' || evType === 'break_end') {
-          msg = 'Are you sure you want to delete this entire break?';
-        } else if (evType === 'clock_out') {
-          msg = 'Are you sure you want to delete the clock-out event? This will resume the timer if no other timer is active.';
-        }
-        
-        if (confirm(msg)) {
-          ctxDeleteForm.submit();
-        }
-      });
-
-    }
-
     if (!modal || !track) return;
+
+    initContextMenu(track);
+    initHoverIndicator(track);
+
     var editForm = modal.querySelector('form');
     var label = document.getElementById('timelineEditLabel');
     var occurredAt = document.getElementById('timelineOccurredAt');
@@ -327,26 +366,26 @@
       var ratio = Math.max(0, Math.min(1, (clientX - bounds.left) / bounds.width));
       return startMinute + ratio * spanMinutes;
     }
-    function setBodyLocked(locked) {
-      document.body.classList.toggle('overflow-hidden', locked);
-    }
-    function openEdit(trigger) {
-      lastTrigger = trigger;
-      label.textContent = trigger.dataset.eventLabel || '';
-      occurredAt.value = trigger.dataset.occurredAt || '';
+    function fillEditForm(trigger, newDateTime) {
+      occurredAt.value = newDateTime;
       eventId.value = trigger.dataset.eventId || '';
       entryId.value = trigger.dataset.entryId || '';
       relatedEntryId.value = trigger.dataset.relatedEntryId || '';
       eventType.value = trigger.dataset.eventType || '';
-      modal.classList.remove('hidden');
-      modal.classList.add('flex');
-      setBodyLocked(true);
+    }
+    function submitEdit(trigger, newDateTime) {
+      fillEditForm(trigger, newDateTime);
+      editForm.requestSubmit();
+    }
+    function openEdit(trigger) {
+      lastTrigger = trigger;
+      label.textContent = trigger.dataset.eventLabel || '';
+      fillEditForm(trigger, trigger.dataset.occurredAt || '');
+      openModal(modal);
       window.setTimeout(function () { occurredAt.focus(); }, 0);
     }
     function closeEdit() {
-      modal.classList.add('hidden');
-      modal.classList.remove('flex');
-      setBodyLocked(false);
+      closeModal(modal);
       if (lastTrigger) lastTrigger.focus();
     }
     function openConfirm(trigger, oldDateTime, newDateTime, originalLeft, originalTimeText) {
@@ -361,9 +400,7 @@
       if (confirmEventLabel) confirmEventLabel.textContent = trigger.dataset.eventLabel || '';
       if (confirmOldTime) confirmOldTime.textContent = oldDateTime ? oldDateTime.slice(-5) : '';
       if (confirmNewTime) confirmNewTime.textContent = newDateTime ? newDateTime.slice(-5) : '';
-      confirmModal.classList.remove('hidden');
-      confirmModal.classList.add('flex');
-      setBodyLocked(true);
+      openModal(confirmModal);
       if (confirmSubmitBtn) {
         window.setTimeout(function () { confirmSubmitBtn.focus(); }, 0);
       }
@@ -376,9 +413,7 @@
         if (timeLabel) timeLabel.textContent = pendingMove.originalTimeText;
       }
       pendingMove = null;
-      confirmModal.classList.add('hidden');
-      confirmModal.classList.remove('flex');
-      setBodyLocked(false);
+      closeModal(confirmModal);
       if (lastTrigger) lastTrigger.focus();
     }
     var originalStartLabel = null;
@@ -390,14 +425,14 @@
       var endInput = document.getElementById('timelineEndAt');
       var startWrap = document.getElementById('timelineStartWrap');
       var startLabel = startWrap ? startWrap.querySelector('label') : null;
-      
+
       if (startLabel && !originalStartLabel) {
           originalStartLabel = startLabel.textContent;
       }
-      
+
       projectWrap.classList.toggle('hidden', !needsProject);
       projectSelect.required = needsProject;
-      
+
       if (endWrap && endInput) {
         endWrap.classList.toggle('hidden', isSwitch);
         endInput.required = !isSwitch;
@@ -411,17 +446,13 @@
       var rounded = Math.round(minutes / 5) * 5;
       addStart.value = dateTimeValue(rounded, 5);
       addEnd.value = dateTimeValue(Math.min(rounded + 30, endMinute), 5);
-      addModal.classList.remove('hidden');
-      addModal.classList.add('flex');
-      setBodyLocked(true);
+      openModal(addModal);
       updateAddKind();
       window.setTimeout(function () { addKind.focus(); }, 0);
     }
     function closeAdd() {
       if (!addModal) return;
-      addModal.classList.add('hidden');
-      addModal.classList.remove('flex');
-      setBodyLocked(false);
+      closeModal(addModal);
     }
     function currentMinute() {
       var now = new Date();
@@ -438,6 +469,7 @@
         openEdit(trigger);
       });
       trigger.addEventListener('pointerdown', function (downEvent) {
+        suppressClick = false;
         if (downEvent.button !== 0) return;
         var startX = downEvent.clientX;
         var triggerRect = trigger.getBoundingClientRect();
@@ -481,56 +513,13 @@
             lastTrigger = trigger;
             openConfirm(trigger, originalOccurredAt, newTimeStr, originalLeft, originalTimeText);
           } else {
-            occurredAt.value = newTimeStr;
-            eventId.value = trigger.dataset.eventId || '';
-            entryId.value = trigger.dataset.entryId || '';
-            relatedEntryId.value = trigger.dataset.relatedEntryId || '';
-            eventType.value = trigger.dataset.eventType || '';
-            editForm.requestSubmit();
+            submitEdit(trigger, newTimeStr);
           }
         }
         trigger.addEventListener('pointermove', move);
         trigger.addEventListener('pointerup', finish);
         trigger.addEventListener('pointercancel', finish);
       });
-      trigger.addEventListener('contextmenu', function (ev) {
-        ev.preventDefault();
-        var ctxMenu = document.getElementById('timelineContextMenu');
-        var ctxEdit = document.getElementById('ctxEditEntry');
-        var ctxDelete = document.getElementById('ctxDeleteForm');
-        var ctxDeleteText = document.getElementById('ctxDeleteText');
-        var ctxEventId = document.getElementById('ctxEventId');
-        
-        if (ctxMenu && ctxEdit && ctxDelete) {
-          var entryId = trigger.dataset.entryId;
-          var eventId = trigger.dataset.eventId;
-          
-          ctxEdit.onclick = function() {
-            window.location.href = '/timer/edit/' + entryId;
-          };
-          
-          if (eventId) {
-            ctxDelete.action = '/dashboard/timeline/delete_event';
-            if (ctxEventId) ctxEventId.value = eventId;
-            if (ctxDeleteText) ctxDeleteText.textContent = 'Delete break';
-          } else {
-            ctxDelete.action = '/timer/delete/' + entryId;
-            if (ctxEventId) ctxEventId.value = '';
-            if (ctxDeleteText) ctxDeleteText.textContent = 'Delete entry';
-          }
-          
-          ctxMenu.style.left = ev.clientX + 'px';
-          ctxMenu.style.top = ev.clientY + 'px';
-          ctxMenu.classList.remove('hidden');
-        }
-      });
-    });
-    
-    document.addEventListener('click', function(ev) {
-      var ctxMenu = document.getElementById('timelineContextMenu');
-      if (ctxMenu && !ctxMenu.contains(ev.target)) {
-        ctxMenu.classList.add('hidden');
-      }
     });
 
     track.addEventListener('click', function (event) {
@@ -557,13 +546,8 @@
         confirmSubmitBtn.addEventListener('click', function () {
           if (!pendingMove) return;
           var moveData = pendingMove;
-          occurredAt.value = moveData.newDateTime;
-          eventId.value = moveData.trigger.dataset.eventId || '';
-          entryId.value = moveData.trigger.dataset.entryId || '';
-          relatedEntryId.value = moveData.trigger.dataset.relatedEntryId || '';
-          eventType.value = moveData.trigger.dataset.eventType || '';
           closeConfirm(false);
-          editForm.requestSubmit();
+          submitEdit(moveData.trigger, moveData.newDateTime);
         });
       }
     }
@@ -575,15 +559,38 @@
     if (addKind) addKind.addEventListener('change', updateAddKind);
     document.addEventListener('keydown', function (event) {
       if (event.key !== 'Escape') return;
-      if (confirmModal && !confirmModal.classList.contains('hidden')) closeConfirm(true);
-      else if (!modal.classList.contains('hidden')) closeEdit();
-      else if (addModal && !addModal.classList.contains('hidden')) closeAdd();
+      if (isOpen(confirmModal)) closeConfirm(true);
+      else if (isOpen(modal)) closeEdit();
+      else if (isOpen(addModal)) closeAdd();
     });
+  }
+
+  function initNowIndicator() {
+    var indicator = document.getElementById('timeline-now-indicator');
+    var track = document.querySelector('[data-timeline-track]');
+    if (!indicator || !track) return;
+    var startMinute = Number(track.dataset.startMinute || 480);
+    var endMinute = Number(track.dataset.endMinute || 1320);
+
+    function update() {
+      var now = new Date();
+      var minute = now.getHours() * 60 + now.getMinutes() + now.getSeconds() / 60;
+      if (minute < startMinute || minute > endMinute) {
+        indicator.classList.add('hidden');
+        return;
+      }
+      indicator.classList.remove('hidden');
+      indicator.style.left = ((minute - startMinute) / (endMinute - startMinute) * 100) + '%';
+    }
+
+    update();
+    window.setInterval(update, 30000);
   }
 
   onReady(function () {
     initDashboard();
     initWeeklyEditModal();
     initTimelineEditModal();
+    initNowIndicator();
   });
 })();

@@ -77,25 +77,11 @@ def _edit_timer_form_projects_tasks(timer, can_edit_schedule):
 
 def _edit_timer_render_kwargs(timer, can_edit_schedule, show_source_dropdown):
     from app.utils.scope_filter import get_active_clients_for_user
-    from app.models import TimerEvent
+    from app.services.timer_event_service import get_break_pairs
 
     projects, tasks = _edit_timer_form_projects_tasks(timer, can_edit_schedule)
     clients = get_active_clients_for_user(current_user) if can_edit_schedule else []
-    
-    breaks_query = (
-        TimerEvent.query.filter_by(user_id=timer.user_id, time_entry_id=timer.id)
-        .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
-        .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
-        .all()
-    )
-    breaks = []
-    current_start = None
-    for b in breaks_query:
-        if b.event_type == "break_start":
-            current_start = b
-        elif b.event_type == "break_end" and current_start:
-            breaks.append({"start": current_start, "end": b})
-            current_start = None
+    breaks = get_break_pairs(timer.user_id, timer.id)
 
     return {
         "timer": timer,
@@ -277,9 +263,6 @@ def start_timer():
         client_id,
         task_id,
     )
-    from app.services.timer_event_service import record_timer_event
-
-    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -443,9 +426,6 @@ def start_timer_from_template(template_id):
     if not safe_commit("start_timer_from_template", {"template_id": template_id}):
         flash(_("Could not start timer due to a database error. Please check server logs."), "error")
         return redirect(url_for("time_entry_templates.list_templates"))
-    from app.services.timer_event_service import record_timer_event
-
-    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -541,9 +521,6 @@ def start_timer_for_project(project_id):
         project_id,
         task_id,
     )
-    from app.services.timer_event_service import record_timer_event
-
-    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -1072,10 +1049,10 @@ def edit_timer(timer_id):
 
             # Extract and calculate break subevents
             from app.utils.timezone import parse_user_local_datetime_from_string
-            
+
             break_starts = request.form.getlist("break_start[]")
             break_ends = request.form.getlist("break_end[]")
-            
+
             valid_breaks = []
             for bs_str, be_str in zip(break_starts, break_ends):
                 if bs_str and be_str:
@@ -1086,21 +1063,20 @@ def edit_timer(timer_id):
                         # We use new_start_time and new_end_time if provided, else timer.start_time / end_time
                         eff_start = update_params.get("start_time", timer.start_time)
                         eff_end = update_params.get("end_time", timer.end_time)
-                        
+
                         if eff_start and bs < eff_start:
                             bs = eff_start
                         if eff_end and be > eff_end:
                             be = eff_end
-                            
+
                         if bs < be:
                             valid_breaks.append((bs, be))
-            
+
             # Sort to prevent negative overlapping durations if they messed up the UI
             valid_breaks.sort(key=lambda x: x[0])
-            
-            total_break_sec = 0
-            merged_breaks = []
+
             # Merge overlapping breaks
+            merged_breaks = []
             for b in valid_breaks:
                 if not merged_breaks:
                     merged_breaks.append(b)
@@ -1110,36 +1086,9 @@ def edit_timer(timer_id):
                         merged_breaks[-1] = (last[0], max(last[1], b[1]))
                     else:
                         merged_breaks.append(b)
-                        
-            for bs, be in merged_breaks:
-                total_break_sec += int((be - bs).total_seconds())
-                
-            update_params["break_seconds"] = total_break_sec
 
-            # SYNC WITH TIMER EVENTS
-            from app.models.timer_event import TimerEvent
-            # First delete all existing break events for this entry
-            TimerEvent.query.filter_by(
-                user_id=current_user.id, 
-                time_entry_id=timer.id
-            ).filter(TimerEvent.event_type.in_(["break_start", "break_end"])).delete(synchronize_session=False)
-            
-            # Now add the new valid merged breaks
-            for bs, be in merged_breaks:
-                ev_start = TimerEvent(
-                    user_id=current_user.id,
-                    time_entry_id=timer.id,
-                    event_type="break_start",
-                    occurred_at=bs
-                )
-                ev_end = TimerEvent(
-                    user_id=current_user.id,
-                    time_entry_id=timer.id,
-                    event_type="break_end",
-                    occurred_at=be
-                )
-                db.session.add(ev_start)
-                db.session.add(ev_end)
+            total_break_sec = sum(int((be - bs).total_seconds()) for bs, be in merged_breaks)
+            update_params["break_seconds"] = total_break_sec
 
 
         # Call service layer to update
@@ -1155,34 +1104,10 @@ def edit_timer(timer_id):
         entry = result.get("entry")
 
         if entry and can_edit_schedule:
-            from app.models import TimerEvent
-            from app.utils.db import safe_commit
-            
-            # Delete old breaks
-            old_breaks = (
-                TimerEvent.query.filter_by(user_id=entry.user_id, time_entry_id=entry.id)
-                .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
-                .all()
-            )
-            for ob in old_breaks:
-                db.session.delete(ob)
-                
-            # Insert new breaks
-            for bs, be in merged_breaks:
-                b_start = TimerEvent(
-                    user_id=entry.user_id,
-                    time_entry_id=entry.id,
-                    event_type="break_start",
-                    occurred_at=bs,
-                )
-                b_end = TimerEvent(
-                    user_id=entry.user_id,
-                    time_entry_id=entry.id,
-                    event_type="break_end",
-                    occurred_at=be,
-                )
-                db.session.add_all([b_start, b_end])
-            
+            from app.services.timer_event_service import replace_break_events
+
+            # Single atomic sync: replace captured break events to match the submitted rows.
+            replace_break_events(entry, merged_breaks)
             safe_commit("update_timer_breaks", {"entry_id": entry.id})
 
         # Log activity
@@ -1306,11 +1231,12 @@ def delete_timer(timer_id):
 
     # Capture entry info for logging before deletion
     entry_id = timer.id
-    
-    # MANUALLY CASCADE DELETE TimerEvents
-    from app.models.timer_event import TimerEvent
-    TimerEvent.query.filter_by(time_entry_id=entry_id).delete(synchronize_session=False)
-    db.session.commit() # Commit the deletion of subevents before the entry itself
+
+    # Remove dependent timeline events before the entry itself
+    from app.services.timer_event_service import delete_entry_events
+
+    delete_entry_events(entry_id)
+    db.session.commit()  # Commit the deletion of subevents before the entry itself
 
     duration_formatted = timer.duration_formatted
     project_name = timer.project.name if timer.project else None

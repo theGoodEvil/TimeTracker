@@ -987,7 +987,7 @@ def create_app(config=None):
     def handle_csrf_error(e):
         # Prefer HTML flow for classic form posts regardless of Accept header quirks
         try:
-            mimetype, _ = parse_options_header(request.headers.get("Content-Type", ""))
+            mimetype, _options = parse_options_header(request.headers.get("Content-Type", ""))
             is_classic_form = mimetype in ("application/x-www-form-urlencoded", "multipart/form-data")
         except Exception:
             is_classic_form = False
