@@ -167,6 +167,66 @@ def test_add_and_move_break(app, client, authenticated_client, user, project):
     assert entry.break_seconds == 75 * 60
 
 
+def test_move_clock_in_recomputes_clamped_break(app, client, authenticated_client, user, project):
+    entry = _seed_day(app, user, project)
+    date = entry.start_time.strftime("%Y-%m-%d")
+
+    _post_timeline(
+        client,
+        "/dashboard/timeline/edit",
+        entry_id=entry.id,
+        event_type="clock_in",
+        occurred_at=f"{date}T12:30",
+    )
+
+    db.session.refresh(entry)
+    breaks = [event for event in _events(entry.id) if event.event_type in ("break_start", "break_end")]
+    assert [event.occurred_at.strftime("%H:%M") for event in breaks] == ["12:30", "13:00"]
+    assert entry.break_seconds == 30 * 60
+    assert entry.duration_seconds == 4 * 60 * 60
+
+
+def test_move_clock_out_recomputes_clamped_break(app, client, authenticated_client, user, project):
+    entry = _seed_day(app, user, project)
+    date = entry.start_time.strftime("%Y-%m-%d")
+
+    _post_timeline(
+        client,
+        "/dashboard/timeline/edit",
+        entry_id=entry.id,
+        event_type="clock_out",
+        occurred_at=f"{date}T12:30",
+    )
+
+    db.session.refresh(entry)
+    breaks = [event for event in _events(entry.id) if event.event_type in ("break_start", "break_end")]
+    assert [event.occurred_at.strftime("%H:%M") for event in breaks] == ["12:00", "12:30"]
+    assert entry.break_seconds == 30 * 60
+    assert entry.duration_seconds == 4 * 60 * 60
+
+
+def test_break_edit_cannot_extend_work_session(app, client, authenticated_client, user, project):
+    entry = _seed_day(app, user, project)
+    date = entry.start_time.strftime("%Y-%m-%d")
+    break_end = next(event for event in _events(entry.id) if event.event_type == "break_end")
+
+    response = _post_timeline(
+        client,
+        "/dashboard/timeline/edit",
+        entry_id=entry.id,
+        event_id=break_end.id,
+        event_type="break_end",
+        occurred_at=f"{date}T18:00",
+    )
+
+    db.session.refresh(entry)
+    db.session.refresh(break_end)
+    assert b"The break event cannot end after clock-out." in response.data
+    assert entry.end_time.strftime("%H:%M") == "17:00"
+    assert break_end.occurred_at.strftime("%H:%M") == "13:00"
+    assert entry.break_seconds == 60 * 60
+
+
 def test_lane_assignment_is_group_scoped(app, client, authenticated_client, user, project):
     """Boundary markers keep their label row when break markers come and go."""
     from app.services.timer_event_service import build_timeline
@@ -208,7 +268,7 @@ def test_dashboard_timeline_visuals_share_one_axis(app, client, authenticated_cl
     assert 'class="timeline-now-dot ' in html
     assert 'class="timeline-event-dot ' in html
 
-    css = (app.root_path + "/static/src/input.css")
+    css = app.root_path + "/static/src/input.css"
     with open(css, encoding="utf-8") as stylesheet:
         source = stylesheet.read()
     assert ".timeline-track { --timeline-axis-y:" in source

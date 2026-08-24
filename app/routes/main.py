@@ -171,15 +171,15 @@ def delete_timeline_event():
     if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
         flash(_("You do not have permission to edit time entries."), "error")
         return redirect(url_for("main.dashboard"))
-        
+
     from app.models import TimerEvent, TimeEntry
     from app.services.time_tracking_service import TimeTrackingService
     from app.utils.db import safe_commit
-    
+
     event_id = request.form.get("event_id", type=int)
     entry_id = request.form.get("entry_id", type=int)
     event_type = request.form.get("event_type")
-    
+
     event = None
     if event_id:
         event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first()
@@ -200,6 +200,7 @@ def delete_timeline_event():
     if event_type == "clock_in":
         # Deleting a clock_in deletes the whole entry
         from app.models.timer_event import TimerEvent
+
         TimerEvent.query.filter_by(time_entry_id=entry.id).delete(synchronize_session=False)
         db.session.delete(entry)
         if safe_commit("delete_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
@@ -207,7 +208,7 @@ def delete_timeline_event():
         else:
             flash(_("Failed to delete work session."), "error")
         return redirect(url_for("main.dashboard"))
-        
+
     elif event_type == "clock_out":
         # Resuming the timer by clearing end_time
         can_start, block_reason = TimeTrackingService().can_start_timer(current_user.id)
@@ -240,9 +241,11 @@ def delete_timeline_event():
         else:
             flash(_("Failed to resume timer."), "error")
         return redirect(url_for("main.dashboard"))
-        
+
     elif event_type == "project_switch":
-        flash(_("Cannot directly delete a project switch. Please edit or delete the subsequent session instead."), "error")
+        flash(
+            _("Cannot directly delete a project switch. Please edit or delete the subsequent session instead."), "error"
+        )
         return redirect(url_for("main.dashboard"))
 
     if not event:
@@ -279,15 +282,15 @@ def delete_timeline_event():
         entry.break_seconds = sum_break_seconds(get_break_events(current_user.id, entry.id))
         if entry.end_time:
             entry.calculate_duration()
-            
+
     else:
         db.session.delete(event)
-        
+
     if safe_commit("delete_timeline_event", {"user_id": current_user.id, "event_id": event_id}):
         flash(_("Timeline event deleted successfully."), "success")
     else:
         flash(_("Could not delete timeline event."), "error")
-        
+
     return redirect(url_for("main.dashboard"))
 
 
@@ -300,6 +303,7 @@ def edit_timeline_event():
         return redirect(url_for("main.dashboard"))
 
     from app.models import TimerEvent
+    from app.services.timer_event_service import recompute_break_seconds
     from app.utils.db import safe_commit
     from app.utils.timezone import parse_user_local_datetime_from_string
 
@@ -355,6 +359,7 @@ def edit_timeline_event():
             for b in breaks:
                 if b.occurred_at < new_time:
                     b.occurred_at = new_time
+            recompute_break_seconds(entry)
         elif event_type == "clock_out":
             if not entry.end_time or new_time <= entry.start_time:
                 raise ValueError(_("Clock-out must be after clock-in."))
@@ -385,6 +390,7 @@ def edit_timeline_event():
             for b in breaks:
                 if b.occurred_at > new_time:
                     b.occurred_at = new_time
+            recompute_break_seconds(entry)
         elif event_type == "project_switch":
             related_id = (event.related_entry_id if event else None) or request.form.get("related_entry_id", type=int)
             previous = TimeEntry.query.filter_by(id=related_id, user_id=current_user.id).first() if related_id else None
@@ -416,12 +422,7 @@ def edit_timeline_event():
             if new_time < entry.start_time:
                 raise ValueError(_("The break event cannot start before clock-in."))
             if entry.end_time and new_time > entry.end_time:
-                entry.end_time = new_time
-                out_ev = TimerEvent.query.filter_by(
-                    user_id=current_user.id, time_entry_id=entry.id, event_type="clock_out"
-                ).first()
-                if out_ev:
-                    out_ev.occurred_at = new_time
+                raise ValueError(_("The break event cannot end after clock-out."))
             if previous_event and new_time < previous_event.occurred_at:
                 raise ValueError(_("The timestamp must remain after the previous timeline event."))
             if next_event and new_time > next_event.occurred_at:
@@ -430,9 +431,6 @@ def edit_timeline_event():
             event.occurred_at = new_time
             if event_type == "break_start" and entry.paused_at and not next_event:
                 entry.paused_at = new_time
-
-            # Recompute exact break seconds from all recorded break pairs
-            from app.services.timer_event_service import recompute_break_seconds
 
             recompute_break_seconds(entry)
 
@@ -474,6 +472,7 @@ def add_timeline_event():
     from sqlalchemy import or_
 
     from app.models import TimerEvent
+    from app.services.timer_event_service import recompute_break_seconds
     from app.utils.db import safe_commit
     from app.utils.scope_filter import user_can_clock_project
     from app.utils.timezone import parse_user_local_datetime_from_string
@@ -486,14 +485,14 @@ def add_timeline_event():
     try:
         if event_kind not in {"break", "work_session", "project_switch"}:
             raise ValueError(_("Choose a valid timeline event."))
-            
+
         if event_kind != "project_switch":
             if not start or not end or end <= start:
                 raise ValueError(_("The end time must be after the start time."))
         else:
             if not start:
                 raise ValueError(_("Start time is required for a project switch."))
-            end = start # dummy
+            end = start  # dummy
 
         if start.date() != today or end.date() != today:
             raise ValueError(_("Dashboard timeline events must be within today."))
@@ -510,13 +509,13 @@ def add_timeline_event():
             )
             if not entry:
                 raise ValueError(_("A project switch must be placed inside an existing work session."))
-                
+
             project_id = request.form.get("project_id", type=int)
             if not project_id:
                 raise ValueError(_("Please select a project to switch to."))
             if not user_can_clock_project(current_user, project_id):
                 raise ValueError(_("You do not have access to the selected project."))
-                
+
             # Create a duplicate entry from the split point
             new_entry = TimeEntry(
                 user_id=current_user.id,
@@ -524,13 +523,13 @@ def add_timeline_event():
                 start_time=start,
                 end_time=entry.end_time,
                 source="manual",
-                billable=entry.billable
+                billable=entry.billable,
             )
             entry.end_time = start
-            
+
             db.session.add(new_entry)
             db.session.flush()
-            
+
             # Transfer breaks that fall after the split
             from app.services.timer_event_service import get_break_events
 
@@ -538,7 +537,7 @@ def add_timeline_event():
                 if b.occurred_at >= start:
                     b.time_entry_id = new_entry.id
             db.session.flush()
-            
+
             # Recompute breaks for both halves of the split session
             from app.services.timer_event_service import get_break_events, sum_break_seconds
 
@@ -546,7 +545,7 @@ def add_timeline_event():
                 e.break_seconds = sum_break_seconds(get_break_events(current_user.id, e.id))
                 if e.end_time:
                     e.calculate_duration()
-            
+
             switch_event = TimerEvent(
                 user_id=current_user.id,
                 time_entry_id=new_entry.id,
@@ -558,7 +557,7 @@ def add_timeline_event():
             db.session.flush()
             entity_id = switch_event.id
             entity_name = "project_switch"
-            
+
         elif event_kind == "break":
             entry = (
                 TimeEntry.query.filter(
@@ -604,9 +603,8 @@ def add_timeline_event():
                 occurred_at=end,
             )
             db.session.add_all([break_start, break_end])
-            entry.break_seconds = (entry.break_seconds or 0) + int((end - start).total_seconds())
-            if entry.end_time:
-                entry.calculate_duration()
+            db.session.flush()
+            recompute_break_seconds(entry)
             entity_id = entry.id
             entity_name = "break"
         else:
