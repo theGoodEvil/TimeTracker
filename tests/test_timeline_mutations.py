@@ -350,6 +350,40 @@ def test_lane_assignment_is_group_scoped(app, client, authenticated_client, user
     assert after["clock_out"] == before["clock_out"]
 
 
+def test_short_break_events_remain_visible_and_editable(app, user, project):
+    from app.services.timer_event_service import build_timeline
+
+    entry = _seed_day(app, user, project)
+    instant = entry.start_time.replace(hour=14, minute=0)
+    db.session.add_all(
+        [
+            TimerEvent(
+                user_id=user.id,
+                time_entry_id=entry.id,
+                event_type="break_start",
+                occurred_at=instant,
+            ),
+            TimerEvent(
+                user_id=user.id,
+                time_entry_id=entry.id,
+                event_type="break_end",
+                occurred_at=instant + timedelta(milliseconds=500),
+            ),
+        ]
+    )
+    db.session.commit()
+
+    timeline = build_timeline(user, [entry])
+    short_breaks = [
+        item
+        for item in timeline
+        if item["event_type"] in ("break_start", "break_end") and item["occurred_at"].hour == 14
+    ]
+    assert [item["event_type"] for item in short_breaks] == ["break_start", "break_end"]
+    assert {item["timeline_lane"] for item in short_breaks} == {0, 1}
+    assert all(item["event_id"] for item in short_breaks)
+
+
 def test_dashboard_renders_now_indicator(app, client, authenticated_client, user, project):
     _seed_day(app, user, project)
     html = client.get("/dashboard").get_data(as_text=True)
