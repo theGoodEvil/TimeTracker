@@ -258,6 +258,18 @@ def local_now():
     return now_in_app_timezone()
 
 
+def to_app_timezone_naive(dt):
+    """Return a datetime in the app's timezone and database storage format.
+
+    Datetime columns use app-local naive values. RFC3339/API inputs may carry an
+    offset, so convert those instants before dropping timezone information.
+    Already-naive values are assumed to follow the storage convention.
+    """
+    if dt is None or dt.tzinfo is None:
+        return dt
+    return dt.astimezone(get_timezone_obj()).replace(tzinfo=None)
+
+
 def _localize_with_timezone(dt, tz):
     """Localize a naive datetime with the given zoneinfo timezone, handling edge cases.
 
