@@ -43,18 +43,18 @@ def index():
 @weekly_goals_bp.route("/work-weeks/adjust", methods=["POST"])
 @login_required
 def adjust_week():
-    """Create or amend an expected/actual calendar-week record."""
+    """Create or amend a calendar-week schedule and actual-hours adjustment."""
     from app.services.weekly_work_service import WeeklyWorkService
 
     try:
         week = datetime.strptime((request.form.get("week_start") or "").strip(), "%Y-%m-%d").date()
         expected = float(request.form.get("expected_hours", ""))
-        actual_raw = (request.form.get("actual_hours") or "").strip()
-        actual = float(actual_raw) if actual_raw else None
-        if not 0 <= expected <= 168 or (actual is not None and not 0 <= actual <= 168):
+        adjustment_raw = (request.form.get("actual_hours_adjustment") or "").strip()
+        adjustment = float(adjustment_raw) if adjustment_raw else None
+        if not 0 <= expected <= 168 or (adjustment is not None and not -168 <= adjustment <= 168):
             raise ValueError
     except (TypeError, ValueError):
-        flash(_("Enter a valid week and hours between 0 and 168."), "error")
+        flash(_("Enter a valid week, expected hours from 0 to 168, and an adjustment from −168 to 168."), "error")
         return redirect(request.referrer or url_for("weekly_goals.index"))
 
     target_user = current_user
@@ -69,7 +69,7 @@ def adjust_week():
         target_user,
         week,
         expected,
-        actual_override=actual,
+        actual_adjustment=adjustment,
         notes=(request.form.get("notes") or "").strip() or None,
     )
     if safe_commit("weekly_work_adjustment", {"user_id": target_user.id, "week_start": week.isoformat()}):

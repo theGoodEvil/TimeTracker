@@ -314,41 +314,41 @@ class WorkforceGovernanceService:
 
         rows: List[Dict[str, Any]] = []
         for user in users:
-            is_single_week = (start_date.weekday() == 0 and end_date == start_date + timedelta(days=6))
-            
+            is_single_week = start_date.weekday() == 0 and end_date == start_date + timedelta(days=6)
+
             expected_hours = 0.0
             day = start_date
             while day <= end_date:
                 if day.weekday() < 5 and not self.is_holiday(day):
                     week_start = WeeklyWorkService.week_start(day, user)
                     weekly_expected = WeeklyWorkService.expected_hours(user, week_start)
-                    expected_hours += (weekly_expected / 5.0)
+                    expected_hours += weekly_expected / 5.0
                 day += timedelta(days=1)
-                
+
             expected_hours = round(expected_hours, 2)
-            
-            allocated_hours = 0.0
-            has_override = False
+
+            entry_seconds = (
+                db.session.query(func.sum(TimeEntry.duration_seconds))
+                .filter(
+                    TimeEntry.user_id == user.id,
+                    TimeEntry.start_time >= datetime.combine(start_date, datetime.min.time()),
+                    TimeEntry.start_time <= datetime.combine(end_date, datetime.max.time()),
+                    TimeEntry.end_time.isnot(None),
+                )
+                .scalar()
+                or 0
+            )
+            allocated_hours = float(entry_seconds) / 3600.0
             if is_single_week:
                 week_start = WeeklyWorkService.week_start(start_date, user)
-                goal = WeeklyTimeGoal.query.filter_by(user_id=user.id, week_start_date=week_start, status="active").first()
-                if goal and goal.actual_hours_override is not None:
-                    has_override = True
-                    allocated_hours = round(float(goal.actual_hours_override), 2)
-                    
-            if not has_override:
-                entry_seconds = (
-                    db.session.query(func.sum(TimeEntry.duration_seconds))
-                    .filter(
-                        TimeEntry.user_id == user.id,
-                        TimeEntry.start_time >= datetime.combine(start_date, datetime.min.time()),
-                        TimeEntry.start_time <= datetime.combine(end_date, datetime.max.time()),
-                        TimeEntry.end_time.isnot(None),
-                    )
-                    .scalar()
-                    or 0
-                )
-                allocated_hours = round(float(entry_seconds) / 3600.0, 2)
+                goal = WeeklyTimeGoal.query.filter(
+                    WeeklyTimeGoal.user_id == user.id,
+                    WeeklyTimeGoal.week_start_date == week_start,
+                    WeeklyTimeGoal.status != "cancelled",
+                ).first()
+                if goal:
+                    allocated_hours += float(goal.actual_hours_adjustment or 0)
+            allocated_hours = round(max(0, allocated_hours), 2)
 
             leave_hours = (
                 db.session.query(func.sum(TimeOffRequest.requested_hours))

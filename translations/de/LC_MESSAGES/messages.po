@@ -26079,6 +26079,9 @@ msgstr "Arbeitszeit ändern"
 msgid "Choose the first week of the new schedule. Later weeks inherit this value until the next change."
 msgstr "Wählen Sie die erste Woche der neuen Arbeitszeit. Folgende Wochen übernehmen den Wert bis zur nächsten Änderung."
 
+msgid "Choose the first week of the new schedule. The adjustment is added to this week’s project time only."
+msgstr "Wählen Sie die erste Woche der neuen Arbeitszeit. Die Korrektur wird nur zur Projektzeit dieser Woche addiert."
+
 msgid "Schedule changes belong in the weekly overview."
 msgstr "Änderungen der Arbeitszeit werden in der Wochenübersicht verwaltet."
 
@@ -26242,6 +26245,24 @@ msgstr "Ist-Korrektur"
 
 msgid "Actual override (optional)"
 msgstr "Ist-Korrektur (optional)"
+
+msgid "Hours adjustment"
+msgstr "Stundenkorrektur"
+
+msgid "Hours adjustment (optional)"
+msgstr "Stundenkorrektur (optional)"
+
+msgid "adjustment"
+msgstr "Korrektur"
+
+msgid "For example, −2 subtracts two hours and +1.5 adds 90 minutes."
+msgstr "Zum Beispiel zieht −2 zwei Stunden ab und +1,5 addiert 90 Minuten."
+
+msgid "Added to the project time; leave empty for no adjustment."
+msgstr "Wird zur Projektzeit addiert; für keine Korrektur leer lassen."
+
+msgid "Enter a valid week, expected hours from 0 to 168, and an adjustment from −168 to 168."
+msgstr "Geben Sie eine gültige Woche, Sollstunden von 0 bis 168 und eine Korrektur von −168 bis 168 ein."
 
 msgid "Week starting"
 msgstr "Woche ab"

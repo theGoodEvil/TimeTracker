@@ -51,8 +51,6 @@
     var baseWeekToday = Number(weekToday && weekToday.dataset.seconds) || 0;
     var expectedWeekSeconds = Number(weekProgress && weekProgress.dataset.expectedSeconds) || 0;
     var baseTimeBalance = Number(timeBalance && timeBalance.dataset.seconds) || 0;
-    var balanceLive = !timeBalance || timeBalance.dataset.live !== 'false';
-    var weekLive = !weekActual || weekActual.dataset.live !== 'false';
     var running = root.dataset.timerRunning === 'true';
     var paused = root.dataset.timerPaused === 'true';
     var timerDisplay = root.dataset.timerDisplay || 'work';
@@ -67,7 +65,7 @@
       if (work) work.textContent = formatElapsed(baseWork + (running ? elapsed : 0));
       if (breakTime) breakTime.textContent = formatElapsed(baseBreak + (paused ? elapsed : 0));
       if (timer) timer.textContent = formatElapsed(baseTimer + (timerDisplay === 'break' ? (paused ? elapsed : 0) : (running ? elapsed : 0)));
-      var liveWeekSeconds = baseWeekActual + (running && weekLive ? elapsed : 0);
+      var liveWeekSeconds = baseWeekActual + (running ? elapsed : 0);
       if (weekActual) weekActual.textContent = formatHoursMinutes(liveWeekSeconds);
       if (weekToday) weekToday.textContent = formatHoursMinutes(baseWeekToday + (running ? elapsed : 0));
       if (weekProgress) {
@@ -84,7 +82,7 @@
         }
       }
       if (timeBalance) {
-        var liveBalance = baseTimeBalance + (running && balanceLive ? elapsed : 0);
+        var liveBalance = baseTimeBalance + (running ? elapsed : 0);
         var isNegative = liveBalance < 0;
         timeBalance.textContent = formatSignedHoursMinutes(liveBalance);
         timeBalance.classList.toggle('text-red-600', isNegative);
@@ -195,7 +193,7 @@
     var label = document.getElementById('weeklyEditModalLabel');
     var start = document.getElementById('weeklyEditStart');
     var expected = document.getElementById('weeklyEditExpected');
-    var actual = document.getElementById('weeklyEditActual');
+    var adjustment = document.getElementById('weeklyEditAdjustment');
     var notes = document.getElementById('weeklyEditNotes');
     var lastTrigger = null;
 
@@ -204,7 +202,7 @@
       label.textContent = trigger.dataset.weekLabel || '';
       start.value = trigger.dataset.weekStart || '';
       expected.value = trigger.dataset.expectedHours || '';
-      actual.value = trigger.dataset.actualHours || '';
+      adjustment.value = trigger.dataset.actualAdjustment || '';
       notes.value = trigger.dataset.notes || '';
       openModal(modal);
       window.setTimeout(function () { expected.focus(); expected.select(); }, 0);

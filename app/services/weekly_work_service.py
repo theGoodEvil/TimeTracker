@@ -1,7 +1,7 @@
 """Weekly work ledger for EvilTime.
 
-Detailed project entries remain the source data while an optional weekly actual
-override supports migration from systems that only retained weekly totals.
+Detailed project entries remain the source data while an optional weekly
+adjustment corrects the counted total without replacing those entries.
 """
 
 from __future__ import annotations
@@ -87,13 +87,13 @@ class WeeklyWorkService:
         for week in sorted(weeks):
             goal = goal_by_week.get(week)
             tracked = round(sum(projects_by_week[week].values()), 2)
-            override = goal.actual_hours_override if goal else None
-            actual = round(float(override), 2) if override is not None else tracked
+            adjustment = goal.actual_hours_adjustment if goal else None
+            actual = round(max(0, tracked + float(adjustment or 0)), 2)
             expected = cls.expected_hours(user, week, goals)
             # An empty current week is context only and never creates undertime.
             # A target-only row changes the schedule but is still "missing"
             # work data. Missing migration weeks must not create undertime.
-            counted = bool(tracked > 0 or override is not None)
+            counted = bool(tracked > 0 or adjustment is not None)
             balance = round(actual - expected, 2) if counted else 0.0
             if counted:
                 cumulative = round(cumulative + balance, 2)
@@ -106,7 +106,7 @@ class WeeklyWorkService:
                     "expected_hours": expected,
                     "tracked_hours": tracked,
                     "actual_hours": actual,
-                    "actual_hours_override": override,
+                    "actual_hours_adjustment": adjustment,
                     "balance_hours": balance,
                     "cumulative_overtime": cumulative,
                     "counted": counted,
@@ -150,12 +150,11 @@ class WeeklyWorkService:
         return [day for day in days if day["weekday_index"] < 5 or day["hours"] > 0]
 
     @classmethod
-    def upsert_adjustment(cls, user, week_start: date, expected_hours: float, actual_override=_UNSET, notes=None):
+    def upsert_adjustment(cls, user, week_start: date, expected_hours: float, actual_adjustment=_UNSET, notes=None):
         """Create or update a weekly ledger row.
 
-        Omitting ``actual_override`` preserves an existing migration value. Passing
-        ``None`` explicitly clears it, which is what the calendar-week adjustment
-        form needs when a user switches back to project-entry totals.
+        Omitting ``actual_adjustment`` preserves an existing correction. Passing
+        ``None`` explicitly clears it so the counted total returns to project time.
         """
         week_start = cls.week_start(week_start, user)
         goal = WeeklyTimeGoal.query.filter_by(user_id=user.id, week_start_date=week_start).first()
@@ -164,8 +163,8 @@ class WeeklyWorkService:
             db.session.add(goal)
         goal.target_hours = expected_hours
         goal.week_end_date = week_start + timedelta(days=6)
-        if actual_override is not _UNSET:
-            goal.actual_hours_override = actual_override
+        if actual_adjustment is not _UNSET:
+            goal.actual_hours_adjustment = actual_adjustment
         goal.notes = notes or None
         goal.status = "active"
         return goal

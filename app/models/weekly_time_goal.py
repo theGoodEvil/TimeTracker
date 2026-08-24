@@ -25,9 +25,8 @@ class WeeklyTimeGoal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     target_hours = db.Column(db.Float, nullable=False)  # Target hours for the week
-    # Optional migration/correction value. When present this is the authoritative
-    # worked total for the week; detailed project entries remain untouched.
-    actual_hours_override = db.Column(db.Float, nullable=True)
+    # Optional correction added to the detailed project time for this week.
+    actual_hours_adjustment = db.Column(db.Float, nullable=True)
     week_start_date = db.Column(db.Date, nullable=False, index=True)  # Monday of the week
     week_end_date = db.Column(db.Date, nullable=False)  # Sunday of the week (or Friday if exclude_weekends is True)
     exclude_weekends = db.Column(
@@ -81,8 +80,8 @@ class WeeklyTimeGoal(db.Model):
         # Allow status override from kwargs
         if "status" in kwargs:
             self.status = kwargs["status"]
-        if "actual_hours_override" in kwargs:
-            self.actual_hours_override = kwargs["actual_hours_override"]
+        if "actual_hours_adjustment" in kwargs:
+            self.actual_hours_adjustment = kwargs["actual_hours_adjustment"]
 
     def __repr__(self):
         return f"<WeeklyTimeGoal user_id={self.user_id} week={self.week_start_date} target={self.target_hours}h>"
@@ -110,10 +109,9 @@ class WeeklyTimeGoal(db.Model):
 
     @property
     def actual_hours(self):
-        """Return the authoritative weekly actual, including migration overrides."""
-        if self.actual_hours_override is not None:
-            return round(float(self.actual_hours_override), 2)
-        return self.tracked_hours
+        """Return project time plus the optional weekly correction."""
+        adjustment = float(self.actual_hours_adjustment or 0)
+        return round(max(0, self.tracked_hours + adjustment), 2)
 
     @property
     def overtime_hours(self):
@@ -208,7 +206,7 @@ class WeeklyTimeGoal(db.Model):
             "target_hours": self.target_hours,
             "actual_hours": self.actual_hours,
             "tracked_hours": self.tracked_hours,
-            "actual_hours_override": self.actual_hours_override,
+            "actual_hours_adjustment": self.actual_hours_adjustment,
             "overtime_hours": self.overtime_hours,
             "week_start_date": self.week_start_date.isoformat(),
             "week_end_date": self.week_end_date.isoformat(),

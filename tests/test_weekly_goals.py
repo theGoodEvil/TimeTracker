@@ -298,6 +298,7 @@ def test_weekly_goal_to_dict(app, user):
         assert "user_id" in goal_dict
         assert "target_hours" in goal_dict
         assert "actual_hours" in goal_dict
+        assert "actual_hours_adjustment" in goal_dict
         assert "week_start_date" in goal_dict
         assert "week_end_date" in goal_dict
         assert "status" in goal_dict
@@ -320,6 +321,67 @@ def test_weekly_goals_index_page(authenticated_client):
     """Test weekly goals index page loads."""
     response = authenticated_client.get("/goals")
     assert response.status_code == 200
+
+
+@pytest.mark.smoke
+def test_user_can_set_additive_weekly_hours_adjustment(authenticated_client, app, user):
+    week_start = date.today() - timedelta(days=date.today().weekday())
+
+    response = authenticated_client.post(
+        "/work-weeks/adjust",
+        data={
+            "week_start": week_start.isoformat(),
+            "expected_hours": "40",
+            "actual_hours_adjustment": "1.5",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    with app.app_context():
+        goal = WeeklyTimeGoal.query.filter_by(user_id=user.id, week_start_date=week_start).one()
+        assert goal.actual_hours_adjustment == 1.5
+
+
+@pytest.mark.smoke
+def test_admin_can_set_another_users_weekly_hours_adjustment(admin_authenticated_client, app, admin_user, user):
+    week_start = date.today() - timedelta(days=date.today().weekday()) - timedelta(days=7)
+
+    response = admin_authenticated_client.post(
+        "/work-weeks/adjust",
+        data={
+            "user_id": str(user.id),
+            "week_start": week_start.isoformat(),
+            "expected_hours": "38",
+            "actual_hours_adjustment": "-2.25",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    with app.app_context():
+        goal = WeeklyTimeGoal.query.filter_by(user_id=user.id, week_start_date=week_start).one()
+        assert goal.target_hours == 38
+        assert goal.actual_hours_adjustment == -2.25
+
+
+@pytest.mark.smoke
+def test_weekly_hours_adjustment_rejects_out_of_range_value(authenticated_client, app, user):
+    week_start = date.today() - timedelta(days=date.today().weekday())
+
+    response = authenticated_client.post(
+        "/work-weeks/adjust",
+        data={
+            "week_start": week_start.isoformat(),
+            "expected_hours": "40",
+            "actual_hours_adjustment": "-169",
+        },
+        follow_redirects=True,
+    )
+
+    assert response.status_code == 200
+    with app.app_context():
+        assert WeeklyTimeGoal.query.filter_by(user_id=user.id, week_start_date=week_start).first() is None
 
 
 @pytest.mark.smoke
@@ -659,30 +721,48 @@ def test_weekly_goal_actual_hours_excludes_weekends(app, user, project):
 
 
 @pytest.mark.unit
-def test_weekly_actual_override_supports_migration(app, user):
+def test_weekly_actual_adjustment_is_added_to_project_time(app, user, project):
     with app.app_context():
         week_start = date.today() - timedelta(days=date.today().weekday())
-        goal = WeeklyTimeGoal(user_id=user.id, target_hours=20, week_start_date=week_start)
-        goal.actual_hours_override = 23.5
+        goal = WeeklyTimeGoal(
+            user_id=user.id,
+            target_hours=20,
+            week_start_date=week_start,
+            actual_hours_adjustment=3.5,
+        )
         db.session.add(goal)
         db.session.commit()
+        TimeEntryFactory(
+            user_id=user.id,
+            project_id=project.id,
+            start_time=datetime.combine(week_start, datetime.min.time()),
+            end_time=datetime.combine(week_start, datetime.min.time()) + timedelta(hours=20),
+            duration_seconds=20 * 3600,
+        )
 
-        assert goal.tracked_hours == 0
+        assert goal.tracked_hours == 20
         assert goal.actual_hours == 23.5
         assert goal.overtime_hours == 3.5
 
 
 @pytest.mark.unit
-def test_weekly_ledger_inherits_schedule_and_ignores_empty_current_week(app, user):
+def test_weekly_ledger_inherits_schedule_and_ignores_empty_current_week(app, user, project):
     from app.services.weekly_work_service import WeeklyWorkService
 
     with app.app_context():
         current = WeeklyWorkService.week_start(date.today(), user)
         prior = current - timedelta(days=7)
         goal = WeeklyTimeGoal(user_id=user.id, target_hours=28, week_start_date=prior)
-        goal.actual_hours_override = 30
+        goal.actual_hours_adjustment = 2
         db.session.add(goal)
         db.session.commit()
+        TimeEntryFactory(
+            user_id=user.id,
+            project_id=project.id,
+            start_time=datetime.combine(prior, datetime.min.time()),
+            end_time=datetime.combine(prior, datetime.min.time()) + timedelta(hours=28),
+            duration_seconds=28 * 3600,
+        )
 
         rows = WeeklyWorkService.rows(user, limit=None)
         prior_row = next(row for row in rows if row["week_start"] == prior)
@@ -702,8 +782,30 @@ def test_weekly_ledger_inherits_schedule_and_ignores_empty_current_week(app, use
 
 
 @pytest.mark.unit
-def test_schedule_change_preserves_existing_actual_override(app, user):
-    """Changing expected hours must not erase imported weekly work."""
+def test_explicit_zero_adjustment_keeps_migrated_empty_week_counted(app, user):
+    from app.services.weekly_work_service import WeeklyWorkService
+
+    with app.app_context():
+        week_start = WeeklyWorkService.week_start(date.today(), user) - timedelta(days=7)
+        goal = WeeklyTimeGoal(
+            user_id=user.id,
+            target_hours=20,
+            week_start_date=week_start,
+            actual_hours_adjustment=0,
+        )
+        db.session.add(goal)
+        db.session.commit()
+
+        row = next(row for row in WeeklyWorkService.rows(user, limit=None) if row["week_start"] == week_start)
+
+        assert row["counted"] is True
+        assert row["actual_hours"] == 0
+        assert row["balance_hours"] == -20
+
+
+@pytest.mark.unit
+def test_schedule_change_preserves_existing_actual_adjustment(app, user):
+    """Changing expected hours must not erase a weekly correction."""
     from app.services.weekly_work_service import WeeklyWorkService
 
     with app.app_context():
@@ -712,7 +814,7 @@ def test_schedule_change_preserves_existing_actual_override(app, user):
             user_id=user.id,
             target_hours=20,
             week_start_date=week_start,
-            actual_hours_override=23.5,
+            actual_hours_adjustment=3.5,
         )
         db.session.add(goal)
         db.session.commit()
@@ -722,8 +824,38 @@ def test_schedule_change_preserves_existing_actual_override(app, user):
 
         db.session.refresh(goal)
         assert goal.target_hours == 28
-        assert goal.actual_hours_override == 23.5
+        assert goal.actual_hours_adjustment == 3.5
 
-        WeeklyWorkService.upsert_adjustment(user, week_start, 28, actual_override=None)
+        WeeklyWorkService.upsert_adjustment(user, week_start, 28, actual_adjustment=None)
         db.session.commit()
-        assert goal.actual_hours_override is None
+        assert goal.actual_hours_adjustment is None
+
+
+@pytest.mark.unit
+def test_workforce_capacity_adds_weekly_adjustment(app, user, project):
+    from app.services.weekly_work_service import WeeklyWorkService
+    from app.services.workforce_governance_service import WorkforceGovernanceService
+
+    with app.app_context():
+        week_start = WeeklyWorkService.week_start(date.today(), user)
+        goal = WeeklyTimeGoal(
+            user_id=user.id,
+            target_hours=40,
+            week_start_date=week_start,
+            actual_hours_adjustment=-1.5,
+        )
+        db.session.add(goal)
+        TimeEntryFactory(
+            user_id=user.id,
+            project_id=project.id,
+            start_time=datetime.combine(week_start, datetime.min.time()),
+            end_time=datetime.combine(week_start, datetime.min.time()) + timedelta(hours=8),
+            duration_seconds=8 * 3600,
+        )
+        db.session.commit()
+
+        rows = WorkforceGovernanceService().capacity_report(
+            week_start, week_start + timedelta(days=6), team_user_ids=[user.id]
+        )
+
+        assert rows[0]["allocated_hours"] == 6.5

@@ -10,12 +10,12 @@
   </header>
 
   <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
-    <div class="mb-3"><h2 class="font-semibold">{{ _('Set a schedule change') }}</h2><p class="text-sm text-slate-500">{{ _('Choose the first week of the new schedule. Later weeks inherit this value until the next change.') }}</p></div>
+    <div class="mb-3"><h2 class="font-semibold">{{ _('Set a schedule change') }}</h2><p class="text-sm text-slate-500">{{ _('Choose the first week of the new schedule. The adjustment is added to this week’s project time only.') }}</p></div>
     <form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-end">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if current_user.is_admin %}<input type="hidden" name="user_id" value="{{ ledger_user.id }}">{% endif %}
       <label class="text-sm font-medium">{{ _('Week starting') }}<input type="date" name="week_start" required class="form-input mt-1"></label>
       <label class="text-sm font-medium">{{ _('Expected hours') }}<input type="number" name="expected_hours" min="0" max="168" step="0.25" required class="form-input mt-1" value="{{ ledger_rows[0].expected_hours if ledger_rows else '' }}"></label>
-      <label class="text-sm font-medium">{{ _('Actual override (optional)') }}<input type="number" name="actual_hours" min="0" max="168" step="0.25" class="form-input mt-1"></label>
+      <label class="text-sm font-medium">{{ _('Hours adjustment (optional)') }}<input type="number" name="actual_hours_adjustment" min="-168" max="168" step="0.25" placeholder="+ / −" class="form-input mt-1"><span class="mt-1 block text-xs font-normal text-slate-500">{{ _('For example, −2 subtracts two hours and +1.5 adds 90 minutes.') }}</span></label>
       <button class="btn btn-primary">{{ _('Save change') }}</button>
     </form>
   </section>
@@ -28,11 +28,11 @@
         <tr class="align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
           <td class="whitespace-nowrap px-4 py-4"><strong>KW {{ '%02d'|format(row.calendar_week) }}</strong><p class="text-xs text-slate-500">{{ row.week_start.strftime('%d.%m.') }}–{{ row.week_end.strftime('%d.%m.%Y') }}</p></td>
           <td class="px-4 py-4">{{ row.expected_hours|hours_minutes }}{% if row.goal %}<span class="ml-1 text-primary" title="{{ _('Schedule changes in this week') }}">●</span>{% endif %}</td>
-          <td class="px-4 py-4">{{ row.tracked_hours|hours_minutes }}</td><td class="px-4 py-4 font-semibold">{{ row.actual_hours|hours_minutes }}{% if row.actual_hours_override is not none %}<span class="text-primary">*</span>{% endif %}</td>
+          <td class="px-4 py-4">{{ row.tracked_hours|hours_minutes }}</td><td class="px-4 py-4 font-semibold">{{ row.actual_hours|hours_minutes }}{% if row.actual_hours_adjustment %}<p class="text-xs font-medium text-primary">{{ row.actual_hours_adjustment|hours_minutes(true) }} {{ _('adjustment') }}</p>{% endif %}</td>
           <td class="px-4 py-4 font-semibold {% if row.balance_hours < 0 %}text-red-600{% elif row.balance_hours > 0 %}text-emerald-600{% endif %}">{{ row.balance_hours|hours_minutes(true) }}</td>
           <td class="px-4 py-4 font-semibold {% if row.cumulative_overtime < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">{{ row.cumulative_overtime|hours_minutes(true) }}</td>
           <td class="px-4 py-4">{% for project in row.projects %}<div class="flex min-w-48 justify-between gap-3"><span class="truncate">{{ project.name }}</span><strong>{{ project.hours|hours_minutes }}</strong></div>{% else %}<span class="text-slate-400">—</span>{% endfor %}</td>
-          <td class="px-4 py-4"><button type="button" class="font-medium text-primary hover:underline" data-week-edit data-week-label="KW {{ '%02d'|format(row.calendar_week) }} · {{ row.week_start.strftime('%d.%m.%Y') }}" data-week-start="{{ row.week_start.isoformat() }}" data-expected-hours="{{ row.expected_hours }}" data-actual-hours="{{ row.actual_hours_override if row.actual_hours_override is not none else '' }}" data-notes="{{ row.goal.notes if row.goal and row.goal.notes else '' }}">{{ _('Edit week') }}</button></td>
+          <td class="px-4 py-4"><button type="button" class="font-medium text-primary hover:underline" data-week-edit data-week-label="KW {{ '%02d'|format(row.calendar_week) }} · {{ row.week_start.strftime('%d.%m.%Y') }}" data-week-start="{{ row.week_start.isoformat() }}" data-expected-hours="{{ row.expected_hours }}" data-actual-adjustment="{{ row.actual_hours_adjustment if row.actual_hours_adjustment is not none else '' }}" data-notes="{{ row.goal.notes if row.goal and row.goal.notes else '' }}">{{ _('Edit week') }}</button></td>
         </tr>
       {% else %}<tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">{{ _('No weekly data yet.') }}</td></tr>{% endfor %}
       </tbody>
@@ -46,7 +46,7 @@
       <form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="space-y-3">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if current_user.is_admin %}<input type="hidden" name="user_id" value="{{ ledger_user.id }}">{% endif %}<input id="weeklyEditStart" type="hidden" name="week_start">
         <label class="block text-sm font-medium">{{ _('Expected hours') }}<input id="weeklyEditExpected" class="form-input mt-1" type="number" name="expected_hours" min="0" max="168" step="0.25" required></label>
-        <label class="block text-sm font-medium">{{ _('Actual override') }}<input id="weeklyEditActual" class="form-input mt-1" type="number" name="actual_hours" min="0" max="168" step="0.25"></label>
+        <label class="block text-sm font-medium">{{ _('Hours adjustment') }}<input id="weeklyEditAdjustment" class="form-input mt-1" type="number" name="actual_hours_adjustment" min="-168" max="168" step="0.25"><span class="mt-1 block text-xs font-normal text-slate-500">{{ _('Added to the project time; leave empty for no adjustment.') }}</span></label>
         <label class="block text-sm font-medium">{{ _('Note') }}<input id="weeklyEditNotes" class="form-input mt-1" type="text" name="notes"></label>
         <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn btn-secondary" data-week-modal-close>{{ _('Cancel') }}</button><button class="btn btn-primary">{{ _('Save') }}</button></div>
       </form>
