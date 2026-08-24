@@ -5,7 +5,6 @@
                 <div class="flex flex-col items-center flex-1 ml-6 sidebar-header-title min-w-0">
                     <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="h-12 w-12 shrink-0 object-contain mb-1">
                     <h1 class="text-2xl font-bold text-primary tracking-tight leading-none"><a href="{{ url_for('main.dashboard') }}" class="no-underline">EvilTime</a></h1>
-                    <span class="block text-[11px] text-slate-500 italic mt-1">{{ _('Chronically evil.') }}</span>
                 </div>
                 <button id="sidebarCollapseBtn" type="button" class="shrink-0 p-1.5 rounded text-slate-400 hover:text-slate-600 hover:bg-background-light dark:hover:text-slate-300 dark:hover:bg-background-dark" aria-label="{{ _('Toggle sidebar') }}" title="{{ _('Toggle sidebar') }}">
                     <i id="sidebarCollapseIcon" class="fas fa-angles-left"></i>
