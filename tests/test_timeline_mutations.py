@@ -414,3 +414,14 @@ def test_marker_positions_match_displayed_user_time(app, client, authenticated_c
     shown_minute = 15 * 60 + ((entry.start_time.minute) or 0)
     expected = (shown_minute - 8 * 60) / ((22 - 8) * 60) * 100
     assert abs(by_type["clock_in"]["timeline_position"] - expected) < 0.01
+
+
+def test_timeline_uses_one_user_timezone_clock_for_defaults_and_now_marker(app):
+    with open(app.root_path + "/static/eviltime-workflow.js", encoding="utf-8") as script:
+        source = script.read()
+
+    assert "function createTimelineClock(track)" in source
+    assert source.count("var timelineClock = createTimelineClock(track);") == 2
+    assert "var now = timelineClock.read(new Date());" in source
+    assert "now.date !== track.dataset.date" in source
+    assert "now.getHours()" not in source

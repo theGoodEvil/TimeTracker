@@ -316,6 +316,50 @@
     });
   }
 
+  function createTimelineClock(track) {
+    var userTimezone = track.dataset.userTimezone || '';
+    var clockFormat = null;
+    try {
+      clockFormat = new Intl.DateTimeFormat('en-GB', {
+        timeZone: userTimezone || undefined,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: 'numeric',
+        minute: 'numeric',
+        second: 'numeric',
+        hour12: false,
+      });
+    } catch (_) {
+      clockFormat = null;
+    }
+
+    function pad(value) { return String(value).padStart(2, '0'); }
+
+    return {
+      read: function (date) {
+        if (clockFormat) {
+          var parts = clockFormat.formatToParts(date);
+          var values = {};
+          parts.forEach(function (part) { values[part.type] = part.value; });
+          var hours = Number(values.hour) % 24;
+          var minutes = Number(values.minute);
+          var seconds = Number(values.second) || 0;
+          if (![hours, minutes].some(Number.isNaN)) {
+            return {
+              date: values.year + '-' + values.month + '-' + values.day,
+              minutes: hours * 60 + minutes + seconds / 60,
+            };
+          }
+        }
+        return {
+          date: date.getFullYear() + '-' + pad(date.getMonth() + 1) + '-' + pad(date.getDate()),
+          minutes: date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60,
+        };
+      }
+    };
+  }
+
   function initTimelineEditModal() {
     var modal = document.getElementById('timelineEditModal');
     var addModal = document.getElementById('timelineAddModal');
@@ -346,8 +390,9 @@
     var suppressClick = false;
     var pendingMove = null;
     var startMinute = Number(track.dataset.startMinute || 480);
-    var endMinute = Number(track.dataset.endMinute || 1200);
+    var endMinute = Number(track.dataset.endMinute || 1320);
     var spanMinutes = endMinute - startMinute;
+    var timelineClock = createTimelineClock(track);
 
     function pad(value) { return String(value).padStart(2, '0'); }
     function dateTimeValue(minutes, step) {
@@ -453,8 +498,8 @@
       closeModal(addModal);
     }
     function currentMinute() {
-      var now = new Date();
-      return Math.max(startMinute, Math.min(endMinute - 30, now.getHours() * 60 + now.getMinutes()));
+      var now = timelineClock.read(new Date());
+      return Math.max(startMinute, Math.min(endMinute - 30, now.minutes));
     }
 
     document.querySelectorAll('[data-timeline-edit]').forEach(function (trigger) {
@@ -569,42 +614,16 @@
     if (!indicator || !track) return;
     var startMinute = Number(track.dataset.startMinute || 480);
     var endMinute = Number(track.dataset.endMinute || 1320);
-    var userTimezone = track.dataset.userTimezone || '';
-    var clockFormat = null;
-    try {
-      clockFormat = new Intl.DateTimeFormat('en-GB', {
-        timeZone: userTimezone || undefined,
-        hour: 'numeric',
-        minute: 'numeric',
-        second: 'numeric',
-        hour12: false,
-      });
-    } catch (_) {
-      clockFormat = null;
-    }
-
-    function minutesOfDay(date) {
-      if (!clockFormat) return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
-      var parts = clockFormat.formatToParts(date);
-      var values = {};
-      parts.forEach(function (part) { values[part.type] = part.value; });
-      var hours = Number(values.hour) % 24;
-      var minutes = Number(values.minute);
-      var seconds = Number(values.second) || 0;
-      if ([hours, minutes].some(Number.isNaN)) {
-        return date.getHours() * 60 + date.getMinutes() + date.getSeconds() / 60;
-      }
-      return hours * 60 + minutes + seconds / 60;
-    }
+    var timelineClock = createTimelineClock(track);
 
     function update() {
-      var minute = minutesOfDay(new Date());
-      if (minute < startMinute || minute > endMinute) {
+      var now = timelineClock.read(new Date());
+      if (now.date !== track.dataset.date || now.minutes < startMinute || now.minutes > endMinute) {
         indicator.classList.add('hidden');
         return;
       }
       indicator.classList.remove('hidden');
-      indicator.style.left = ((minute - startMinute) / (endMinute - startMinute) * 100) + '%';
+      indicator.style.left = ((now.minutes - startMinute) / (endMinute - startMinute) * 100) + '%';
     }
 
     update();
