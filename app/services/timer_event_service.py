@@ -165,6 +165,64 @@ def delete_entry_events(entry_id):
     TimerEvent.query.filter_by(time_entry_id=entry_id).delete(synchronize_session=False)
 
 
+def merge_project_switch(previous_entry, subsequent_entry):
+    """Remove a project boundary while preserving all recorded work and breaks.
+
+    The earlier entry absorbs the subsequent entry. Boundary audit events are
+    normalized, break events are retained, and later switches are relinked to
+    the surviving entry. The caller owns the transaction.
+    """
+    if not previous_entry or not subsequent_entry or previous_entry.user_id != subsequent_entry.user_id:
+        raise ValueError("The project switch entries do not belong together.")
+    if not previous_entry.end_time:
+        raise ValueError("The previous session has no project-switch boundary.")
+    boundary_gap = abs((subsequent_entry.start_time - previous_entry.end_time).total_seconds())
+    if boundary_gap > 10:
+        raise ValueError("The sessions are no longer contiguous at this project switch.")
+
+    attached_events = TimerEvent.query.filter_by(
+        user_id=previous_entry.user_id,
+        time_entry_id=subsequent_entry.id,
+    ).all()
+    for event in attached_events:
+        if event.event_type in BREAK_EVENT_TYPES or event.event_type == "clock_out":
+            event.time_entry_id = previous_entry.id
+        else:
+            db.session.delete(event)
+
+    TimerEvent.query.filter_by(
+        user_id=previous_entry.user_id,
+        related_entry_id=subsequent_entry.id,
+    ).update({TimerEvent.related_entry_id: previous_entry.id}, synchronize_session=False)
+
+    previous_entry.end_time = subsequent_entry.end_time
+    previous_entry.paused_at = subsequent_entry.paused_at
+    previous_entry.last_heartbeat_at = subsequent_entry.last_heartbeat_at
+    previous_entry.idle_notified_at = subsequent_entry.idle_notified_at
+
+    db.session.flush()
+    clock_out_events = (
+        TimerEvent.query.filter_by(
+            user_id=previous_entry.user_id,
+            time_entry_id=previous_entry.id,
+            event_type="clock_out",
+        )
+        .order_by(TimerEvent.id.asc())
+        .all()
+    )
+    for index, event in enumerate(clock_out_events):
+        if previous_entry.end_time and index == 0:
+            event.occurred_at = previous_entry.end_time
+        else:
+            db.session.delete(event)
+
+    recompute_break_seconds(previous_entry)
+    if previous_entry.end_time is None:
+        previous_entry.duration_seconds = None
+    db.session.delete(subsequent_entry)
+    return previous_entry
+
+
 def fabricate_centered_break(entry, break_seconds, session_start, session_end):
     """Insert one break event pair of the given total duration, centered in the session.
 

@@ -253,9 +253,41 @@ def delete_timeline_event():
         return redirect(url_for("main.dashboard"))
 
     elif event_type == "project_switch":
-        flash(
-            _("Cannot directly delete a project switch. Please edit or delete the subsequent session instead."), "error"
-        )
+        from app.services.timer_event_service import merge_project_switch
+
+        related_id = (event.related_entry_id if event else None) or request.form.get("related_entry_id", type=int)
+        previous = TimeEntry.query.filter_by(id=related_id, user_id=current_user.id).first() if related_id else None
+        if previous is None:
+            previous = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != entry.id,
+                    TimeEntry.end_time.isnot(None),
+                    TimeEntry.start_time < entry.start_time,
+                )
+                .order_by(TimeEntry.end_time.desc())
+                .first()
+            )
+        try:
+            surviving_entry = merge_project_switch(previous, entry)
+        except ValueError:
+            db.session.rollback()
+            flash(
+                _("The project switch cannot be deleted because the adjacent sessions are no longer contiguous."),
+                "error",
+            )
+            return redirect(url_for("main.dashboard"))
+        if safe_commit(
+            "delete_project_switch",
+            {
+                "user_id": current_user.id,
+                "entry_id": surviving_entry.id,
+                "merged_entry_id": entry_id,
+            },
+        ):
+            flash(_("Project switch deleted. The sessions were merged into the previous project."), "success")
+        else:
+            flash(_("Could not delete the project switch."), "error")
         return redirect(url_for("main.dashboard"))
 
     if not event:

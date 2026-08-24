@@ -288,6 +288,7 @@
     var deleteForm = document.getElementById('ctxDeleteForm');
     var eventIdInput = document.getElementById('ctxEventId');
     var entryIdInput = document.getElementById('ctxEntryId');
+    var relatedEntryIdInput = document.getElementById('ctxRelatedEntryId');
     var eventTypeInput = document.getElementById('ctxEventType');
     var currentTrigger = null;
 
@@ -299,6 +300,7 @@
       currentTrigger = trigger;
       eventIdInput.value = trigger.dataset.eventId || '';
       entryIdInput.value = trigger.dataset.entryId || '';
+      relatedEntryIdInput.value = trigger.dataset.relatedEntryId || '';
       eventTypeInput.value = trigger.dataset.eventType || '';
       menu.classList.remove('hidden');
       var menuRect = menu.getBoundingClientRect();
@@ -332,6 +334,7 @@
           = eventType === 'clock_in' ? menu.dataset.confirmSession
           : (eventType === 'break_start' || eventType === 'break_end') ? menu.dataset.confirmBreak
           : eventType === 'clock_out' ? menu.dataset.confirmClockOut
+          : eventType === 'project_switch' ? menu.dataset.confirmSwitch
           : menu.dataset.confirmDefault;
         hideMenu();
         if (!currentTrigger || !window.confirm(message || menu.dataset.confirmDefault)) return;

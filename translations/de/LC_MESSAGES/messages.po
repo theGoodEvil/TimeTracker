@@ -26692,3 +26692,15 @@ msgstr "Ausgestempelt."
 
 msgid "Timer updated."
 msgstr "Timer aktualisiert."
+
+msgid "Delete this project switch? Its time and breaks will be merged into the previous project."
+msgstr "Diese Projektumschaltung löschen? Arbeitszeit und Pausen werden mit dem vorherigen Projekt zusammengeführt."
+
+msgid "Project switch deleted. The sessions were merged into the previous project."
+msgstr "Projektumschaltung gelöscht. Die Sitzungen wurden mit dem vorherigen Projekt zusammengeführt."
+
+msgid "Could not delete the project switch."
+msgstr "Die Projektumschaltung konnte nicht gelöscht werden."
+
+msgid "The project switch cannot be deleted because the adjacent sessions are no longer contiguous."
+msgstr "Die Projektumschaltung kann nicht gelöscht werden, weil die angrenzenden Sitzungen nicht mehr zusammenhängend sind."

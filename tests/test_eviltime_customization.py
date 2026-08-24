@@ -130,6 +130,8 @@ def test_dashboard_behaviour_is_in_compiled_source():
     assert "isCounted ? actualHours - expectedHours : 0" in source
     assert "eviltime-time-balance" in source
     assert "data-timeline-edit" in source
+    assert "ctxRelatedEntryId" in source
+    assert "confirmSwitch" in source
     assert "timelineConfirmModal" in source
     assert "grabOffset" in source
     assert "snappedMinute" in source

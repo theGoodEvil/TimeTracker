@@ -143,6 +143,159 @@ def test_delete_clock_out_refuses_when_later_sessions_exist(app, client, authent
     assert entry.end_time is not None, "clock-out delete must be refused when later sessions exist"
 
 
+def test_delete_project_switch_merges_time_and_breaks_into_previous_session(
+    app, client, authenticated_client, user, project
+):
+    second_project = _second_project(user, project)
+    third_project = Project(
+        name="Third Project",
+        client_id=project.client_id,
+        created_by=user.id,
+        status="active",
+    )
+    db.session.add(third_project)
+    db.session.commit()
+    base = datetime.utcnow().replace(hour=8, minute=0, second=0, microsecond=0)
+    first = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=base,
+        end_time=base + timedelta(hours=2),
+        source="manual",
+    )
+    second = TimeEntry(
+        user_id=user.id,
+        project_id=second_project.id,
+        start_time=base + timedelta(hours=2),
+        end_time=base + timedelta(hours=4),
+        source="manual",
+    )
+    third = TimeEntry(
+        user_id=user.id,
+        project_id=third_project.id,
+        start_time=base + timedelta(hours=4),
+        end_time=base + timedelta(hours=5),
+        source="manual",
+    )
+    db.session.add_all([first, second, third])
+    db.session.flush()
+    switch = TimerEvent(
+        user_id=user.id,
+        time_entry_id=second.id,
+        related_entry_id=first.id,
+        event_type="project_switch",
+        occurred_at=second.start_time,
+    )
+    db.session.add_all(
+        [
+            TimerEvent(user_id=user.id, time_entry_id=first.id, event_type="clock_in", occurred_at=first.start_time),
+            switch,
+            TimerEvent(
+                user_id=user.id,
+                time_entry_id=second.id,
+                event_type="break_start",
+                occurred_at=base + timedelta(hours=2, minutes=30),
+            ),
+            TimerEvent(
+                user_id=user.id,
+                time_entry_id=second.id,
+                event_type="break_end",
+                occurred_at=base + timedelta(hours=2, minutes=45),
+            ),
+            TimerEvent(
+                user_id=user.id,
+                time_entry_id=second.id,
+                event_type="clock_out",
+                occurred_at=second.end_time,
+            ),
+            TimerEvent(
+                user_id=user.id,
+                time_entry_id=third.id,
+                related_entry_id=second.id,
+                event_type="project_switch",
+                occurred_at=third.start_time,
+            ),
+        ]
+    )
+    db.session.commit()
+    second_id = second.id
+
+    response = _post_timeline(
+        client,
+        "/dashboard/timeline/delete_event",
+        event_id=switch.id,
+        entry_id=second.id,
+        related_entry_id=first.id,
+        event_type="project_switch",
+    )
+
+    db.session.refresh(first)
+    assert b"Project switch deleted" in response.data
+    assert TimeEntry.query.get(second_id) is None
+    assert first.project_id == project.id
+    assert first.end_time == base + timedelta(hours=4)
+    assert first.break_seconds == 15 * 60
+    assert first.duration_seconds == 3 * 60 * 60 + 45 * 60
+    assert (
+        TimerEvent.query.filter_by(time_entry_id=third.id, event_type="project_switch").one().related_entry_id
+        == first.id
+    )
+    assert [event.event_type for event in _events(first.id)] == [
+        "clock_in",
+        "break_start",
+        "break_end",
+        "clock_out",
+    ]
+
+
+def test_delete_project_switch_restores_active_paused_previous_session(
+    app, client, authenticated_client, user, project
+):
+    second_project = _second_project(user, project)
+    base = datetime.utcnow().replace(hour=8, minute=0, second=0, microsecond=0)
+    first = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=base,
+        end_time=base + timedelta(hours=2),
+        source="manual",
+    )
+    second = TimeEntry(
+        user_id=user.id,
+        project_id=second_project.id,
+        start_time=base + timedelta(hours=2),
+        paused_at=base + timedelta(hours=3),
+        source="auto",
+    )
+    db.session.add_all([first, second])
+    db.session.flush()
+    db.session.add(
+        TimerEvent(
+            user_id=user.id,
+            time_entry_id=second.id,
+            event_type="break_start",
+            occurred_at=second.paused_at,
+        )
+    )
+    db.session.commit()
+    second_id = second.id
+
+    _post_timeline(
+        client,
+        "/dashboard/timeline/delete_event",
+        entry_id=second.id,
+        related_entry_id=first.id,
+        event_type="project_switch",
+    )
+
+    db.session.refresh(first)
+    assert TimeEntry.query.get(second_id) is None
+    assert first.end_time is None
+    assert first.duration_seconds is None
+    assert first.paused_at == base + timedelta(hours=3)
+    assert [event.event_type for event in _events(first.id)] == ["break_start"]
+
+
 def test_add_and_move_break(app, client, authenticated_client, user, project):
     entry = _seed_day(app, user, project)
     date = entry.start_time.strftime("%Y-%m-%d")
@@ -402,6 +555,8 @@ def test_dashboard_timeline_visuals_share_one_axis(app, client, authenticated_cl
     assert 'class="timeline-hover-indicator hidden"' in html
     assert 'class="timeline-now-dot ' in html
     assert 'class="timeline-event-dot ' in html
+    assert 'data-confirm-switch="' in html
+    assert 'id="ctxRelatedEntryId"' in html
 
     css = app.root_path + "/static/src/input.css"
     with open(css, encoding="utf-8") as stylesheet:
