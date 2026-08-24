@@ -145,12 +145,13 @@ def create_app(config=None):
     app = Flask(__name__)
     logger = logging.getLogger(__name__)
     bootstrap_mode = os.getenv("TT_BOOTSTRAP_MODE", "").strip().lower()
+    requested_testing = bool(config and config.get("TESTING"))
 
     # Validate environment variables on startup (non-blocking warnings in dev, errors in prod)
     try:
         from app.utils.env_validation import validate_all
 
-        is_production = os.getenv("FLASK_ENV", "production") == "production"
+        is_production = not requested_testing and os.getenv("FLASK_ENV", "production") == "production"
         is_valid, results = validate_all(raise_on_error=is_production)
 
         if not is_valid:
@@ -180,7 +181,7 @@ def create_app(config=None):
     # Configuration
     # Load env-specific config class
     try:
-        env_name = os.getenv("FLASK_ENV", "production")
+        env_name = "testing" if requested_testing else os.getenv("FLASK_ENV", "production")
         cfg_map = {
             "development": "app.config.DevelopmentConfig",
             "testing": "app.config.TestingConfig",
@@ -206,13 +207,6 @@ def create_app(config=None):
     # Special handling for SQLite in-memory DB during tests:
     # ensure a single shared connection so objects don't disappear after commit.
     try:
-        # In tests, proactively clear POSTGRES_* env hints to avoid accidental overrides
-        if app.config.get("TESTING"):
-            for var in ("POSTGRES_DB", "POSTGRES_USER", "POSTGRES_PASSWORD", "POSTGRES_HOST", "DATABASE_URL"):
-                try:
-                    os.environ.pop(var, None)
-                except Exception:
-                    pass
         db_uri = str(app.config.get("SQLALCHEMY_DATABASE_URI", "") or "")
         if (
             app.config.get("TESTING")
