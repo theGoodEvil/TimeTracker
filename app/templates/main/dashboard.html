@@ -177,30 +177,31 @@
     </div>
     <div class="overflow-x-auto px-5 py-4">
       <div class="min-w-[920px]">
-        <div class="relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1320" data-user-timezone="{{ timeline_timezone }}" data-can-edit="{{ 'true' if can_edit_timeline else 'false' }}"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
-          <div class="absolute inset-x-0 top-[91px] h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+        <div class="timeline-track relative ml-8 mr-8 h-52 select-none" data-timeline-track data-date="{{ timeline_date.isoformat() }}" data-start-minute="480" data-end-minute="1320" data-user-timezone="{{ timeline_timezone }}" data-can-edit="{{ 'true' if can_edit_timeline else 'false' }}"{% if can_edit_timeline %} tabindex="0" role="button" aria-label="{{ _('Add an event to the timeline') }}"{% endif %}>
+          <div class="timeline-axis absolute inset-x-0 h-1 rounded-full bg-slate-200 dark:bg-slate-700"></div>
+          {% if can_edit_timeline %}<div class="timeline-hover-indicator hidden" data-timeline-hover-indicator aria-hidden="true"><i class="fas fa-plus text-[10px]"></i></div>{% endif %}
           {% for seg in timeline_segments %}
           {% set bg_color = 'bg-primary' if seg.type == 'active' else 'bg-amber-400' %}
-          <div class="absolute top-[91px] h-1 rounded-full {{ bg_color }} opacity-80" style="left: {{ seg.start }}%; width: {{ seg.width }}%;"></div>
+          <div class="timeline-segment absolute h-1 rounded-full {{ bg_color }} opacity-80" style="left: {{ seg.start }}%; width: {{ seg.width }}%;"></div>
           {% endfor %}
           {% for hour in range(8, 23) %}
-          <div class="pointer-events-none absolute top-[84px] flex -translate-x-1/2 flex-col items-center" style="left: {{ ((hour - 8) / 14 * 100) }}%">
+          <div class="timeline-hour pointer-events-none absolute flex -translate-x-1/2 flex-col items-center" style="left: {{ ((hour - 8) / 14 * 100) }}%">
             <span class="block h-4 w-px bg-slate-300 dark:bg-slate-600"></span>
             <span class="mt-1 block font-mono text-[11px] font-medium tabular-nums text-slate-400">{{ '%02d:00'|format(hour) }}</span>
           </div>
           {% endfor %}
           {% if timeline_now is not none %}
           <div id="timeline-now-indicator" class="pointer-events-none absolute inset-y-0 w-px" style="left: {{ timeline_now }}%" title="{{ _('Now') }}">
-            <span class="absolute inset-y-3 w-px bg-rose-500/50"></span>
-            <span class="absolute top-[89px] -left-[3.5px] block h-2 w-2 rounded-full bg-rose-500 shadow ring-2 ring-white dark:ring-slate-900"></span>
+            <span class="absolute inset-y-3 left-0 w-px -translate-x-1/2 bg-rose-500/50"></span>
+            <span class="timeline-now-dot absolute left-0 block h-2 w-2 rounded-full bg-rose-500 shadow ring-2 ring-white dark:ring-slate-900"></span>
           </div>
           {% endif %}
         {% for event in today_timeline %}
         {% set label = _('Clocked in') if event.event_type == 'clock_in' else _('Switched project') if event.event_type == 'project_switch' else _('Clocked out') if event.event_type == 'clock_out' else _('Break started') if event.event_type == 'break_start' else _('Break ended') %}
         {% set icon = 'fa-play' if event.event_type == 'clock_in' else 'fa-shuffle' if event.event_type == 'project_switch' else 'fa-stop' if event.event_type == 'clock_out' else 'fa-mug-hot' if event.event_type == 'break_start' else 'fa-rotate-left' %}
           <button type="button"{% if can_edit_timeline %} data-timeline-edit{% endif %} data-event-id="{{ event.event_id or '' }}" data-entry-id="{{ event.entry_id }}" data-related-entry-id="{{ event.related_entry_id or '' }}" data-event-type="{{ event.event_type }}" data-event-label="{{ label }}" data-occurred-at="{{ event.occurred_at|user_datetime_local }}" class="group absolute top-0 h-40 w-28 -translate-x-1/2 touch-none focus:outline-none pointer-events-none{% if event.outside_timeline %} opacity-70{% endif %}" style="left: {{ event.timeline_position }}%" aria-label="{{ _('Adjust %(event)s time', event=label) }}">
-            <span class="absolute left-1/2 w-px -translate-x-1/2 bg-slate-300 transition-colors group-hover:bg-primary dark:bg-slate-600 {% if event.timeline_lane == 0 %}top-10 h-[53px]{% else %}top-[93px] h-[38px]{% endif %}"></span>
-            <span class="pointer-events-auto absolute left-1/2 top-[78px] flex h-7 w-7 -translate-x-1/2 items-center justify-center rounded-full border-[3px] border-white text-[9px] text-white shadow-md ring-1 ring-slate-200 transition duration-150 group-hover:scale-125 group-hover:ring-primary group-focus-visible:scale-125 group-focus-visible:ring-2 group-focus-visible:ring-primary dark:border-slate-900 dark:ring-slate-700 {% if event.event_type in ('break_start', 'break_end') %}bg-amber-500{% elif event.event_type == 'clock_out' %}bg-slate-500{% else %}bg-primary{% endif %}"><i class="fas {{ icon }}"></i></span>
+            <span class="absolute left-1/2 w-px -translate-x-1/2 bg-slate-300 transition-colors group-hover:bg-primary dark:bg-slate-600 {% if event.timeline_lane == 0 %}timeline-event-connector-top{% else %}timeline-event-connector-bottom{% endif %}"></span>
+            <span class="timeline-event-dot pointer-events-auto absolute left-1/2 flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-white text-[9px] text-white shadow-md ring-1 ring-slate-200 transition duration-150 group-hover:scale-125 group-hover:ring-primary group-focus-visible:scale-125 group-focus-visible:ring-2 group-focus-visible:ring-primary dark:border-slate-900 dark:ring-slate-700 {% if event.event_type in ('break_start', 'break_end') %}bg-amber-500{% elif event.event_type == 'clock_out' %}bg-slate-500{% else %}bg-primary{% endif %}"><i class="fas {{ icon }}"></i></span>
             <span class="pointer-events-auto absolute left-1/2 w-28 -translate-x-1/2 rounded-lg border border-slate-200 bg-white/95 px-2 py-1.5 text-center shadow-sm backdrop-blur transition group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md dark:border-slate-700 dark:bg-slate-900/95 {% if event.timeline_lane == 0 %}top-0{% else %}top-[130px]{% endif %}">
               <span class="block truncate text-[10px] font-semibold text-slate-800 dark:text-slate-100">{{ label }}</span>
               <span class="block font-mono text-xs font-bold tabular-nums text-primary" data-timeline-time>{{ event.occurred_at|user_time }}</span>

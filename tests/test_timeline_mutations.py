@@ -195,6 +195,26 @@ def test_dashboard_renders_now_indicator(app, client, authenticated_client, user
     assert 'id="timeline-now-indicator"' in html
 
 
+def test_dashboard_timeline_visuals_share_one_axis(app, client, authenticated_client, user, project):
+    """Track, events, hover preview, and now marker must use one CSS axis coordinate."""
+    _seed_day(app, user, project)
+    html = client.get("/dashboard").get_data(as_text=True)
+
+    assert 'class="timeline-track ' in html
+    assert 'class="timeline-axis ' in html
+    assert 'class="timeline-segment ' in html
+    assert 'class="timeline-hour ' in html
+    assert 'class="timeline-hover-indicator hidden"' in html
+    assert 'class="timeline-now-dot ' in html
+    assert 'class="timeline-event-dot ' in html
+
+    css = (app.root_path + "/static/src/input.css")
+    with open(css, encoding="utf-8") as stylesheet:
+        source = stylesheet.read()
+    assert ".timeline-track { --timeline-axis-y:" in source
+    assert source.count("top: var(--timeline-axis-y);") == 2
+
+
 def test_now_position_uses_user_timezone(app, user):
     """The now-marker must sit where 'now' falls in the USER's timezone, matching displayed times."""
     from app.utils.timezone import get_timezone_for_user
@@ -233,4 +253,3 @@ def test_marker_positions_match_displayed_user_time(app, client, authenticated_c
     shown_minute = 15 * 60 + ((entry.start_time.minute) or 0)
     expected = (shown_minute - 8 * 60) / ((22 - 8) * 60) * 100
     assert abs(by_type["clock_in"]["timeline_position"] - expected) < 0.01
-

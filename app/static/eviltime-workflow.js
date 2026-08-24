@@ -300,10 +300,8 @@
     if (!track || track.dataset.canEdit !== 'true' || track.dataset.hoverIndicatorBound === 'true') return;
     track.dataset.hoverIndicatorBound = 'true';
 
-    var indicator = document.createElement('div');
-    indicator.className = 'absolute top-[80px] pointer-events-none hidden text-primary/80 transform -translate-x-1/2 transition-opacity z-10';
-    indicator.innerHTML = '<i class="fas fa-plus-circle text-2xl bg-white dark:bg-slate-900 rounded-full shadow-sm ring-2 ring-white dark:ring-slate-900"></i>';
-    track.appendChild(indicator);
+    var indicator = track.querySelector('[data-timeline-hover-indicator]');
+    if (!indicator) return;
 
     track.addEventListener('mouseenter', function () { indicator.classList.remove('hidden'); });
     track.addEventListener('mouseleave', function () { indicator.classList.add('hidden'); });

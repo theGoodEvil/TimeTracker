@@ -315,6 +315,45 @@
   .activity-timeline-item:last-child::after { content: ""; position: absolute; left: -20px; top: 16px; width: 2px; bottom: 0; background: white; }
   .dark .activity-timeline-item:last-child::after { background: #1e293b; }
 
+  /* Dashboard timeline geometry. Every visual that sits on the time axis uses
+     this single coordinate; changing the layout can no longer drift the track,
+     event markers, hover preview, and now indicator apart. */
+  .timeline-track { --timeline-axis-y: 5.75rem; }
+  .timeline-axis,
+  .timeline-segment { top: calc(var(--timeline-axis-y) - 0.125rem); }
+  .timeline-hour { top: calc(var(--timeline-axis-y) - 0.5rem); }
+  .timeline-event-dot,
+  .timeline-now-dot,
+  .timeline-hover-indicator {
+    @apply -translate-x-1/2 -translate-y-1/2;
+    top: var(--timeline-axis-y);
+  }
+  .timeline-event-connector-top {
+    top: 2.5rem;
+    height: calc(var(--timeline-axis-y) - 2.5rem);
+  }
+  .timeline-event-connector-bottom {
+    top: var(--timeline-axis-y);
+    height: calc(8.125rem - var(--timeline-axis-y));
+  }
+  .timeline-hover-indicator {
+    position: absolute;
+    z-index: 20;
+    display: flex;
+    width: 1.75rem;
+    height: 1.75rem;
+    align-items: center;
+    justify-content: center;
+    border-radius: 9999px;
+    border: 3px solid white;
+    background: var(--brand-primary);
+    color: white;
+    box-shadow: 0 4px 10px rgba(15, 23, 42, 0.18);
+    pointer-events: none;
+  }
+  .dark .timeline-hover-indicator { border-color: #0f172a; }
+  .timeline-hover-indicator.hidden { display: none; }
+
   .real-time-indicator { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #10b981; animation: pulse 2s infinite; }
   .dark .real-time-indicator { color: #34d399; }
   .real-time-indicator::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #10b981; animation: pulse-dot 2s infinite; }
