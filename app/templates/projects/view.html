@@ -313,7 +313,7 @@
                 {% for user_total in user_totals %}
                 <li class="flex justify-between py-2 border-b border-border-light dark:border-border-dark">
                     <span>{{ user_total.username }}</span>
-                    <span class="font-semibold">{{ "%.2f"|format(user_total.total_hours) }} hrs</span>
+                    <span class="font-semibold">{{ user_total.total_hours|hours_minutes }}</span>
                 </li>
                 {% else %}
                 <li>No hours logged yet.</li>

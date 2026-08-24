@@ -1,20 +1,9 @@
-// Idle detection: when user is inactive, offer to stop timer at last active time
+// Client liveness and optional work reminders. Inactivity never stops a timer.
 (function(){
   if (window.__ttIdleLoaded) return; window.__ttIdleLoaded = true;
 
-  function getIdleThresholdMs(){
-    const meta = document.querySelector('meta[name="idle-timeout-minutes"]');
-    const mins = meta ? parseInt(meta.getAttribute('content'), 10) : 30;
-    return (isNaN(mins) || mins < 1 ? 30 : Math.min(480, mins)) * 60 * 1000;
-  }
-
   const CHECK_INTERVAL_MS = 60 * 1000; // 1 minute
-  const GRACE_MS = 5 * 60 * 1000; // 5 minutes to answer "Still working?"
 
-  let lastActivity = Date.now();
-  let promptShown = false;
-  let graceTimerId = null;
-  let countdownIntervalId = null;
   let lastHeartbeatSent = 0;
   let hasActiveTimer = false;
   const HEARTBEAT_THROTTLE_MS = 60 * 1000;
@@ -35,11 +24,6 @@
   }
 
   function markActive(){
-    // While the "Still working?" grace prompt is open, only Yes/No (or the
-    // 5-minute auto-stop) may clear it — incidental mouse/keyboard activity
-    // must not silently dismiss or re-arm the timer.
-    if (promptShown) return;
-    lastActivity = Date.now();
     sendHeartbeat();
   }
 
@@ -55,127 +39,41 @@
     } catch(e){ return null; }
   }
 
-  function formatTime(d){
-    if (window.formatUserTime) return window.formatUserTime(d);
-    var hour12 = window.userPrefs && window.userPrefs.timeFormat === '12h';
-    return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: hour12 });
-  }
-
-  function formatCountdown(ms){
-    const totalSec = Math.max(0, Math.ceil(ms / 1000));
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return m + ':' + String(s).padStart(2, '0');
-  }
-
-  function clearGraceTimers(){
-    if (graceTimerId) { clearTimeout(graceTimerId); graceTimerId = null; }
-    if (countdownIntervalId) { clearInterval(countdownIntervalId); countdownIntervalId = null; }
-  }
-
-  async function stopAt(ts){
-    clearGraceTimers();
-    promptShown = false;
-    try {
-      const r = await fetch('/api/timer/stop_at', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ stop_time: new Date(ts).toISOString() }) });
-      if (r.ok){
-        const msg = window.i18n?.messages?.timerStoppedInactivity || 'Timer stopped due to inactivity';
-        if (window.toastManager && window.toastManager.warning) {
-          window.toastManager.warning(msg, '', 5000);
-        } else if (window.toastManager && window.toastManager.show) {
-          window.toastManager.show({ message: msg, type: 'warning', duration: 5000 });
-        } else {
-          alert(msg);
-        }
-        location.reload();
-      }
-    } catch(e) {}
-  }
-
-  function snoozeIdlePrompt(toastEl){
-    clearGraceTimers();
-    lastActivity = Date.now();
-    promptShown = false;
-    lastHeartbeatSent = 0; // force immediate heartbeat so server clears idle_notified_at
-    sendHeartbeat();
-    try { if (toastEl) toastEl.remove(); } catch(e) {}
-  }
-
-  function showIdlePrompt(stopTs){
-    if (promptShown) return; promptShown = true;
-    clearGraceTimers();
-
-    const yesLabel = window.i18n?.messages?.stillWorkingYes || 'Yes, still working';
-    const noLabel = window.i18n?.messages?.stillWorkingNo || 'No, stop timer';
-    const baseMsg = window.i18n?.messages?.stillWorkingPrompt ||
-      ('Still working? You seem inactive since ' + formatTime(new Date(stopTs)) +
-       '. Timer will stop automatically if you do not answer.');
-
-    const deadline = Date.now() + GRACE_MS;
-
-    function buildMessage(){
-      return baseMsg + ' (' + formatCountdown(deadline - Date.now()) + ')';
-    }
-
-    function attachHandlers(toastEl, countdownEl){
-      const yesBtn = toastEl.querySelector('[data-act="yes"]');
-      const noBtn = toastEl.querySelector('[data-act="no"]');
-      if (yesBtn) yesBtn.addEventListener('click', function(){ snoozeIdlePrompt(toastEl); });
-      if (noBtn) noBtn.addEventListener('click', function(){ try { toastEl.remove(); } catch(e){}; stopAt(stopTs); });
-
-      countdownIntervalId = setInterval(function(){
-        if (countdownEl) countdownEl.textContent = buildMessage();
-      }, 1000);
-
-      graceTimerId = setTimeout(function(){
-        clearGraceTimers();
-        try { toastEl.remove(); } catch(e){}
-        stopAt(stopTs);
-      }, GRACE_MS);
-    }
-
-    if (window.toastManager) {
-      const toastEl = document.createElement('div');
-      toastEl.className = 'flex items-center gap-3 p-4 bg-amber-100 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-lg shadow-lg pointer-events-auto';
-      toastEl.innerHTML =
-        '<div class="flex-1 text-sm text-amber-900 dark:text-amber-100" data-countdown>' + buildMessage() + '</div>' +
-        '<div class="flex gap-2">' +
-          '<button class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white rounded text-sm font-medium" data-act="yes">' + yesLabel + '</button>' +
-          '<button class="px-3 py-1.5 bg-amber-200 dark:bg-amber-800 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 rounded text-sm font-medium" data-act="no">' + noLabel + '</button>' +
-        '</div>';
-      const container = document.getElementById('toast-notification-container') || document.getElementById('flash-messages-container') || document.body;
-      container.appendChild(toastEl);
-      attachHandlers(toastEl, toastEl.querySelector('[data-countdown]'));
-      return;
-    }
-
-    const t = document.createElement('div');
-    t.className = 'toast align-items-center text-white bg-warning border-0 fade show';
-    t.innerHTML =
-      '<div class="d-flex">' +
-        '<div class="toast-body" data-countdown>' + buildMessage() + '</div>' +
-        '<div class="d-flex gap-2 align-items-center me-2">' +
-          '<button class="btn btn-sm btn-light" data-act="yes">' + yesLabel + '</button>' +
-          '<button class="btn btn-sm btn-outline-light" data-act="no">' + noLabel + '</button>' +
-        '</div>' +
-      '</div>';
-    const container = document.getElementById('toast-container') || document.body;
-    container.appendChild(t);
-    attachHandlers(t, t.querySelector('[data-countdown]'));
-  }
-
   async function tick(){
     const active = await getTimer();
     hasActiveTimer = !!active;
     if (!active) return;
-    const threshold = getIdleThresholdMs();
-    const idleFor = Date.now() - lastActivity;
-    if (idleFor >= threshold){
-      const stopTs = Date.now() - idleFor;
-      showIdlePrompt(stopTs);
-    }
+    // Browser inactivity is not clock-out evidence. A sleeping or throttled
+    // tab must never stop a persisted EvilTime work session.
     // Break reminder follows the active timer state; check on every tick.
     try { checkBreakNudge(active); } catch(e) {}
+    try { checkBreakFinished(active); } catch(e) {}
+  }
+
+  function checkBreakFinished(activeTimer){
+    if (!activeTimer || !activeTimer.paused || !activeTimer.paused_at) return;
+    if ((Number(activeTimer.paused_duration_seconds) || 0) < 30 * 60) return;
+    const key = 'eviltime-break-finished:' + activeTimer.id + ':' + activeTimer.paused_at;
+    try { if (localStorage.getItem(key)) return; localStorage.setItem(key, String(Date.now())); } catch(e) {}
+    const title = window.i18n?.messages?.breakFinishedTitle || 'Break is over';
+    const message = window.i18n?.messages?.breakFinishedMessage || 'Your 30-minute break is over.';
+    if ('Notification' in window && Notification.permission === 'granted') {
+      try {
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.ready.then(function(registration){
+            registration.showNotification(title, { body: message, icon: '/static/images/eviltime-logo.png', tag: key, data: { url: '/' } });
+          }).catch(function(){ new Notification(title, { body: message, tag: key }); });
+        } else {
+          new Notification(title, { body: message, tag: key });
+        }
+      } catch(e) {}
+    }
+    if (!activeReminderToast) {
+      buildReminderToast('purple', escapeHtml(message), [
+        { label: (window.i18n?.messages?.endBreak || 'End break'), style: 'primary', onClick: function(){ window.floatingTimerBar?.resumeTimer(); } },
+        { label: (window.i18n?.messages?.dismiss || 'Dismiss'), style: 'link' }
+      ], 60000);
+    }
   }
 
   // Prime active-timer flag soon after load so early activity can heartbeat.
@@ -252,7 +150,7 @@
   }
 
   // Pre-built class strings per color so Tailwind's content scan sees literal classes.
-  // The shape mirrors showIdlePrompt() exactly: just amber → blue/purple/green.
+  // Keep complete literal class names so Tailwind can include every variant.
   const TOAST_CLASSES = {
     blue: {
       wrap: 'flex items-center gap-3 p-4 bg-blue-100 dark:bg-blue-900/30 border border-blue-300 dark:border-blue-700 rounded-lg shadow-lg pointer-events-auto',
@@ -405,10 +303,4 @@
   setInterval(checkNoTimerAndEndOfDayNudges, REMINDER_POLL_MS);
   setTimeout(checkNoTimerAndEndOfDayNudges, 5000);
 
-  // Allow Socket.IO / other modules to trigger the same prompt (Issue #722)
-  window.__ttShowIdlePrompt = function(stopTs){
-    showIdlePrompt(stopTs || (Date.now() - getIdleThresholdMs()));
-  };
 })();
-
-

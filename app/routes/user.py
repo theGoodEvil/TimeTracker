@@ -3,20 +3,85 @@
 import re
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from flask import Blueprint, current_app, flash, jsonify, redirect, render_template, request, url_for
+from flask import Blueprint, flash, jsonify, redirect, render_template, request, url_for
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
 
 from app import db
-from app.models import Activity, Settings, User
+from app.models import Activity, ApiToken, Project, User
 from app.utils.db import safe_commit
-from app.utils.donate_hide_code import system_id_log_prefix, verify_supporter_code
-from app.utils.license_utils import is_license_activated
 from app.utils.timezone import get_available_timezones
 
 HEX_COLOR_RE = re.compile(r"^#[0-9A-Fa-f]{6}$")
 
 user_bp = Blueprint("user", __name__)
+
+
+def _render_mcp_settings(*, plain_token=None):
+    tokens = (
+        ApiToken.query.filter_by(user_id=current_user.id)
+        .filter(ApiToken.scopes.in_(["mcp:access", "mcp:migrate"]))
+        .order_by(ApiToken.created_at.desc())
+        .all()
+    )
+    return render_template("user/mcp_settings.html", tokens=tokens, plain_token=plain_token)
+
+
+@user_bp.route("/settings/mcp")
+@login_required
+def mcp_settings():
+    """Let every user configure their own general-purpose MCP tokens."""
+    return _render_mcp_settings()
+
+
+@user_bp.route("/settings/mcp/tokens", methods=["POST"])
+@login_required
+def create_mcp_token():
+    name = (request.form.get("name") or "EvilTime agent").strip()[:100]
+    if not name:
+        name = "EvilTime agent"
+    try:
+        expires_days = int(request.form.get("expires_days") or 90)
+    except (TypeError, ValueError):
+        expires_days = 90
+    if expires_days not in (30, 90, 365):
+        expires_days = 90
+    active_count = (
+        ApiToken.query.filter_by(user_id=current_user.id, is_active=True)
+        .filter(ApiToken.scopes.in_(["mcp:access", "mcp:migrate"]))
+        .count()
+    )
+    if active_count >= 10:
+        flash(_("Revoke an existing MCP token before creating another one."), "error")
+        return redirect(url_for("user.mcp_settings"))
+    token, plain_token = ApiToken.create_token(
+        user_id=current_user.id,
+        name=name,
+        description="User-managed EvilTime MCP token",
+        scopes="mcp:access",
+        expires_days=expires_days,
+    )
+    db.session.add(token)
+    if not safe_commit("create_mcp_token", {"user_id": current_user.id}):
+        flash(_("The MCP token could not be created."), "error")
+        return redirect(url_for("user.mcp_settings"))
+    return _render_mcp_settings(plain_token=plain_token)
+
+
+@user_bp.route("/settings/mcp/tokens/<int:token_id>/revoke", methods=["POST"])
+@login_required
+def revoke_mcp_token(token_id):
+    token = (
+        ApiToken.query.filter_by(id=token_id, user_id=current_user.id)
+        .filter(ApiToken.scopes.in_(["mcp:access", "mcp:migrate"]))
+        .first_or_404()
+    )
+    token.is_active = False
+    if safe_commit("revoke_mcp_token", {"user_id": current_user.id, "token_id": token.id}):
+        flash(_("MCP token revoked."), "success")
+    else:
+        flash(_("The MCP token could not be revoked."), "error")
+    return redirect(url_for("user.mcp_settings"))
 
 
 @user_bp.route("/profile")
@@ -188,6 +253,20 @@ def settings():
             if time_rounding_minimum is not None and time_rounding_minimum in [0, 5, 10, 15, 30, 60]:
                 current_user.time_rounding_minimum_minutes = time_rounding_minimum
 
+            # Unified tracking preference
+            default_project_id = request.form.get("default_project_id", type=int)
+            if default_project_id:
+                default_project = Project.query.filter_by(id=default_project_id, status="active").first()
+                from app.utils.scope_filter import get_clockable_project_ids
+
+                allowed_ids = get_clockable_project_ids(current_user)
+                if not default_project or (allowed_ids is not None and default_project_id not in allowed_ids):
+                    flash(_("Select an active project you can access."), "error")
+                    return redirect(url_for("user.settings"))
+                current_user.default_project_id = default_project.id
+            else:
+                current_user.default_project_id = None
+
             # Overtime settings
             standard_hours_per_day = request.form.get("standard_hours_per_day", type=float)
             if standard_hours_per_day is not None:
@@ -291,6 +370,14 @@ def settings():
     rounding_methods = get_available_rounding_methods()
     rounding_minimums = get_available_minimum_durations()
 
+    from app.utils.scope_filter import apply_clockable_project_scope_to_model
+
+    projects_query = Project.query.filter_by(status="active").order_by(Project.name)
+    project_scope = apply_clockable_project_scope_to_model(Project, current_user)
+    if project_scope is not None:
+        projects_query = projects_query.filter(project_scope)
+    active_projects = projects_query.all()
+
     return render_template(
         "user/settings.html",
         user=current_user,
@@ -299,73 +386,8 @@ def settings():
         rounding_intervals=rounding_intervals,
         rounding_methods=rounding_methods,
         rounding_minimums=rounding_minimums,
+        active_projects=active_projects,
     )
-
-
-@user_bp.route("/settings/license", methods=["GET", "POST"])
-@login_required
-def license():
-    """License management: supporter key validation (sets donate_ui_hidden / supporter instance flag)."""
-    settings_obj = Settings.get_settings()
-    if request.method == "POST":
-        if is_license_activated(settings_obj):
-            flash(_("This instance is already licensed."), "info")
-            return redirect(url_for("user.license"))
-        code = (request.form.get("license_key") or request.form.get("code") or "").strip()
-        system_id = Settings.get_system_instance_id()
-        sid_prefix = system_id_log_prefix(system_id)
-        valid, reason = verify_supporter_code(
-            code,
-            system_id,
-            public_key_pem=current_app.config.get("DONATE_HIDE_PUBLIC_KEY_PEM") or "",
-            secret=current_app.config.get("DONATE_HIDE_UNLOCK_SECRET") or "",
-        )
-        if not valid:
-            current_app.logger.warning("License verify failed: %s (system_id_prefix=%s)", reason, sid_prefix)
-            flash(_("Invalid code."), "error")
-            return redirect(url_for("user.license"))
-        settings_obj.donate_ui_hidden = True
-        if safe_commit(db.session):
-            current_app.logger.info("License activated (system_id_prefix=%s)", sid_prefix)
-            flash(_("License activated. Thank you for supporting TimeTracker!"), "success")
-        else:
-            current_app.logger.warning("License verify failed: save_error (system_id_prefix=%s)", sid_prefix)
-            flash(_("Error saving settings."), "error")
-        return redirect(url_for("user.license"))
-    return render_template(
-        "user/license.html",
-        is_license_activated=is_license_activated(settings_obj),
-    )
-
-
-@user_bp.route("/settings/verify-donate-hide-code", methods=["POST"])
-@login_required
-def verify_donate_hide_code():
-    """Verify code (Ed25519 signature or HMAC) and set ui_show_donate=False."""
-
-    if not getattr(current_user, "ui_show_donate", True):
-        return jsonify({"success": True})
-
-    data = request.get_json() or {}
-    code = (data.get("code") or "").strip()
-    system_id = Settings.get_system_instance_id()
-    sid_prefix = system_id_log_prefix(system_id)
-    valid, reason = verify_supporter_code(
-        code,
-        system_id,
-        public_key_pem=current_app.config.get("DONATE_HIDE_PUBLIC_KEY_PEM") or "",
-        secret=current_app.config.get("DONATE_HIDE_UNLOCK_SECRET") or "",
-    )
-    if not valid:
-        current_app.logger.warning("Donate-hide verify failed: %s (system_id_prefix=%s)", reason, sid_prefix)
-        return jsonify({"error": _("Invalid code.")}), 400
-
-    current_user.ui_show_donate = False
-    if safe_commit(db.session):
-        current_app.logger.info("Donate-hide activated for user (system_id_prefix=%s)", sid_prefix)
-        return jsonify({"success": True})
-    current_app.logger.warning("Donate-hide verify failed: save_error (system_id_prefix=%s)", sid_prefix)
-    return jsonify({"error": _("Error saving settings")}), 500
 
 
 @user_bp.route("/api/preferences", methods=["PATCH"])

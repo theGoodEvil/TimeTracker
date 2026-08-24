@@ -7624,7 +7624,7 @@ msgstr "Warnung: Das Deaktivieren dieser Module betrifft auch abhängige Module:
 #: app/templates/integrations/list.html:47
 #: app/templates/integrations/list.html:87
 msgid "Enabled"
-msgstr "Ermöglicht"
+msgstr "Aktiviert"
 
 #: app/templates/admin/modules.html:265 app/templates/admin/oidc_debug.html:34
 #: app/templates/admin/settings.html:526
@@ -23924,7 +23924,7 @@ msgstr "Aufgabendetails werden geladen..."
 
 #: app/templates/tasks/_kanban.html:1313
 msgid "Tracked"
-msgstr "Verfolgt"
+msgstr "Erfasst"
 
 #: app/templates/tasks/_kanban.html:1357
 msgid "View Full Details"
@@ -24050,7 +24050,7 @@ msgstr "Schätzung verwendet"
 
 #: app/templates/tasks/edit.html:170 app/templates/weekly_goals/index.html:185
 msgid "Actual"
-msgstr "Tatsächlich"
+msgstr "Ist"
 
 #: app/templates/tasks/edit.html:183
 msgid "Current Task Info"
@@ -26060,3 +26060,647 @@ msgstr "Gesamt:"
 msgid "Please log in to access this page"
 msgstr "Bitte melden Sie sich an, um auf diese Seite zuzugreifen"
 
+# EvilTime dashboard and weekly working-time workflow
+msgid "My productivity"
+msgstr "Meine Produktivität"
+
+msgid "Weekly overview"
+msgstr "Wochenübersicht"
+
+msgid "Working time"
+msgstr "Arbeitszeit"
+
+msgid "Expected hours carry forward automatically until a later week changes them."
+msgstr "Die Sollstunden werden automatisch übernommen, bis sie in einer späteren Woche geändert werden."
+
+msgid "Set a schedule change"
+msgstr "Arbeitszeit ändern"
+
+msgid "Choose the first week of the new schedule. Later weeks inherit this value until the next change."
+msgstr "Wählen Sie die erste Woche der neuen Arbeitszeit. Folgende Wochen übernehmen den Wert bis zur nächsten Änderung."
+
+msgid "Choose the first week of the new schedule. The adjustment is added to this week’s project time only."
+msgstr "Wählen Sie die erste Woche der neuen Arbeitszeit. Die Korrektur wird nur zur Projektzeit dieser Woche addiert."
+
+msgid "Schedule changes belong in the weekly overview."
+msgstr "Änderungen der Arbeitszeit werden in der Wochenübersicht verwaltet."
+
+msgid "Set a value once and later weeks inherit it automatically."
+msgstr "Legen Sie den Wert einmal fest; spätere Wochen übernehmen ihn automatisch."
+
+msgid "Open weekly overview"
+msgstr "Wochenübersicht öffnen"
+
+msgid "Save change"
+msgstr "Änderung speichern"
+
+msgid "Edit week"
+msgstr "Woche bearbeiten"
+
+msgid "No weekly data yet."
+msgstr "Noch keine Wochendaten vorhanden."
+
+msgid "Track project time and see your week at a glance."
+msgstr "Projektzeit erfassen und die Woche auf einen Blick sehen."
+
+msgid "Clocked in"
+msgstr "Eingestempelt"
+
+msgid "Clocked out"
+msgstr "Ausgestempelt"
+
+msgid "On break"
+msgstr "In der Pause"
+
+msgid "End break"
+msgstr "Pause beenden"
+
+msgid "Take break"
+msgstr "Pause starten"
+
+msgid "Clock in"
+msgstr "Einstempeln"
+
+msgid "Clock out"
+msgstr "Ausstempeln"
+
+msgid "Choose a project to clock in."
+msgstr "Wählen Sie ein Projekt zum Einstempeln."
+
+msgid "Recent projects"
+msgstr "Zuletzt verwendete Projekte"
+
+msgid "Click to clock in or switch"
+msgstr "Zum Einstempeln oder Wechseln anklicken"
+
+msgid "Quick project actions"
+msgstr "Projekt-Schnellaktionen"
+
+msgid "Currently tracking"
+msgstr "Wird gerade erfasst"
+
+msgid "Switch project"
+msgstr "Projekt wechseln"
+
+msgid "Worked today"
+msgstr "Heute gearbeitet"
+
+msgid "Breaks today"
+msgstr "Pausen heute"
+
+msgid "Break reminders"
+msgstr "Pausenalarm"
+
+msgid "Get a browser notification after a 30-minute break."
+msgstr "Browser-Benachrichtigung nach 30 Minuten Pause erhalten."
+
+msgid "Break is over"
+msgstr "Pause ist vorbei"
+
+msgid "Your 30-minute break is over. End the break when you are ready to continue."
+msgstr "Ihre 30-minütige Pause ist vorbei. Beenden Sie die Pause, wenn Sie weiterarbeiten möchten."
+
+msgid "Project icon"
+msgstr "Projekt-Icon"
+
+msgid "Optional square image, up to 2 MB. Shown in quick project actions."
+msgstr "Optionales quadratisches Bild bis 2 MB. Es wird in den Projekt-Schnellaktionen angezeigt."
+
+msgid "Remove current icon"
+msgstr "Aktuelles Icon entfernen"
+
+msgid "Overtime total"
+msgstr "Überstunden gesamt"
+
+msgid "Balance"
+msgstr "Saldo"
+
+msgid "Unavailable"
+msgstr "Nicht verfügbar"
+
+msgid "Expected hours"
+msgstr "Sollstunden"
+
+msgid "Project time"
+msgstr "Projektzeit"
+
+msgid "Counted hours"
+msgstr "Angerechnete Stunden"
+
+msgid "Time balance"
+msgstr "Zeitkonto"
+
+msgid "Actual hours"
+msgstr "Iststunden"
+
+msgid "Total overtime balance"
+msgstr "Gesamter Überstundensaldo"
+
+msgid "Scroll for all projects"
+msgstr "Scrollen für alle Projekte"
+
+msgid "Blocked"
+msgstr "Blockiert"
+
+msgid "Browser notifications are enabled."
+msgstr "Browser-Benachrichtigungen sind aktiviert."
+
+msgid "Notifications are blocked. Allow them in your browser settings."
+msgstr "Benachrichtigungen sind blockiert. Erlauben Sie sie in den Browser-Einstellungen."
+
+msgid "Requesting permission…"
+msgstr "Berechtigung wird angefragt …"
+
+msgid "Notification permission could not be requested."
+msgstr "Die Benachrichtigungsberechtigung konnte nicht angefragt werden."
+
+msgid "Permission was not granted. Click Enable to try again."
+msgstr "Die Berechtigung wurde nicht erteilt. Klicken Sie zum erneuten Versuch auf Aktivieren."
+
+msgid "Current break"
+msgstr "Aktuelle Pause"
+
+#, python-format
+msgid "Break started at %(time)s"
+msgstr "Pause gestartet um %(time)s"
+
+#, python-format
+msgid "Switched project at %(time)s"
+msgstr "Projekt gewechselt um %(time)s"
+
+#, python-format
+msgid "Clocked in at %(time)s"
+msgstr "Eingestempelt um %(time)s"
+
+#, python-format
+msgid "Plan includes %(hours)s per cycle (resets on day %(day)s)."
+msgstr "Das Kontingent umfasst %(hours)s pro Zeitraum (Zurücksetzung an Tag %(day)s)."
+
+#, python-format
+msgid "Consumed: %(consumed)s • Remaining: %(remaining)s"
+msgstr "Verbraucht: %(consumed)s • Verbleibend: %(remaining)s"
+
+msgid "Actual override"
+msgstr "Ist-Korrektur"
+
+msgid "Actual override (optional)"
+msgstr "Ist-Korrektur (optional)"
+
+msgid "Hours adjustment"
+msgstr "Stundenkorrektur"
+
+msgid "Hours adjustment (optional)"
+msgstr "Stundenkorrektur (optional)"
+
+msgid "adjustment"
+msgstr "Korrektur"
+
+msgid "For example, −2 subtracts two hours and +1.5 adds 90 minutes."
+msgstr "Zum Beispiel zieht −2 zwei Stunden ab und +1,5 addiert 90 Minuten."
+
+msgid "Added to the project time; leave empty for no adjustment."
+msgstr "Wird zur Projektzeit addiert; für keine Korrektur leer lassen."
+
+msgid "Enter a valid week, expected hours from 0 to 168, and an adjustment from −168 to 168."
+msgstr "Geben Sie eine gültige Woche, Sollstunden von 0 bis 168 und eine Korrektur von −168 bis 168 ein."
+
+msgid "Week starting"
+msgstr "Woche ab"
+
+msgid "Schedule changes in this week"
+msgstr "Arbeitszeit ändert sich in dieser Woche"
+
+msgid "Worked"
+msgstr "Gearbeitet"
+
+msgid "Recent project time"
+msgstr "Letzte Projektzeiten"
+
+msgid "All entries"
+msgstr "Alle Einträge"
+
+msgid "Enable"
+msgstr "Aktivieren"
+
+msgid "Mon"
+msgstr "Mo"
+
+msgid "Tue"
+msgstr "Di"
+
+msgid "Wed"
+msgstr "Mi"
+
+msgid "Thu"
+msgstr "Do"
+
+msgid "Fri"
+msgstr "Fr"
+
+msgid "Sat"
+msgstr "Sa"
+
+msgid "Sun"
+msgstr "So"
+
+msgid "Current session"
+msgstr "Laufende Zeiterfassung"
+
+msgid "Project time today"
+msgstr "Projektzeit heute"
+
+msgid "Recorded break time"
+msgstr "Erfasste Pausenzeit"
+
+msgid "Your latest completed sessions"
+msgstr "Zuletzt abgeschlossene Zeiterfassungen"
+
+msgid "Invalid project icon type"
+msgstr "Ungültiger Projekt-Icon-Typ"
+
+msgid "Choose an emoji from the project icon selector"
+msgstr "Emoji aus der Projekt-Icon-Auswahl auswählen"
+
+msgid "Choose a PNG file for the project icon"
+msgstr "PNG-Datei als Projekt-Icon auswählen"
+
+msgid "The project icon could not be read"
+msgstr "Das Projekt-Icon konnte nicht gelesen werden"
+
+msgid "Project icons must be valid PNG files"
+msgstr "Projekt-Icons müssen gültige PNG-Dateien sein"
+
+msgid "Project icon type"
+msgstr "Projekt-Icon-Typ"
+
+msgid "Emoji"
+msgstr "Emoji"
+
+msgid "PNG upload"
+msgstr "PNG hochladen"
+
+msgid "No icon"
+msgstr "Kein Icon"
+
+msgid "Choose an emoji"
+msgstr "Emoji auswählen"
+
+#, python-format
+msgid "Use %(emoji)s"
+msgstr "%(emoji)s verwenden"
+
+msgid "Upload a square PNG image up to 2 MB."
+msgstr "Lade ein quadratisches PNG-Bild mit maximal 2 MB hoch."
+
+msgid "Leave empty to keep the current PNG."
+msgstr "Leer lassen, um das aktuelle PNG beizubehalten."
+# EvilTime project icons
+msgid "Choose an emoji from the project icon picker"
+msgstr "Wählen Sie ein Emoji aus der Projekt-Icon-Auswahl aus"
+
+msgid "Search all emojis or use your system emoji keyboard."
+msgstr "Durchsuchen Sie alle Emojis oder verwenden Sie die Emoji-Tastatur Ihres Systems."
+
+msgid "Or paste an emoji"
+msgstr "Oder Emoji einfügen"
+
+msgid "Selected emoji"
+msgstr "Ausgewähltes Emoji"
+
+# EvilTime editable dashboard timeline
+msgid "You do not have permission to edit your time entries."
+msgstr "Sie sind nicht berechtigt, Ihre Zeiteinträge zu bearbeiten."
+
+msgid "Timeline event not found."
+msgstr "Timeline-Ereignis wurde nicht gefunden."
+
+msgid "Timeline event does not match this time entry."
+msgstr "Das Timeline-Ereignis gehört nicht zu diesem Zeiteintrag."
+
+msgid "Choose a valid timestamp that is not in the future."
+msgstr "Wählen Sie einen gültigen Zeitstempel, der nicht in der Zukunft liegt."
+
+msgid "Clock-in must be before clock-out."
+msgstr "Das Einstempeln muss vor dem Ausstempeln liegen."
+
+msgid "The adjusted time would overlap another entry."
+msgstr "Die angepasste Zeit würde sich mit einem anderen Eintrag überschneiden."
+
+msgid "Clock-out must be after clock-in."
+msgstr "Das Ausstempeln muss nach dem Einstempeln liegen."
+
+msgid "The project switch must remain between the two entries."
+msgstr "Der Projektwechsel muss zwischen den beiden Einträgen liegen."
+
+msgid "Historical break details were not recorded and cannot be adjusted individually."
+msgstr "Historische Pausendetails wurden nicht erfasst und können nicht einzeln angepasst werden."
+
+msgid "The break event must remain inside the work session."
+msgstr "Das Pausenereignis muss innerhalb der Arbeitssitzung bleiben."
+
+msgid "The timestamp must remain after the previous timeline event."
+msgstr "Der Zeitstempel muss nach dem vorherigen Timeline-Ereignis liegen."
+
+msgid "The timestamp must remain before the next timeline event."
+msgstr "Der Zeitstempel muss vor dem nächsten Timeline-Ereignis liegen."
+
+msgid "The timeline change could not be saved."
+msgstr "Die Timeline-Änderung konnte nicht gespeichert werden."
+
+msgid "Timeline updated."
+msgstr "Timeline aktualisiert."
+
+msgid "Today's timeline"
+msgstr "Heutige Timeline"
+
+msgid "Your recorded clock events from 08:00 to 22:00."
+msgstr "Ihre erfassten Stempelereignisse von 08:00 bis 22:00 Uhr."
+
+msgid "Clock events and project changes in chronological order."
+msgstr "Stempelereignisse und Projektwechsel in zeitlicher Reihenfolge."
+
+msgid "Click a time to adjust it"
+msgstr "Zum Anpassen auf eine Uhrzeit klicken"
+
+msgid "Switched project"
+msgstr "Projekt gewechselt"
+
+msgid "Break started"
+msgstr "Pause begonnen"
+
+msgid "Break ended"
+msgstr "Pause beendet"
+
+#, python-format
+msgid "Adjust %(event)s time"
+msgstr "Zeit für „%(event)s“ anpassen"
+
+msgid "No clock events today."
+msgstr "Heute gibt es noch keine Stempelereignisse."
+
+msgid "Individual breaks completed before this timeline was introduced are only available as a total duration."
+msgstr "Einzelne Pausen, die vor Einführung dieser Timeline beendet wurden, sind nur als Gesamtdauer verfügbar."
+
+msgid "Adjust timeline event"
+msgstr "Timeline-Ereignis anpassen"
+
+msgid "The timestamp must stay between its neighboring events. Work and break totals are recalculated automatically."
+msgstr "Der Zeitstempel muss zwischen den benachbarten Ereignissen bleiben. Arbeits- und Pausenzeiten werden automatisch neu berechnet."
+
+msgid "Save time"
+msgstr "Uhrzeit speichern"
+
+# EvilTime per-user MCP migration
+msgid "Revoke an existing MCP token before creating another one."
+msgstr "Widerrufen Sie ein bestehendes MCP-Token, bevor Sie ein neues erstellen."
+
+msgid "The MCP token could not be created."
+msgstr "Das MCP-Token konnte nicht erstellt werden."
+
+msgid "MCP token revoked."
+msgstr "MCP-Token widerrufen."
+
+msgid "The MCP token could not be revoked."
+msgstr "Das MCP-Token konnte nicht widerrufen werden."
+
+msgid "MCP migration"
+msgstr "MCP-Migration"
+
+msgid "Back to settings"
+msgstr "Zurück zu den Einstellungen"
+
+msgid "Connect an agent to migrate your historical project time. Every token is limited to your own account and migration tools."
+msgstr "Verbinden Sie einen Agenten, um historische Projektzeiten zu migrieren. Jedes Token ist auf Ihr eigenes Konto und die Migrationswerkzeuge beschränkt."
+
+msgid "Copy your token now"
+msgstr "Token jetzt kopieren"
+
+msgid "This token is shown only once. Store it in your agent configuration, not in source control."
+msgstr "Dieses Token wird nur einmal angezeigt. Speichern Sie es in der Agentenkonfiguration, nicht in der Versionsverwaltung."
+
+msgid "Connection"
+msgstr "Verbindung"
+
+msgid "Use Streamable HTTP and send the token as a Bearer token."
+msgstr "Verwenden Sie Streamable HTTP und senden Sie das Token als Bearer-Token."
+
+msgid "Server URL"
+msgstr "Server-URL"
+
+msgid "Copy server URL"
+msgstr "Server-URL kopieren"
+
+msgid "Run a dry run first. Exact retries are detected automatically; overlapping entries are rejected."
+msgstr "Führen Sie zuerst einen Testlauf aus. Exakte Wiederholungen werden automatisch erkannt; überlappende Einträge werden abgelehnt."
+
+msgid "Create migration token"
+msgstr "Migrationstoken erstellen"
+
+msgid "Expires after"
+msgstr "Läuft ab nach"
+
+msgid "30 days"
+msgstr "30 Tagen"
+
+msgid "90 days"
+msgstr "90 Tagen"
+
+msgid "1 year"
+msgstr "1 Jahr"
+
+msgid "Create token"
+msgstr "Token erstellen"
+
+msgid "Your migration tokens"
+msgstr "Ihre Migrationstoken"
+
+msgid "Last used"
+msgstr "Zuletzt verwendet"
+
+msgid "Revoke"
+msgstr "Widerrufen"
+
+msgid "No migration tokens yet."
+msgstr "Noch keine Migrationstoken."
+
+msgid "Create your own scoped connection for agents that migrate historical project time."
+msgstr "Erstellen Sie eine eigene eingeschränkte Verbindung für Agenten, die historische Projektzeiten migrieren."
+msgid "Add an event to the timeline"
+msgstr "Einen Eintrag zur Zeitleiste hinzufügen"
+
+msgid "Add event"
+msgstr "Eintrag hinzufügen"
+
+msgid "Add timeline event"
+msgstr "Zeitleisten-Eintrag hinzufügen"
+
+msgid "Add to timeline"
+msgstr "Zur Zeitleiste hinzufügen"
+
+msgid "Agents can inspect and control your timer, list projects and time entries, and import historical entries. Use a dry run before an import."
+msgstr "Agenten können deinen Timer prüfen und steuern, Projekte und Zeiteinträge auflisten sowie historische Einträge importieren. Führe vor einem Import einen Testlauf durch."
+
+msgid "Back / close"
+msgstr "Zurück / schließen"
+
+msgid "Breaks must fit inside one work session. New work sessions cannot overlap existing time."
+msgstr "Pausen müssen vollständig innerhalb eines Arbeitsabschnitts liegen. Neue Arbeitsabschnitte dürfen sich nicht mit vorhandenen Zeiten überschneiden."
+
+msgid "Command panel"
+msgstr "Befehlspalette"
+
+msgid "Connect an agent to your EvilTime account for timers, projects, reporting, and historical imports. Every token is limited to your own account."
+msgstr "Verbinde einen Agenten mit deinem EvilTime-Konto für Timer, Projekte, Auswertungen und historische Importe. Jeder Token ist auf dein eigenes Konto beschränkt."
+
+msgid "Connect your own agent to timers, projects, reports, and historical imports for your account."
+msgstr "Verbinde deinen eigenen Agenten mit Timern, Projekten, Auswertungen und historischen Importen deines Kontos."
+
+msgid "Create MCP token"
+msgstr "MCP-Token erstellen"
+
+msgid "Drag an event to move it"
+msgstr "Ein Ereignis ziehen, um seine Zeit zu ändern"
+
+msgid "Insert a completed break or work session for today."
+msgstr "Füge für heute eine abgeschlossene Pause oder einen Arbeitsabschnitt ein."
+
+msgid "MCP integration"
+msgstr "MCP-Integration"
+
+msgid "Navigate"
+msgstr "Navigieren"
+
+msgid "No MCP tokens yet."
+msgstr "Noch keine MCP-Token vorhanden."
+
+msgid "No clock events today. Select the timeline to add one."
+msgstr "Heute gibt es noch keine Stempelereignisse. Wähle die Zeitleiste aus, um eines hinzuzufügen."
+
+msgid "Run"
+msgstr "Ausführen"
+
+msgid "Select an event to edit it"
+msgstr "Ereignis zum Bearbeiten auswählen"
+
+msgid "Select empty space to add time"
+msgstr "Freien Bereich auswählen, um Zeit hinzuzufügen"
+
+msgid "The timestamp must stay between its neighboring events. Work and break totals are recalculated automatically. You can also drag the marker directly on the timeline."
+msgstr "Der Zeitpunkt muss zwischen den benachbarten Ereignissen bleiben. Arbeits- und Pausenzeiten werden automatisch neu berechnet. Du kannst die Markierung auch direkt auf der Zeitleiste ziehen."
+
+msgid "What do you want to add?"
+msgstr "Was möchtest du hinzufügen?"
+
+msgid "Work session"
+msgstr "Arbeitsabschnitt"
+
+msgid "Your MCP tokens"
+msgstr "Deine MCP-Token"
+
+msgid "Your day from 08:00 to 20:00. Select the line to add time, or drag an event to adjust it."
+msgstr "Dein Tag von 08:00 bis 20:00 Uhr. Wähle die Linie aus, um Zeit hinzuzufügen, oder ziehe ein Ereignis, um die Zeit anzupassen."
+
+msgid "Project timer"
+msgstr "Projekt-Timer"
+
+msgid "Loading timer…"
+msgstr "Timer wird geladen …"
+
+msgid "Start or switch project"
+msgstr "Projekt starten oder wechseln"
+
+msgid "Search projects…"
+msgstr "Projekte durchsuchen …"
+
+msgid "Start break"
+msgstr "Pause starten"
+
+msgid "Clock in or switch project"
+msgstr "Einstempeln oder Projekt wechseln"
+
+msgid "Choose a project without leaving this panel"
+msgstr "Wähle ein Projekt aus, ohne die Befehlspalette zu verlassen"
+
+msgid "Open timer controls"
+msgstr "Timer-Steuerung öffnen"
+
+msgid "Pause, resume, clock out, or switch"
+msgstr "Pause starten oder beenden, ausstempeln oder Projekt wechseln"
+
+msgid "Log time manually"
+msgstr "Zeit manuell erfassen"
+
+msgid "Add a completed time entry"
+msgstr "Einen abgeschlossenen Zeiteintrag hinzufügen"
+
+msgid "Return to your work overview"
+msgstr "Zurück zu deiner Arbeitsübersicht"
+
+msgid "Review tracked time and analytics"
+msgstr "Erfasste Zeiten und Auswertungen ansehen"
+
+msgid "Open clients and companies"
+msgstr "Kunden und Unternehmen öffnen"
+
+msgid "Create project"
+msgstr "Projekt erstellen"
+
+msgid "Set up a new project"
+msgstr "Ein neues Projekt anlegen"
+
+msgid "Start a new invoice"
+msgstr "Eine neue Rechnung erstellen"
+
+msgid "Timer / Select a project"
+msgstr "Timer / Projekt auswählen"
+
+msgid "Ready to clock in"
+msgstr "Bereit zum Einstempeln"
+
+msgid "Select a project below"
+msgstr "Wähle unten ein Projekt aus"
+
+msgid "No projects found."
+msgstr "Keine Projekte gefunden."
+
+msgid "Start or end break"
+msgstr "Pause starten oder beenden"
+
+msgid "Toggle the break on your active timer"
+msgstr "Pause für den aktiven Timer starten oder beenden"
+
+msgid "Stop the active project timer"
+msgstr "Den aktiven Projekt-Timer beenden"
+
+msgid "Switching project…"
+msgstr "Projekt wird gewechselt …"
+
+msgid "Clocking in…"
+msgstr "Du wirst eingestempelt …"
+
+msgid "Project switched."
+msgstr "Projekt gewechselt."
+
+msgid "Clocking out…"
+msgstr "Du wirst ausgestempelt …"
+
+msgid "Updating break…"
+msgstr "Pause wird aktualisiert …"
+
+msgid "Clocked out."
+msgstr "Ausgestempelt."
+
+msgid "Timer updated."
+msgstr "Timer aktualisiert."
+
+msgid "Delete this project switch? Its time and breaks will be merged into the previous project."
+msgstr "Diese Projektumschaltung löschen? Arbeitszeit und Pausen werden mit dem vorherigen Projekt zusammengeführt."
+
+msgid "Project switch deleted. The sessions were merged into the previous project."
+msgstr "Projektumschaltung gelöscht. Die Sitzungen wurden mit dem vorherigen Projekt zusammengeführt."
+
+msgid "Could not delete the project switch."
+msgstr "Die Projektumschaltung konnte nicht gelöscht werden."
+
+msgid "The project switch cannot be deleted because the adjacent sessions are no longer contiguous."
+msgstr "Die Projektumschaltung kann nicht gelöscht werden, weil die angrenzenden Sitzungen nicht mehr zusammenhängend sind."

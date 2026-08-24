@@ -545,7 +545,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (totalHours > 0) {
             const hoursStat = document.createElement('span');
             hoursStat.className = 'preview-stat';
-            hoursStat.textContent = `${totalHours.toFixed(1)}h ${L.totalHours}`;
+            hoursStat.textContent = `${window.formatHoursMinutes(totalHours)} ${L.totalHours}`;
             previewStats.appendChild(hoursStat);
         }
 
@@ -578,5 +578,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
 

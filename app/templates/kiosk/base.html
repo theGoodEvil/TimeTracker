@@ -8,9 +8,8 @@
     <meta name="description" content="Kiosk Mode - Inventory and Time Tracking">
     <meta name="theme-color" content="#3b82f6">
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="alternate icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
     {# Font Awesome must load BEFORE dist/output.css: its `.fa-solid{display:inline-block}`
        has the same specificity as Tailwind's `.hidden{display:none}`, so whichever
        loads last wins. #}
@@ -504,4 +503,3 @@
     {% block extra_scripts %}{% endblock %}
 </body>
 </html>
-

@@ -42,32 +42,25 @@ const HEAD_SCRIPTS = ['pwa-enhancements.js'];
 /**
  * Classic global scripts, grouped in the exact order base.html loaded them.
  *
- * Why six groups instead of one bundle: base.html interleaves these <script src>
+ * Why multiple groups instead of one bundle: base.html interleaves these <script src>
  * tags with Jinja-rendered inline blocks that (a) run at parse time, not on
  * DOMContentLoaded, and (b) declare top-level globals such as `closeAllMenus`,
- * `themeToggleBtn` and `trackDonationClick`. Collapsing everything into a single
+ * `themeToggleBtn`. Collapsing everything into a single
  * bundle would move ~17 scripts across those inline blocks and change the order in
  * which globals are defined vs. consumed. Each group therefore sits exactly where its
- * members used to, preserving execution order while still cutting 32 requests to 9.
+ * members used to, preserving execution order while still reducing individual requests.
  *
  * Order within and between groups is load-bearing — do not sort.
  */
 const CORE_GROUPS = {
   // Ungated: loaded for anonymous and authenticated users alike.
   'core-a1': ['date-picker-init.js', 'enhanced-search.js', 'form-validation.js', 'toast-notifications.js'],
-  // Gated on `current_user.is_authenticated and support_ui_json`.
-  'core-support': ['support-ui.js'],
   // Ungated.
   'core-a2': ['enhanced-tables.js', 'interactions.js', 'offline-sync.js', 'mentions.js'],
   // Gated on `current_user.is_authenticated` — the floating timer bar and idle
   // tracker must not load for anonymous visitors.
-  'core-auth': ['floating-actions.js', 'floating-timer-bar.js', 'idle.js'],
-  // These two sit behind *different* Jinja gates in base.html — `ai_enabled` and
-  // `is_admin_user` respectively — so they must stay separate bundles. Merging them
-  // would leak the admin update-checker to non-admins whenever AI is on, and hide it
-  // from admins whenever AI is off.
+  'core-auth': ['timer-control.js', 'floating-timer-bar.js', 'idle.js'],
   'core-ai': ['ai-helper.js'],
-  'core-admin': ['admin-version-update.js'],
   // after the window.__BASE_INIT__ bootstrap
   'core-c': ['base-init.js', 'mobile.js'],
   // after the sidebar + theme inline blocks, and after chart.js vendor
@@ -86,6 +79,7 @@ const CORE_GROUPS = {
     'smart-notifications.js',
     'dashboard-widgets.js',
     'dashboard-enhancements.js',
+    'eviltime-workflow.js',
     'activity-feed.js',
   ],
   // after the menus/support-banner inline block
@@ -112,7 +106,10 @@ const STANDALONE_GROUPS = {
 /**
  * True ES modules that need dependency resolution.
  */
-const MODULE_ENTRIES = [{ name: 'command-palette', entry: 'js/command-palette.js' }];
+const MODULE_ENTRIES = [
+  { name: 'command-palette', entry: 'js/command-palette.js' },
+  { name: 'project-emoji-picker', entry: 'js/project-emoji-picker.js' },
+];
 
 /**
  * Third-party packages that npm does not publish as a self-contained browser build,
@@ -163,6 +160,25 @@ async function buildConcatBundle(name, files) {
   const filename = `${name}.${hash(code)}.min.js`;
   await writeFile(join(DIST, filename), code, 'utf8');
   return [name, `dist/${filename}`];
+}
+
+/** Give the Tailwind output the same immutable, content-hashed caching as JS. */
+async function buildStylesheet() {
+  const sourcePath = join(DIST, 'output.css');
+  let css;
+  try {
+    css = await readFile(sourcePath, 'utf8');
+  } catch (error) {
+    if (error && error.code === 'ENOENT') {
+      // `npm run build:js` is also useful on its own during development. Keep
+      // its manifest complete even when Tailwind has not been run yet.
+      return ['styles', 'dist/output.css'];
+    }
+    throw error;
+  }
+  const filename = `styles.${hash(css)}.css`;
+  await writeFile(join(DIST, filename), css, 'utf8');
+  return ['styles', `dist/${filename}`];
 }
 
 /**
@@ -239,10 +255,12 @@ async function build() {
   // Clear previously hashed JS bundles (leave output.css from the Tailwind build).
   for (const f of await readdir(DIST).catch(() => [])) {
     if (f.endsWith('.min.js')) await rm(join(DIST, f), { force: true });
+    if (f.startsWith('styles.') && f.endsWith('.css')) await rm(join(DIST, f), { force: true });
   }
 
   const manifest = Object.fromEntries(
     await Promise.all([
+      buildStylesheet(),
       buildConcatBundle('head', HEAD_SCRIPTS),
       ...Object.entries(CORE_GROUPS).map(([name, files]) => buildConcatBundle(name, files)),
       ...Object.entries(STANDALONE_GROUPS).map(([name, files]) => buildConcatBundle(name, files)),

@@ -181,7 +181,7 @@
                     <div class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Active Projects') }}</div>
                 </li>
                 <li>
-                    <div class="text-blue-600 text-xl font-bold">{{ "%.1f"|format(client.total_hours) }}</div>
+                    <div class="text-blue-600 text-xl font-bold">{{ client.total_hours|hours_minutes }}</div>
                     <div class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Total Hours') }}</div>
                 </li>
                 <li>

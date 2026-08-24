@@ -354,9 +354,9 @@
             if (todayOvertimeEl && data.standard_hours_per_day !== undefined) {
                 if (data.today_overtime_hours > 0) {
                     todayOvertimeEl.style.display = '';
-                    todayOvertimeEl.innerHTML = '<span class="font-medium">+ ' + Number(data.today_overtime_hours).toFixed(2) + 'h overtime</span>';
+                    todayOvertimeEl.innerHTML = '<span class="font-medium">' + window.formatHoursMinutes(Number(data.today_overtime_hours), true) + ' overtime</span>';
                 } else {
-                    todayOvertimeEl.innerHTML = '<span class="text-blue-600/70 dark:text-blue-400/70">' + Number(data.today_hours).toFixed(2) + 'h / ' + Number(data.standard_hours_per_day).toFixed(1) + 'h</span>';
+                    todayOvertimeEl.innerHTML = '<span class="text-blue-600/70 dark:text-blue-400/70">' + window.formatHoursMinutes(Number(data.today_hours)) + ' / ' + window.formatHoursMinutes(Number(data.standard_hours_per_day)) + '</span>';
                     todayOvertimeEl.style.display = data.today_hours > 0 ? '' : 'none';
                 }
             }
@@ -364,7 +364,7 @@
             if (weekOvertimeEl && data.week_overtime_hours !== undefined) {
                 if (data.week_overtime_hours > 0) {
                     weekOvertimeEl.style.display = '';
-                    weekOvertimeEl.innerHTML = '<span class="font-medium">+ ' + Number(data.week_overtime_hours).toFixed(2) + 'h overtime</span>';
+                    weekOvertimeEl.innerHTML = '<span class="font-medium">' + window.formatHoursMinutes(Number(data.week_overtime_hours), true) + ' overtime</span>';
                 } else {
                     weekOvertimeEl.style.display = 'none';
                 }
@@ -540,7 +540,7 @@
                             callbacks: {
                                 label: function (ctx) {
                                     var v = ctx.parsed.y != null ? ctx.parsed.y : ctx.parsed;
-                                    return (ctx.dataset.label || '') + ': ' + Number(v).toFixed(2) + ' h';
+                                    return (ctx.dataset.label || '') + ': ' + window.formatHoursMinutes(Number(v));
                                 }
                             }
                         }
@@ -570,7 +570,7 @@
                 summaryEl.textContent = '';
 
                 var prefix = document.createTextNode(
-                    total.toFixed(1) + ' ' + hrsSuffix + ' — '
+                    window.formatHoursMinutes(total) + ' ' + hrsSuffix + ' — '
                 );
                 summaryEl.appendChild(prefix);
 
@@ -707,7 +707,7 @@
             bar.className = 'w-full max-w-[3rem] mx-auto rounded-t-md bg-primary/80 dark:bg-primary/60 transition-all';
             bar.style.height = barH + 'px';
             bar.style.minHeight = '3px';
-            bar.title = (day.date || '') + ': ' + h.toFixed(1) + ' h';
+            bar.title = (day.date || '') + ': ' + window.formatHoursMinutes(h);
 
             var lbl = document.createElement('span');
             lbl.className = 'mt-2 text-[10px] sm:text-xs text-text-muted-light dark:text-text-muted-dark truncate w-full text-center';
@@ -747,4 +747,3 @@
     };
 
 })();
-

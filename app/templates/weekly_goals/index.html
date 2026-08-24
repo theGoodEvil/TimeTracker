@@ -1,224 +1,64 @@
 {% extends "base.html" %}
-{% from "components/ui.html" import page_header, breadcrumb_nav, button, filter_badge %}
-
-{% block title %}{{ _('Weekly Time Goals') }} - {{ config.APP_NAME }}{% endblock %}
-
+{% block title %}{{ _('Weekly overview') }} · EvilTime{% endblock %}
 {% block content %}
-{% set breadcrumbs = [
-    {'text': _('Weekly Goals')}
-] %}
-
-{{ page_header(
-    icon_class='fas fa-bullseye',
-    title_text=_('Weekly Time Goals'),
-    subtitle_text=_('Set and track your weekly hour targets'),
-    breadcrumbs=breadcrumbs,
-    actions_html='<a href="' + url_for("weekly_goals.create") + '" class="bg-primary text-white px-4 py-2 rounded-lg hover:bg-primary/90 transition-colors"><i class="fas fa-plus mr-2"></i>' + _('New Goal') + '</a>'
-) }}
-
-    <!-- Statistics -->
-    <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div class="bg-card-light dark:bg-card-dark rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-trophy text-3xl text-yellow-500"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ _('Total Goals') }}</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ stats.total_goals }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-card-light dark:bg-card-dark rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-check-circle text-3xl text-green-500"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ _('Completed') }}</p>
-                    <p class="text-2xl font-bold text-green-600 dark:text-green-400">{{ stats.completed }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-card-light dark:bg-card-dark rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-times-circle text-3xl text-red-500"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ _('Failed') }}</p>
-                    <p class="text-2xl font-bold text-red-600 dark:text-red-400">{{ stats.failed }}</p>
-                </div>
-            </div>
-        </div>
-
-        <div class="bg-card-light dark:bg-card-dark rounded-lg shadow-md p-6">
-            <div class="flex items-center">
-                <div class="flex-shrink-0">
-                    <i class="fas fa-percentage text-3xl text-blue-500"></i>
-                </div>
-                <div class="ml-4">
-                    <p class="text-sm text-gray-600 dark:text-gray-400">{{ _('Success Rate') }}</p>
-                    <p class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ stats.completion_rate }}%</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Current Week Goal -->
-    {% if current_goal %}
-    <div class="bg-gradient-to-r from-blue-500 to-purple-600 rounded-lg shadow-lg p-6 mb-6 text-white">
-        <h2 class="text-2xl font-bold mb-4">
-            <i class="fas fa-calendar-week mr-2"></i>
-            {{ _('Current Week Goal') }}
-        </h2>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div>
-                <p class="text-sm opacity-90">{{ _('Week') }}</p>
-                <p class="text-xl font-bold">{{ current_goal.week_label }}</p>
-            </div>
-            <div>
-                <p class="text-sm opacity-90">{{ _('Target Hours') }}</p>
-                <p class="text-xl font-bold">{{ current_goal.target_hours }}h</p>
-            </div>
-            <div>
-                <p class="text-sm opacity-90">{{ _('Actual Hours') }}</p>
-                <p class="text-xl font-bold">{{ current_goal.actual_hours }}h</p>
-            </div>
-        </div>
-        
-        <!-- Progress Bar -->
-        <div class="mb-4">
-            <div class="flex justify-between text-sm mb-2">
-                <span>{{ _('Progress') }}</span>
-                <span>{{ current_goal.progress_percentage }}%</span>
-            </div>
-            <div class="w-full bg-white bg-opacity-30 rounded-full h-4">
-                <div class="bg-white rounded-full h-4 transition-all duration-300" 
-                     style="width: {{ current_goal.progress_percentage }}%"></div>
-            </div>
-        </div>
-
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-                <p class="text-sm opacity-90">{{ _('Remaining Hours') }}</p>
-                <p class="text-lg font-semibold">{{ current_goal.remaining_hours }}h</p>
-            </div>
-            <div>
-                <p class="text-sm opacity-90">{{ _('Days Remaining') }}</p>
-                <p class="text-lg font-semibold">{{ current_goal.days_remaining }}</p>
-            </div>
-            <div>
-                <p class="text-sm opacity-90">{{ _('Avg Hours/Day Needed') }}</p>
-                <p class="text-lg font-semibold">{{ current_goal.average_hours_per_day }}h</p>
-            </div>
-        </div>
-
-        <div class="mt-4 flex space-x-2">
-            <a href="{{ url_for('weekly_goals.view', goal_id=current_goal.id) }}" 
-               class="bg-white text-blue-600 px-4 py-2 rounded hover:bg-opacity-90 transition">
-                <i class="fas fa-eye mr-2"></i> {{ _('View Details') }}
-            </a>
-            <a href="{{ url_for('weekly_goals.edit', goal_id=current_goal.id) }}" 
-               class="bg-white bg-opacity-20 text-white px-4 py-2 rounded hover:bg-opacity-30 transition">
-                <i class="fas fa-edit mr-2"></i> {{ _('Edit Goal') }}
-            </a>
-        </div>
-    </div>
-    {% else %}
-    <!-- No Current Goal -->
-    <div class="bg-yellow-50 dark:bg-yellow-900 border-l-4 border-yellow-400 p-6 mb-6">
-        <div class="flex items-center">
-            <div class="flex-shrink-0">
-                <i class="fas fa-exclamation-triangle text-2xl text-yellow-500"></i>
-            </div>
-            <div class="ml-4">
-                <h3 class="text-lg font-semibold text-yellow-900 dark:text-yellow-100">
-                    {{ _('No goal set for this week') }}
-                </h3>
-                <p class="text-yellow-700 dark:text-yellow-300 mt-1">
-                    {{ _('Create a weekly time goal to start tracking your progress') }}
-                </p>
-                <a href="{{ url_for('weekly_goals.create') }}" 
-                   class="inline-block mt-3 bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600 transition">
-                    <i class="fas fa-plus mr-2"></i> {{ _('Create Goal') }}
-                </a>
-            </div>
-        </div>
-    </div>
+<div class="mx-auto max-w-7xl space-y-5">
+  <header class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div><p class="text-xs font-semibold uppercase tracking-widest text-primary">{{ _('Working time') }}</p><h1 class="text-2xl font-semibold tracking-tight text-slate-950 dark:text-white">{{ _('Weekly overview') }}</h1><p class="mt-1 text-sm text-slate-500">{{ _('Expected hours carry forward automatically until a later week changes them.') }}</p></div>
+    {% if current_user.is_admin %}
+    <form method="GET" class="flex items-end gap-2"><label class="text-sm font-medium">{{ _('User') }}<select name="user_id" class="form-input mt-1" onchange="this.form.submit()">{% for user in ledger_users %}<option value="{{ user.id }}" {% if user.id == ledger_user.id %}selected{% endif %}>{{ user.username }}</option>{% endfor %}</select></label></form>
     {% endif %}
+  </header>
 
-    <!-- Past Goals -->
-    {% if goals %}
-    <div class="bg-card-light dark:bg-card-dark rounded-lg shadow-md p-6">
-        <h2 class="text-xl font-semibold text-gray-900 dark:text-white mb-4">
-            <i class="fas fa-history mr-2 text-gray-600"></i>
-            {{ _('Goal History') }}
-        </h2>
-        
-        <div class="space-y-4">
-            {% for goal in goals %}
-            <div class="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition">
-                <div class="flex justify-between items-start mb-3">
-                    <div class="flex-1">
-                        <div class="flex items-center space-x-2">
-                            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
-                                {{ goal.week_label }}
-                            </h3>
-                            {% if goal.status == 'completed' %}
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200">
-                                <i class="fas fa-check mr-1"></i> {{ _('Completed') }}
-                            </span>
-                            {% elif goal.status == 'active' %}
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
-                                <i class="fas fa-clock mr-1"></i> {{ _('Active') }}
-                            </span>
-                            {% elif goal.status == 'failed' %}
-                            <span class="px-2 py-1 text-xs font-semibold rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
-                                <i class="fas fa-times mr-1"></i> {{ _('Failed') }}
-                            </span>
-                            {% endif %}
-                        </div>
-                        <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                            {{ _('Target') }}: {{ goal.target_hours }}h | {{ _('Actual') }}: {{ goal.actual_hours }}h
-                        </p>
-                    </div>
-                    <div class="flex space-x-2">
-                        <a href="{{ url_for('weekly_goals.view', goal_id=goal.id) }}" 
-                           class="text-blue-600 hover:text-blue-800 dark:text-blue-400"
-                           title="{{ _('View') }}">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        <a href="{{ url_for('weekly_goals.edit', goal_id=goal.id) }}" 
-                           class="text-gray-600 hover:text-gray-800 dark:text-gray-400"
-                           title="{{ _('Edit') }}">
-                            <i class="fas fa-edit"></i>
-                        </a>
-                    </div>
-                </div>
+  <section class="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="mb-3"><h2 class="font-semibold">{{ _('Set a schedule change') }}</h2><p class="text-sm text-slate-500">{{ _('Choose the first week of the new schedule. The adjustment is added to this week’s project time only.') }}</p></div>
+    <form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="grid gap-3 sm:grid-cols-[1fr_1fr_1fr_auto] sm:items-start" data-week-adjustment-form data-week-start-day="{{ ledger_user.week_start_day }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if current_user.is_admin %}<input type="hidden" name="user_id" value="{{ ledger_user.id }}">{% endif %}
+      <label class="text-sm font-medium">{{ _('Week starting') }}<input type="date" name="week_start" required class="form-input mt-1"></label>
+      <label class="text-sm font-medium">{{ _('Expected hours') }}<input type="number" name="expected_hours" min="0" max="168" step="0.25" required class="form-input mt-1" value="{{ ledger_rows[0].expected_hours if ledger_rows else '' }}"></label>
+      <label class="text-sm font-medium">{{ _('Hours adjustment (optional)') }}<input type="number" name="actual_hours_adjustment" min="-168" max="168" step="0.25" placeholder="+ / −" class="form-input mt-1"><span class="mt-1 block text-xs font-normal text-slate-500">{{ _('For example, −2 subtracts two hours and +1.5 adds 90 minutes.') }}</span></label>
+      <div class="sm:pt-6"><button class="btn btn-primary whitespace-nowrap">{{ _('Save change') }}</button></div>
+      <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 sm:col-span-4" data-week-hours-preview aria-live="polite">
+        <div class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-xs font-semibold uppercase tracking-wider text-primary">{{ _('Preview') }}</span><span class="text-sm font-medium">{{ _('Counted hours') }} <strong class="ml-1 text-lg text-slate-950 dark:text-white" data-week-preview-actual>0:00h</strong></span></div>
+        <p class="mt-1 text-xs text-slate-500"><span>{{ _('Project time') }} <strong data-week-preview-tracked>0:00h</strong></span><span class="mx-2" aria-hidden="true">·</span><span>{{ _('Adjustment') }} <strong data-week-preview-adjustment>0:00h</strong></span><span class="mx-2" aria-hidden="true">·</span><span>{{ _('Balance') }} <strong data-week-preview-balance>0:00h</strong></span></p>
+      </div>
+    </form>
+  </section>
 
-                <!-- Progress Bar -->
-                <div class="mb-2">
-                    <div class="flex justify-between text-xs text-gray-600 dark:text-gray-400 mb-1">
-                        <span>{{ _('Progress') }}</span>
-                        <span>{{ goal.progress_percentage }}%</span>
-                    </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                        {% if goal.status == 'completed' %}
-                        <div class="bg-green-500 rounded-full h-2" style="width: {{ goal.progress_percentage }}%"></div>
-                        {% elif goal.status == 'failed' %}
-                        <div class="bg-red-500 rounded-full h-2" style="width: {{ goal.progress_percentage }}%"></div>
-                        {% else %}
-                        <div class="bg-blue-500 rounded-full h-2" style="width: {{ goal.progress_percentage }}%"></div>
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-            {% endfor %}
+  <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
+    <div class="overflow-x-auto"><table class="w-full min-w-[900px] text-left text-sm">
+      <thead class="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wider text-slate-500 dark:border-slate-700 dark:bg-slate-800/60"><tr><th class="px-4 py-3">{{ _('Calendar week') }}</th><th class="px-4 py-3">{{ _('Expected hours') }}</th><th class="px-4 py-3">{{ _('Project time') }}</th><th class="px-4 py-3">{{ _('Counted hours') }}</th><th class="px-4 py-3">{{ _('Balance') }}</th><th class="px-4 py-3">{{ _('Overtime total') }}</th><th class="px-4 py-3">{{ _('Projects') }}</th><th class="px-4 py-3"></th></tr></thead>
+      <tbody class="divide-y divide-slate-100 dark:divide-slate-800">
+      {% for row in ledger_rows %}
+        <tr class="align-top hover:bg-slate-50/70 dark:hover:bg-slate-800/30">
+          <td class="whitespace-nowrap px-4 py-4"><strong>KW {{ '%02d'|format(row.calendar_week) }}</strong><p class="text-xs text-slate-500">{{ row.week_start.strftime('%d.%m.') }}–{{ row.week_end.strftime('%d.%m.%Y') }}</p></td>
+          <td class="px-4 py-4">{{ row.expected_hours|hours_minutes }}{% if row.goal %}<span class="ml-1 text-primary" title="{{ _('Schedule changes in this week') }}">●</span>{% endif %}</td>
+          <td class="px-4 py-4">{{ row.tracked_hours|hours_minutes }}</td><td class="px-4 py-4 font-semibold">{{ row.actual_hours|hours_minutes }}{% if row.actual_hours_adjustment %}<p class="text-xs font-medium text-primary">{{ row.actual_hours_adjustment|hours_minutes(true) }} {{ _('adjustment') }}</p>{% endif %}</td>
+          <td class="px-4 py-4 font-semibold {% if row.balance_hours < 0 %}text-red-600{% elif row.balance_hours > 0 %}text-emerald-600{% endif %}">{{ row.balance_hours|hours_minutes(true) }}</td>
+          <td class="px-4 py-4 font-semibold {% if row.cumulative_overtime < 0 %}text-red-600{% else %}text-emerald-600{% endif %}">{{ row.cumulative_overtime|hours_minutes(true) }}</td>
+          <td class="px-4 py-4">{% for project in row.projects %}<div class="flex min-w-48 justify-between gap-3"><span class="truncate">{{ project.name }}</span><strong>{{ project.hours|hours_minutes }}</strong></div>{% else %}<span class="text-slate-400">—</span>{% endfor %}</td>
+          <td class="px-4 py-4"><button type="button" class="font-medium text-primary hover:underline" data-week-edit data-week-label="KW {{ '%02d'|format(row.calendar_week) }} · {{ row.week_start.strftime('%d.%m.%Y') }}" data-week-start="{{ row.week_start.isoformat() }}" data-expected-hours="{{ row.expected_hours }}" data-tracked-hours="{{ row.tracked_hours }}" data-actual-adjustment="{{ row.actual_hours_adjustment if row.actual_hours_adjustment is not none else '' }}" data-notes="{{ row.goal.notes if row.goal and row.goal.notes else '' }}">{{ _('Edit week') }}</button></td>
+        </tr>
+      {% else %}<tr><td colspan="8" class="px-4 py-10 text-center text-slate-500">{{ _('No weekly data yet.') }}</td></tr>{% endfor %}
+      </tbody>
+    </table></div>
+  </section>
+
+  <div id="weeklyEditModal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="weeklyEditModalTitle">
+    <button type="button" class="absolute inset-0 bg-slate-950/60 backdrop-blur-sm" data-week-modal-close aria-label="{{ _('Close') }}"></button>
+    <div class="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
+      <div class="mb-4 flex items-start justify-between gap-4"><div><h2 id="weeklyEditModalTitle" class="text-lg font-semibold">{{ _('Edit week') }}</h2><p id="weeklyEditModalLabel" class="mt-1 text-sm text-slate-500"></p></div><button type="button" class="rounded-lg p-2 text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800" data-week-modal-close aria-label="{{ _('Close') }}"><i class="fas fa-times"></i></button></div>
+      <form method="POST" action="{{ url_for('weekly_goals.adjust_week') }}" class="space-y-3" data-week-adjustment-form data-week-start-day="{{ ledger_user.week_start_day }}" data-tracked-hours="0">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if current_user.is_admin %}<input type="hidden" name="user_id" value="{{ ledger_user.id }}">{% endif %}<input id="weeklyEditStart" type="hidden" name="week_start">
+        <label class="block text-sm font-medium">{{ _('Expected hours') }}<input id="weeklyEditExpected" class="form-input mt-1" type="number" name="expected_hours" min="0" max="168" step="0.25" required></label>
+        <label class="block text-sm font-medium">{{ _('Hours adjustment') }}<input id="weeklyEditAdjustment" class="form-input mt-1" type="number" name="actual_hours_adjustment" min="-168" max="168" step="0.25"><span class="mt-1 block text-xs font-normal text-slate-500">{{ _('Added to the project time; leave empty for no adjustment.') }}</span></label>
+        <div class="rounded-xl border border-primary/20 bg-primary/5 px-4 py-3" data-week-hours-preview aria-live="polite">
+          <div class="flex flex-wrap items-baseline justify-between gap-2"><span class="text-xs font-semibold uppercase tracking-wider text-primary">{{ _('Preview') }}</span><span class="text-sm font-medium">{{ _('Counted hours') }} <strong class="ml-1 text-lg text-slate-950 dark:text-white" data-week-preview-actual>0:00h</strong></span></div>
+          <p class="mt-1 text-xs text-slate-500"><span>{{ _('Project time') }} <strong data-week-preview-tracked>0:00h</strong></span><span class="mx-2" aria-hidden="true">·</span><span>{{ _('Adjustment') }} <strong data-week-preview-adjustment>0:00h</strong></span><span class="mx-2" aria-hidden="true">·</span><span>{{ _('Balance') }} <strong data-week-preview-balance>0:00h</strong></span></p>
         </div>
+        <label class="block text-sm font-medium">{{ _('Note') }}<input id="weeklyEditNotes" class="form-input mt-1" type="text" name="notes"></label>
+        <div class="flex justify-end gap-2 pt-2"><button type="button" class="btn btn-secondary" data-week-modal-close>{{ _('Cancel') }}</button><button class="btn btn-primary">{{ _('Save') }}</button></div>
+      </form>
     </div>
-    {% endif %}
+  </div>
+</div>
 {% endblock %}
-

@@ -398,6 +398,18 @@ class TestTimer:
         assert "timer" in data
         assert data["timer"]["project_id"] == test_project.id
 
+    def test_start_timer_uses_user_default_project(self, client, api_token, test_user, test_project):
+        """A bare API clock-in uses the configurable user default."""
+        user = db.session.get(User, int(test_user))
+        user.default_project_id = test_project.id
+        db.session.commit()
+
+        headers = {"Authorization": f"Bearer {api_token}", "Content-Type": "application/json"}
+        response = client.post("/api/v1/timer/start", json={}, headers=headers)
+
+        assert response.status_code == 201
+        assert response.get_json()["timer"]["project_id"] == test_project.id
+
     def test_start_timer_conflict_includes_active_timer(self, client, api_token, test_user, test_project):
         """Starting while a timer is running returns 409 with the active timer embedded."""
         active = TimeEntry(
@@ -450,8 +462,33 @@ class TestTimer:
         assert "time_entry" in data
         assert data["time_entry"]["end_time"] is not None
 
-    def test_stop_timer_with_stop_time(self, client, api_token, test_user, test_project, app):
-        """Test idle-style stop with an explicit stop_time"""
+    def test_clock_out_while_paused_preserves_final_break(self, client, api_token, test_user, test_project):
+        """Clocking out directly from break never counts the break as work."""
+        from app.models.time_entry import local_now
+
+        now = local_now()
+        timer = TimeEntry(
+            user_id=int(test_user),
+            project_id=test_project.id,
+            start_time=now - timedelta(minutes=20),
+            paused_at=now - timedelta(minutes=10),
+            break_seconds=0,
+            end_time=None,
+            source="api",
+        )
+        db.session.add(timer)
+        db.session.commit()
+
+        response = client.post("/api/v1/timer/stop", headers={"Authorization": f"Bearer {api_token}"})
+
+        assert response.status_code == 200
+        stopped = response.get_json()["time_entry"]
+        assert stopped["paused_at"] is None
+        assert 590 <= stopped["break_seconds"] <= 610
+        assert 590 <= stopped["duration_seconds"] <= 610
+
+    def test_backdated_idle_stop_is_rejected(self, client, api_token, test_user, test_project, app):
+        """Older idle clients cannot silently terminate persisted work."""
         from datetime import timedelta
 
         from app.models.time_entry import local_now
@@ -477,13 +514,11 @@ class TestTimer:
             headers=headers,
         )
 
-        assert response.status_code == 200
+        assert response.status_code == 400
         data = json.loads(response.data)
-        assert "time_entry" in data
-        assert data["time_entry"]["end_time"] is not None
-        # Duration should reflect ~30 minutes, not the full hour
-        assert data["time_entry"]["duration_seconds"] is not None
-        assert 25 * 60 <= data["time_entry"]["duration_seconds"] <= 35 * 60
+        assert data["error_code"] == "backdated_stop_disabled"
+        db.session.refresh(timer)
+        assert timer.end_time is None
 
     def test_timer_heartbeat(self, client, api_token, test_user, test_project, app):
         """Heartbeat updates last_heartbeat_at and clears idle_notified_at."""
@@ -520,8 +555,8 @@ class TestTimer:
         response = client.post("/api/v1/timer/heartbeat", headers=headers)
         assert response.status_code == 400
 
-    def test_check_idle_timers_notifies_then_stops(self, client, api_token, test_user, test_project, app):
-        """Server idle job notifies on first pass and auto-stops after grace."""
+    def test_check_idle_timers_never_stops_persisted_work(self, client, api_token, test_user, test_project, app):
+        """A stale heartbeat must never be interpreted as a clock-out."""
         from datetime import timedelta
 
         from app.models import Settings
@@ -546,19 +581,17 @@ class TestTimer:
         db.session.commit()
         timer_id = timer.id
 
-        # First pass: notify
-        check_idle_timers()
+        assert check_idle_timers() == 0
         refreshed = db.session.get(TimeEntry, timer_id)
         assert refreshed.end_time is None
-        assert refreshed.idle_notified_at is not None
+        assert refreshed.idle_notified_at is None
 
-        # Second pass after grace: auto-stop
+        # Even stale state left by an older release cannot stop the timer.
         refreshed.idle_notified_at = local_now() - timedelta(minutes=6)
         db.session.commit()
-        check_idle_timers()
-        stopped = db.session.get(TimeEntry, timer_id)
-        assert stopped.end_time is not None
-        assert stopped.idle_notified_at is None
+        assert check_idle_timers() == 0
+        still_active = db.session.get(TimeEntry, timer_id)
+        assert still_active.end_time is None
 
 
 class TestTasks:

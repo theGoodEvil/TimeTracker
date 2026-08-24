@@ -29,7 +29,7 @@
             <tr>
                 <td class="px-4 py-3">{{ u.display_name if u else v.user_id }}</td>
                 <td class="px-4 py-3">{{ v.period_type }} {{ v.period_start }}{% if v.period_end != v.period_start %} – {{ v.period_end }}{% endif %}</td>
-                <td class="px-4 py-3">+{{ "%.1f"|format(v.hours_over) }}h</td>
+                <td class="px-4 py-3">{{ v.hours_over|hours_minutes(true) }}</td>
                 <td class="px-4 py-3">{{ v.status }}</td>
                 <td class="px-4 py-3 max-w-xs truncate" title="{{ v.justification or '' }}">{{ v.justification or '—' }}</td>
                 <td class="px-4 py-3">

@@ -175,7 +175,7 @@
         <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
             <h2 class="text-lg font-semibold mb-4">{{ _('Prepaid Hours') }}</h2>
             <p class="text-sm text-text-muted-light dark:text-text-muted-dark mb-3">
-                {{ _('Plan includes %(hours)s hours per cycle. Resets on day %(day)s.', hours='%.2f'|format(prepaid_overview.plan_hours), day=client.prepaid_reset_day) }}
+                {{ _('Plan includes %(hours)s per cycle. Resets on day %(day)s.', hours=prepaid_overview.plan_hours|hours_minutes, day=client.prepaid_reset_day) }}
             </p>
             <ul class="space-y-2 text-sm text-text-light dark:text-text-dark">
                 <li>
@@ -184,11 +184,11 @@
                 </li>
                 <li>
                     <span class="font-medium text-emerald-600">{{ _('Remaining hours') }}:</span>
-                    <span>{{ '%.2f'|format(prepaid_overview.remaining_hours) }} {{ _('h') }}</span>
+                    <span>{{ prepaid_overview.remaining_hours|hours_minutes }}</span>
                 </li>
                 <li>
                     <span class="font-medium text-amber-600">{{ _('Consumed this cycle') }}:</span>
-                    <span>{{ '%.2f'|format(prepaid_overview.consumed_hours) }} {{ _('h') }}</span>
+                    <span>{{ prepaid_overview.consumed_hours|hours_minutes }}</span>
                 </li>
             </ul>
         </div>
@@ -388,7 +388,7 @@
                                 <span class="text-sm">{{ entry.user.display_name if entry.user else _('N/A') }}</span>
                             </td>
                             <td class="p-3">
-                                <span class="font-medium text-sm">{{ "%.2f"|format(entry.duration_hours) }}h</span>
+                                <span class="font-medium text-sm">{{ entry.duration_hours|hours_minutes }}</span>
                             </td>
                             <td class="p-3">
                                 {% if entry.notes %}
@@ -406,7 +406,7 @@
                 <div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
                     <p class="text-sm text-text-muted-light dark:text-text-muted-dark">
                         {{ _('Showing last %(count)s entries', count=recent_time_entries|length) }} | 
-                        {{ _('Total hours') }}: {{ "%.2f"|format(recent_time_entries|sum(attribute='duration_hours')) }}h
+                        {{ _('Total hours') }}: {{ (recent_time_entries|sum(attribute='duration_hours'))|hours_minutes }}
                     </p>
                 </div>
             </div>

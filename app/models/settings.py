@@ -136,11 +136,6 @@ class Settings(db.Model):
     # When set, the UI should auto-select this client and prevent changes.
     locked_client_id = db.Column(db.Integer, nullable=True)
 
-    # Stable per-installation ID (UUID); used for donate-hide code requests.
-    system_instance_id = db.Column(db.String(36), nullable=True)
-    # When True, donate/support UI is hidden for all users (set after code verification in Admin).
-    donate_ui_hidden = db.Column(db.Boolean, default=False, nullable=False)
-
     # Kiosk mode settings
     kiosk_mode_enabled = db.Column(db.Boolean, default=False, nullable=False)
     kiosk_auto_logout_minutes = db.Column(db.Integer, default=15, nullable=False)
@@ -860,29 +855,6 @@ class Settings(db.Model):
             except Exception:
                 pass
         return settings
-
-    @classmethod
-    def get_system_instance_id(cls):
-        """Return stable per-installation UUID; create and persist if missing."""
-        import uuid
-
-        settings = cls.get_settings()
-        if not getattr(settings, "id", None):
-            return None
-        if getattr(settings, "system_instance_id", None):
-            return settings.system_instance_id
-        try:
-            if _session_in_flush(db.session):
-                return None
-            settings.system_instance_id = str(uuid.uuid4())
-            db.session.commit()
-            return settings.system_instance_id
-        except Exception:
-            try:
-                db.session.rollback()
-            except Exception:
-                pass
-            return None
 
     @classmethod
     def _initialize_from_env(cls, settings_instance):

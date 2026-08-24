@@ -261,7 +261,6 @@ This report provides a **code-based analysis** of the TimeTracker project by exa
 - `LinkTemplate` - Link templates for custom fields
 - `CustomFieldDefinition` - Custom field definitions
 - `SalesmanEmailMapping` - Salesman email mappings
-- `DonationInteraction` - Donation tracking
 - `Gamification` models (Badge, UserBadge, Leaderboard, LeaderboardEntry)
 
 ---

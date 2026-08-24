@@ -32,7 +32,13 @@ from app.services.llm_service import AIServiceError, LLMService
 from app.services.time_tracking_service import TimeTrackingService
 from app.utils.api_deprecation import deprecated_session_api
 from app.utils.db import safe_commit
-from app.utils.scope_filter import apply_client_scope, apply_project_scope, user_can_access_project
+from app.utils.scope_filter import (
+    apply_client_scope,
+    apply_project_scope,
+    get_active_clockable_projects_for_user,
+    user_can_access_project,
+    user_can_clock_project,
+)
 from app.utils.timezone import convert_app_datetime_to_user, parse_local_datetime, utc_to_local
 
 api_bp = Blueprint("api", __name__)
@@ -79,7 +85,7 @@ def ai_test_connection():
 @api_bp.route("/api/ai/chat", methods=["POST"])
 @login_required
 def ai_chat():
-    """Chat with the AI helper using server-built TimeTracker context."""
+    """Chat with the AI helper using server-built EvilTime context."""
     data = request.get_json(silent=True) or {}
     try:
         result = LLMService().chat(current_user, data.get("prompt") or "", data.get("history") or [])
@@ -256,62 +262,6 @@ def ai_suggest():
     return jsonify({"ok": True, "suggestions": unique[:5]})
 
 
-def _effective_user_for_version_api():
-    """Session user, or API token user (Bearer / X-API-Key). Used for version check routes."""
-    if getattr(current_user, "is_authenticated", False):
-        return current_user
-    from app.utils.api_auth import authenticate_token, extract_token_from_request
-
-    token = extract_token_from_request()
-    if not token:
-        return None
-    user, _api_token, _err = authenticate_token(token, record_usage=False)
-    return user
-
-
-@api_bp.route("/api/version/check")
-def api_version_check():
-    """Admin only: compare installed version to latest GitHub release (cached)."""
-    user = _effective_user_for_version_api()
-    if user is None:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    if not user.is_admin:
-        return jsonify({"error": "forbidden", "message": "Admin only"}), 403
-    from app.services.version_service import VersionService
-
-    return jsonify(VersionService.build_check_response(user))
-
-
-@api_bp.route("/api/version/dismiss", methods=["POST"])
-def api_version_dismiss():
-    """Admin only: remember not to show update popup for this normalized release version."""
-    user = _effective_user_for_version_api()
-    if user is None:
-        return jsonify({"error": "unauthorized", "message": "Authentication required"}), 401
-    if not user.is_admin:
-        return jsonify({"error": "forbidden", "message": "Admin only"}), 403
-    data = request.get_json(silent=True) or {}
-    raw = data.get("latest_version")
-    if not isinstance(raw, str) or not raw.strip():
-        return jsonify({"error": "latest_version is required"}), 400
-
-    from app.utils.version_compare import normalize_version_tag
-
-    norm = normalize_version_tag(raw)
-    if not norm:
-        current_app.logger.warning(
-            "Version dismiss: invalid latest_version from admin user_id=%s: %r",
-            user.id,
-            raw,
-        )
-        return jsonify({"error": "invalid latest_version"}), 400
-    user.dismissed_release_version = norm
-    db.session.add(user)
-    if not safe_commit():
-        return jsonify({"error": "save_failed"}), 500
-    return jsonify({"ok": True})
-
-
 @api_bp.route("/api/timer/status")
 @login_required
 @deprecated_session_api("/api/v1/timer/status")
@@ -333,6 +283,14 @@ def timer_status():
                 "start_time": active_timer.start_time.isoformat(),
                 "current_duration": active_timer.current_duration_seconds,
                 "duration_formatted": active_timer.duration_formatted,
+                "paused": active_timer.is_paused,
+                "paused_at": active_timer.paused_at.isoformat() if active_timer.paused_at else None,
+                "paused_duration_seconds": (
+                    max(0, int((local_now() - active_timer._naive_dt(active_timer.paused_at)).total_seconds()))
+                    if active_timer.paused_at
+                    else 0
+                ),
+                "break_seconds": active_timer.break_seconds or 0,
                 "idle_notified": bool(active_timer.idle_notified_at),
                 "last_heartbeat_at": (
                     active_timer.last_heartbeat_at.isoformat() if active_timer.last_heartbeat_at else None
@@ -346,7 +304,7 @@ def timer_status():
 @login_required
 @deprecated_session_api("/api/v1/timer/heartbeat")
 def api_timer_heartbeat():
-    """Record activity for the active timer (idle timeout safety net)."""
+    """Record a liveness hint without changing the authoritative timer state."""
     active_timer = current_user.active_timer
     if not active_timer:
         return jsonify({"error": "No active timer"}), 400
@@ -588,56 +546,56 @@ def api_stop_timer():
     return jsonify({"success": True, "duration": entry.duration_formatted, "duration_hours": entry.duration_hours})
 
 
-# --- Idle control: stop at specific time ---
+@api_bp.route("/api/timer/switch", methods=["POST"])
+@login_required
+def api_switch_timer():
+    data = request.get_json(silent=True) or {}
+    project_id = data.get("project_id")
+    if not project_id or not user_can_clock_project(current_user, project_id):
+        return jsonify({"error": _("Choose a project available to you.")}), 403
+    result = TimeTrackingService().switch_timer(current_user.id, int(project_id))
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", _("Could not switch project."))}), 400
+    timer = result["timer"]
+    socketio.emit(
+        "timer_started",
+        {
+            "user_id": current_user.id,
+            "timer_id": timer.id,
+            "project_name": timer.project.name if timer.project else "",
+            "start_time": timer.start_time.isoformat(),
+        },
+    )
+    return jsonify({"success": True, "timer": timer.to_dict()})
+
+
+@api_bp.route("/api/timer/pause-current", methods=["POST"])
+@login_required
+def api_pause_current_timer():
+    result = TimeTrackingService().pause_timer(current_user.id)
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", _("Could not start break."))}), 400
+    socketio.emit("timer_paused", {"user_id": current_user.id, "timer_id": result["entry"].id})
+    return jsonify({"success": True, "timer": result["entry"].to_dict()})
+
+
+@api_bp.route("/api/timer/resume-current", methods=["POST"])
+@login_required
+def api_resume_current_timer():
+    result = TimeTrackingService().resume_timer(current_user.id)
+    if not result.get("success"):
+        return jsonify({"error": result.get("message", _("Could not end break."))}), 400
+    socketio.emit("timer_resumed", {"user_id": current_user.id, "timer_id": result["entry"].id})
+    return jsonify({"success": True, "timer": result["entry"].to_dict()})
+
+
+# --- Retired idle control endpoint ---
 @api_bp.route("/api/timer/stop_at", methods=["POST"])
 @login_required
 @deprecated_session_api("/api/v1/timer/stop")
 def api_stop_timer_at():
-    """Stop the active timer at a specific timestamp (idle adjustment)."""
-    active_timer = current_user.active_timer
-    if not active_timer:
-        return jsonify({"error": "No active timer to stop"}), 400
-
-    data = request.get_json() or {}
-    stop_time_str = data.get("stop_time")  # ISO string
-    if not stop_time_str:
-        return jsonify({"error": "stop_time is required"}), 400
-
-    try:
-        # Accept ISO; handle trailing Z
-        ts = stop_time_str.strip()
-        if ts.endswith("Z"):
-            ts = ts[:-1] + "+00:00"
-        parsed = datetime.fromisoformat(ts)
-        # Convert to local naive for storage consistency
-        if parsed.tzinfo is not None:
-            parsed_local_aware = utc_to_local(parsed)
-            stop_time_local = parsed_local_aware.replace(tzinfo=None)
-        else:
-            stop_time_local = parsed
-    except Exception:
-        return jsonify({"error": "Invalid stop_time format"}), 400
-
-    if stop_time_local <= active_timer.start_time:
-        return jsonify({"error": "stop_time must be after start time"}), 400
-
-    # Do not allow stopping in the future
-    now_local = local_now()
-    if stop_time_local > now_local:
-        stop_time_local = now_local
-
-    try:
-        active_timer.stop_timer(end_time=stop_time_local)
-    except Exception as e:
-        current_app.logger.warning("Failed to stop timer at specific time: %s", e)
-        return jsonify({"error": "Failed to stop timer"}), 500
-
-    socketio.emit(
-        "timer_stopped",
-        {"user_id": current_user.id, "timer_id": active_timer.id, "duration": active_timer.duration_formatted},
-    )
-
-    return jsonify({"success": True, "duration": active_timer.duration_formatted})
+    """Never let old idle clients mutate persisted timer state."""
+    return jsonify({"error": "Backdated timer stops are disabled in EvilTime"}), 410
 
 
 # --- Resume last timer/project ---
@@ -1546,7 +1504,7 @@ def calendar_export():
         ical_lines = [
             "BEGIN:VCALENDAR",
             "VERSION:2.0",
-            "PRODID:-//TimeTracker//Calendar Export//EN",
+            "PRODID:-//EvilTime//Calendar Export//EN",
             "CALSCALE:GREGORIAN",
             "METHOD:PUBLISH",
         ]
@@ -1599,8 +1557,8 @@ def calendar_export():
 @deprecated_session_api("/api/v1/projects")
 def get_projects():
     """Get active projects"""
-    projects = Project.query.filter_by(status="active").order_by(Project.name).all()
-    return jsonify({"projects": [project.to_dict() for project in projects]})
+    projects = get_active_clockable_projects_for_user(current_user)
+    return jsonify({"projects": [project.to_dict(current_user) for project in projects]})
 
 
 @api_bp.route("/api/projects/<int:project_id>/tasks")

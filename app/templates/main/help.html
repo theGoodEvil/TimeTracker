@@ -47,8 +47,8 @@
     <section class="lg:col-span-4 space-y-8">
         <!-- Hero -->
         <div class="bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark p-6 rounded-lg shadow text-center">
-            <h2 class="text-xl font-semibold mb-1">{{ _('TimeTracker Help Center') }}</h2>
-            <p class="text-text-muted-light dark:text-text-muted-dark">{{ _('Everything you need to know to get the most out of TimeTracker') }}</p>
+            <h2 class="text-xl font-semibold mb-1">{{ _('EvilTime Help Center') }}</h2>
+            <p class="text-text-muted-light dark:text-text-muted-dark">{{ _('Everything you need to know to get the most out of EvilTime') }}</p>
 
             <div class="flex flex-wrap gap-2 justify-center mt-4">
                 <a href="{{ url_for('timer.manual_entry') }}" class="px-3 py-2 rounded-lg bg-primary text-white text-sm hover:opacity-90">
@@ -675,7 +675,7 @@
                 <div>
                     <h4 class="font-semibold mb-2">{{ _('Installation') }}</h4>
                     <ol class="list-decimal ml-5 space-y-1 text-text-muted-light dark:text-text-muted-dark">
-                                    <li>{{ _('Open TimeTracker in your mobile browser') }}</li>
+                                    <li>{{ _('Open EvilTime in your mobile browser') }}</li>
                                     <li>{{ _('Look for "Add to Home Screen" option') }}</li>
                                     <li>{{ _('Follow browser-specific installation prompts') }}</li>
                                     <li>{{ _('Launch from your home screen like a native app') }}</li>
@@ -696,7 +696,7 @@
             <!-- API Documentation -->
         <section id="api-documentation" class="bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark p-6 rounded-lg shadow">
             <h3 class="text-lg font-semibold mb-4"><i class="fas fa-code text-emerald-500 mr-2"></i>{{ _('API Documentation') }}</h3>
-            <p class="text-text-muted-light dark:text-text-muted-dark mb-4">{{ _('TimeTracker provides a REST API for integration with other tools, mobile apps, and custom workflows.') }}</p>
+            <p class="text-text-muted-light dark:text-text-muted-dark mb-4">{{ _('EvilTime provides a REST API for integration with other tools, mobile apps, and custom workflows.') }}</p>
             <ul class="space-y-2 text-sm mb-4">
                 <li><i class="fas fa-check text-emerald-500 mr-2"></i>{{ _('Interactive Swagger UI at') }} <a href="/api/docs" target="_blank" rel="noopener" class="text-primary hover:underline">/api/docs</a></li>
                 <li><i class="fas fa-check text-emerald-500 mr-2"></i>{{ _('OpenAPI 3.0 specification at') }} <a href="/api/openapi.json" target="_blank" rel="noopener" class="text-primary hover:underline">/api/openapi.json</a></li>
@@ -737,8 +737,8 @@
                     <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Navigate to Invoices → Create Invoice, set up the client and project details, then use "Generate from Time Entries" to automatically create invoice items from your tracked time. You can filter by date range and project, and the system will group time entries intelligently. Review the generated items and export as a professional PDF.') }}</p>
                 </details>
                 <details class="group border border-border-light dark:border-border-dark rounded p-4">
-                    <summary class="font-semibold cursor-pointer flex items-center"><i class="fas fa-mobile-alt mr-2"></i>{{ _('Can I use TimeTracker on my mobile device?') }}</summary>
-                    <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Yes! TimeTracker is fully responsive and works great on mobile devices. You can install it as a Progressive Web App (PWA) for a native-like experience. The mobile interface includes a bottom tab bar for easy navigation and touch-optimized controls for time tracking on the go.') }}</p>
+                    <summary class="font-semibold cursor-pointer flex items-center"><i class="fas fa-mobile-alt mr-2"></i>{{ _('Can I use EvilTime on my mobile device?') }}</summary>
+                    <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Yes! EvilTime is fully responsive and works great on mobile devices. You can install it as a Progressive Web App (PWA) for a native-like experience. The mobile interface includes a bottom tab bar for easy navigation and touch-optimized controls for time tracking on the go.') }}</p>
                 </details>
                 <details class="group border border-border-light dark:border-border-dark rounded p-4">
                     <summary class="font-semibold cursor-pointer flex items-center"><i class="fas fa-keyboard mr-2"></i>{{ _('How do I use the command palette and keyboard shortcuts?') }}</summary>
@@ -825,25 +825,14 @@
                     <i class="fas fa-info-circle mr-1"></i>{{ _('System Info') }}
                 </a>
                 {% endif %}
-                <a href="https://github.com/drytrix/TimeTracker" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark">
+                <a href="https://git.domisbu.de/Domi2803/EvilTime" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark">
                     <i class="fab fa-github mr-1"></i>{{ _('GitHub Repository') }}
                 </a>
-                <a href="https://github.com/drytrix/TimeTracker/issues" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg border border-amber-600 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20">
+                <a href="https://git.domisbu.de/Domi2803/EvilTime/issues" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg border border-amber-600 text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/20">
                     <i class="fas fa-bug mr-1"></i>{{ _('Report Issue') }}
                 </a>
-                {% if current_user.is_authenticated and current_user.ui_show_donate and not is_license_activated %}
-                <button type="button" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold shadow-md hover:shadow-lg transition-all js-open-support-modal">
-                    <i class="fas fa-heart mr-1" aria-hidden="true"></i>{{ _('Support TimeTracker') }}
-                </button>
-                {% endif %}
             </div>
         </div>
-        {% if current_user.is_authenticated and current_user.ui_show_donate and not is_license_activated %}
-        <p class="text-sm text-text-muted-light dark:text-text-muted-dark mt-6 pt-4 border-t border-border-light dark:border-border-dark">
-            {{ _('Enjoying TimeTracker?') }} {{ _('Donations and licenses fund development; nothing is paywalled.') }}
-            <button type="button" class="text-primary hover:underline font-medium js-open-support-modal">{{ _('Open support') }}</button>
-        </p>
-        {% endif %}
     </section>
 </div>
 {% endblock %}

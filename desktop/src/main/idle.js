@@ -1,40 +1,17 @@
 /**
  * System idle detection for the Electron desktop app.
  *
- * Polls powerMonitor.getSystemIdleTime() every 60s. When an active timer is
- * running and the OS idle time exceeds idle_timeout_minutes, shows a
- * "Still working?" notification, notifies the renderer, and after a 5-minute
- * grace window auto-stops the timer via the API (backdated to last activity).
+ * Sends best-effort heartbeats while a timer is active. OS idleness and
+ * connectivity are never treated as clock-out actions.
  */
 
-const { powerMonitor, Notification, net } = require('electron');
+const { net } = require('electron');
 
 const CHECK_INTERVAL_MS = 60 * 1000;
-const GRACE_MS = 5 * 60 * 1000;
-const DEFAULT_IDLE_TIMEOUT_MINUTES = 30;
 
-function clampIdleTimeoutMinutes(value) {
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 1) return DEFAULT_IDLE_TIMEOUT_MINUTES;
-  return Math.min(480, Math.floor(n));
-}
-
-function createIdleMonitor({ store, sendToMainWindow, focusMainWindow }) {
+function createIdleMonitor({ store, sendToMainWindow }) {
   let checkInterval = null;
-  let graceTimer = null;
-  let promptShown = false;
   let timerActive = false;
-  let idleTimeoutMinutes = DEFAULT_IDLE_TIMEOUT_MINUTES;
-  let stopAtMs = null;
-
-  function clearGrace() {
-    if (graceTimer) {
-      clearTimeout(graceTimer);
-      graceTimer = null;
-    }
-    promptShown = false;
-    stopAtMs = null;
-  }
 
   async function apiRequest(method, path, body) {
     if (!store) return null;
@@ -79,102 +56,25 @@ function createIdleMonitor({ store, sendToMainWindow, focusMainWindow }) {
     await apiRequest('POST', '/api/v1/timer/heartbeat');
   }
 
-  async function stopTimerAt(ms) {
-    const stopTime = new Date(ms || Date.now()).toISOString();
-    await apiRequest('POST', '/api/v1/timer/stop', { stop_time: stopTime });
-    sendToMainWindow('idle:timer-stopped', { reason: 'idle_timeout' });
-  }
-
-  function showStillWorkingNotification() {
-    try {
-      if (!Notification.isSupported()) return;
-      const notification = new Notification({
-        title: 'Still working?',
-        body: `Your timer will stop in 5 minutes if you do not answer.`,
-        urgency: 'critical',
-      });
-      notification.on('click', () => {
-        focusMainWindow();
-        confirmStillWorking();
-      });
-      notification.show();
-    } catch (e) {
-      console.debug('[IdleMonitor] notification failed:', e.message);
-    }
-  }
-
-  function beginGrace() {
-    if (promptShown || !timerActive) return;
-    promptShown = true;
-    stopAtMs = Date.now() - idleTimeoutMinutes * 60 * 1000;
-    showStillWorkingNotification();
-    sendToMainWindow('idle:prompt', {
-      stopAtMs,
-      graceMs: GRACE_MS,
-      idleTimeoutMinutes,
-    });
-    focusMainWindow();
-    graceTimer = setTimeout(() => {
-      autoStop();
-    }, GRACE_MS);
-  }
-
-  async function autoStop() {
-    const at = stopAtMs;
-    clearGrace();
-    if (!timerActive) return;
-    timerActive = false;
-    await stopTimerAt(at);
-  }
-
   async function confirmStillWorking() {
-    clearGrace();
     await sendHeartbeat();
     sendToMainWindow('idle:dismissed', {});
   }
 
   async function confirmStop() {
-    const at = stopAtMs || Date.now() - idleTimeoutMinutes * 60 * 1000;
-    clearGrace();
-    timerActive = false;
-    await stopTimerAt(at);
+    // Kept for compatibility with older renderer bundles. An idle IPC action
+    // is never treated as an explicit clock-out in EvilTime.
+    await confirmStillWorking();
   }
 
   function onTimerStatusUpdate(data) {
     const active = Boolean(data && data.active && !data.paused);
     timerActive = active;
-    if (data && data.idle_timeout_minutes != null) {
-      idleTimeoutMinutes = clampIdleTimeoutMinutes(data.idle_timeout_minutes);
-    }
-    if (!active) {
-      clearGrace();
-      return;
-    }
-    // Server already marked this timer idle (#722) — show prompt even if OS idle
-    // time has not crossed the threshold yet (e.g. after reconnect).
-    if (data && data.idle_notified && !promptShown) {
-      beginGrace();
-    }
   }
 
   function tick() {
-    if (!timerActive || promptShown) return;
-    let idleSeconds = 0;
-    try {
-      idleSeconds = powerMonitor.getSystemIdleTime();
-    } catch (e) {
-      console.debug('[IdleMonitor] getSystemIdleTime failed:', e.message);
-      return;
-    }
-    const thresholdSeconds = idleTimeoutMinutes * 60;
-    if (idleSeconds >= thresholdSeconds) {
-      beginGrace();
-      return;
-    }
-    // User is active — keep server heartbeat fresh (throttled by check interval).
-    if (idleSeconds < 60) {
-      sendHeartbeat().catch(() => {});
-    }
+    if (!timerActive) return;
+    sendHeartbeat().catch(() => {});
   }
 
   function start() {
@@ -189,7 +89,6 @@ function createIdleMonitor({ store, sendToMainWindow, focusMainWindow }) {
       clearInterval(checkInterval);
       checkInterval = null;
     }
-    clearGrace();
   }
 
   return {

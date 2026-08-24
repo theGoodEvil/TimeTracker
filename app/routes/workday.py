@@ -18,9 +18,18 @@ workday_bp = Blueprint("workday", __name__)
 @workday_bp.route("/workday/start", methods=["POST"])
 @login_required
 def start_workday():
+    from app.services.time_tracking_service import TimeTrackingService
+
     notes = request.form.get("notes", "").strip() or None
-    result = WorkdaySessionService().start_workday(current_user.id, notes=notes, source="manual")
+    project_id = request.form.get("project_id", type=int) or getattr(current_user, "default_project_id", None)
+    if not project_id:
+        flash(_("Choose a project, or configure a default project in settings."), "error")
+        return redirect(request.referrer or url_for("main.dashboard"))
+    result = TimeTrackingService().start_timer(current_user.id, project_id, notes=notes)
     if result["success"]:
+        from app.utils.realtime import emit_timer_state
+
+        emit_timer_state("timer_started", result["timer"])
         flash(_("Workday started"), "success")
     else:
         flash(result.get("message", _("Could not start workday")), "error")
@@ -30,6 +39,8 @@ def start_workday():
 @workday_bp.route("/workday/end", methods=["POST"])
 @login_required
 def end_workday():
+    from app.services.time_tracking_service import TimeTrackingService
+
     from app.services.workday_session_service import parse_workday_end_time
 
     notes = request.form.get("notes", "").strip() or None
@@ -46,8 +57,18 @@ def end_workday():
             flash(_("Invalid leave time"), "error")
             return redirect(request.referrer or url_for("main.dashboard"))
 
-    result = WorkdaySessionService().end_workday(current_user.id, notes=notes, at_time=at_time)
+    result = TimeTrackingService().stop_timer(current_user.id, end_time=at_time)
+    # Existing installations may still have an open pre-EvilTime attendance
+    # session. Allow closing it, but never create new standalone sessions.
+    if not result["success"] and result.get("error") == "no_active_timer":
+        legacy = WorkdaySessionService().get_active_session(current_user.id)
+        if legacy:
+            result = WorkdaySessionService().end_workday(current_user.id, notes=notes, at_time=at_time)
     if result["success"]:
+        if "entry" in result:
+            from app.utils.realtime import emit_timer_state
+
+            emit_timer_state("timer_stopped", result["entry"])
         flash(_("Workday ended"), "success")
     else:
         flash(result.get("message", _("Could not end workday")), "error")
@@ -114,9 +135,13 @@ def resolve_auto_closed_workday(session_id):
 @workday_bp.route("/workday/break/start", methods=["POST"])
 @login_required
 def start_break():
-    break_type = request.form.get("break_type", "rest").strip() or "rest"
-    result = AttendanceComplianceService().start_break(current_user.id, break_type=break_type)
+    from app.services.time_tracking_service import TimeTrackingService
+
+    result = TimeTrackingService().pause_timer(current_user.id)
     if result["success"]:
+        from app.utils.realtime import emit_timer_state
+
+        emit_timer_state("timer_paused", result["entry"])
         flash(_("Break started"), "success")
     else:
         flash(result.get("message", _("Could not start break")), "error")
@@ -126,8 +151,13 @@ def start_break():
 @workday_bp.route("/workday/break/end", methods=["POST"])
 @login_required
 def end_break():
-    result = AttendanceComplianceService().end_break(current_user.id)
+    from app.services.time_tracking_service import TimeTrackingService
+
+    result = TimeTrackingService().resume_timer(current_user.id)
     if result["success"]:
+        from app.utils.realtime import emit_timer_state
+
+        emit_timer_state("timer_resumed", result["entry"])
         flash(_("Break ended"), "success")
     else:
         flash(result.get("message", _("Could not end break")), "error")
@@ -137,12 +167,16 @@ def end_break():
 @workday_bp.route("/workday/status")
 @login_required
 def workday_status():
-    status = AttendanceComplianceService().get_status(current_user.id)
-    session = WorkdaySessionService().get_active_session(current_user.id)
-    status["legacy_session"] = session.to_dict() if session else None
-    status["active"] = status.get("work_active", False)
-    status["session"] = status.get("work_period")
-    return jsonify(status)
+    timer = current_user.active_timer
+    return jsonify(
+        {
+            "active": timer is not None,
+            "work_active": timer is not None,
+            "on_break": bool(timer and timer.is_paused),
+            "session": timer.to_dict() if timer else None,
+            "timer": timer.to_dict() if timer else None,
+        }
+    )
 
 
 @workday_bp.route("/workday/history")

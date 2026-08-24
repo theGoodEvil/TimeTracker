@@ -1,0 +1,470 @@
+"""Capture and present project timer state transitions."""
+
+from __future__ import annotations
+
+from flask import has_app_context
+
+from app import db
+from app.models import TimerEvent
+from app.utils.db import safe_commit
+
+TIMELINE_START_MINUTE = 8 * 60
+TIMELINE_END_MINUTE = 22 * 60
+
+BREAK_EVENT_TYPES = ("break_start", "break_end")
+BOUNDARY_EVENT_TYPES = ("clock_in", "clock_out", "project_switch")
+
+
+def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=None):
+    """Persist an event after a timer mutation; updates existing boundary events to avoid duplicates."""
+    if not entry or event_type not in {"clock_in", "project_switch", "clock_out", "break_start", "break_end"}:
+        return None
+    # Unit tests exercise the services outside a Flask app context; timer events are
+    # a persistence side effect and can be skipped when there is nowhere to persist.
+    if not has_app_context():
+        return None
+    event_time = occurred_at or entry.start_time
+    # If a boundary TimerEvent for this entry and event_type already exists, update it
+    if event_type in BOUNDARY_EVENT_TYPES:
+        existing = TimerEvent.query.filter_by(
+            user_id=entry.user_id,
+            time_entry_id=entry.id,
+            event_type=event_type,
+        ).first()
+        if existing:
+            existing.occurred_at = event_time
+            if related_entry_id is not None:
+                existing.related_entry_id = related_entry_id
+            safe_commit("record_timer_event_update", {"entry_id": entry.id, "event_type": event_type})
+            return existing
+
+    event = TimerEvent(
+        user_id=entry.user_id,
+        time_entry_id=entry.id,
+        related_entry_id=related_entry_id,
+        event_type=event_type,
+        occurred_at=event_time,
+    )
+    db.session.add(event)
+    if safe_commit("record_timer_event", {"entry_id": entry.id, "event_type": event_type}):
+        return event
+    return None
+
+
+def get_break_events(user_id, entry_id):
+    """All captured break events for one entry, in chronological order."""
+    return (
+        TimerEvent.query.filter_by(user_id=user_id, time_entry_id=entry_id)
+        .filter(TimerEvent.event_type.in_(BREAK_EVENT_TYPES))
+        .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+        .all()
+    )
+
+
+def get_break_pairs(user_id, entry_id):
+    """Matched (break_start, break_end) event pairs for one entry."""
+    pairs = []
+    current_start = None
+    for event in get_break_events(user_id, entry_id):
+        if event.event_type == "break_start":
+            current_start = event
+        elif event.event_type == "break_end" and current_start is not None:
+            pairs.append({"start": current_start, "end": event})
+            current_start = None
+    return pairs
+
+
+def break_event_ids_after_split(events, split_at):
+    """Return IDs of complete break groups that belong after ``split_at``.
+
+    A split on a break start moves the whole pair; a split on its end keeps the
+    whole pair on the earlier entry. ``None`` signals that the requested split
+    falls inside a completed or open break and would tear its events apart.
+    """
+    move_ids = set()
+    open_start = None
+
+    for event in events:
+        if event.event_type == "break_start":
+            if open_start is not None:
+                if open_start.occurred_at < split_at:
+                    return None
+                move_ids.add(open_start.id)
+            open_start = event
+            continue
+
+        if event.event_type != "break_end":
+            continue
+        if open_start is None:
+            if event.occurred_at >= split_at:
+                move_ids.add(event.id)
+            continue
+
+        if open_start.occurred_at < split_at < event.occurred_at:
+            return None
+        if split_at <= open_start.occurred_at:
+            move_ids.update((open_start.id, event.id))
+        open_start = None
+
+    if open_start is not None:
+        if open_start.occurred_at < split_at:
+            return None
+        move_ids.add(open_start.id)
+
+    return move_ids
+
+
+def sum_break_seconds(events):
+    """Total break seconds across ordered break_start/break_end events."""
+    total = 0
+    current_start = None
+    for event in events:
+        if event.event_type == "break_start":
+            current_start = event.occurred_at
+        elif event.event_type == "break_end" and current_start is not None:
+            if event.occurred_at > current_start:
+                total += int((event.occurred_at - current_start).total_seconds())
+            current_start = None
+    return total
+
+
+def recompute_break_seconds(entry):
+    """Recompute entry.break_seconds from its captured break event pairs."""
+    events = get_break_events(entry.user_id, entry.id)
+    entry.break_seconds = sum_break_seconds(events)
+    if entry.end_time:
+        entry.calculate_duration()
+    return entry.break_seconds
+
+
+def replace_break_events(entry, breaks):
+    """Replace captured break events with the given (start, end) datetime pairs.
+
+    The caller owns the surrounding transaction; nothing is committed here so the
+    break sync stays atomic with whatever else the caller persists.
+    """
+    TimerEvent.query.filter_by(user_id=entry.user_id, time_entry_id=entry.id).filter(
+        TimerEvent.event_type.in_(BREAK_EVENT_TYPES)
+    ).delete(synchronize_session=False)
+    total = 0
+    for start_at, end_at in breaks:
+        db.session.add(
+            TimerEvent(user_id=entry.user_id, time_entry_id=entry.id, event_type="break_start", occurred_at=start_at)
+        )
+        db.session.add(
+            TimerEvent(user_id=entry.user_id, time_entry_id=entry.id, event_type="break_end", occurred_at=end_at)
+        )
+        total += int((end_at - start_at).total_seconds())
+    return total
+
+
+def delete_entry_events(entry_id):
+    """Remove all timer events attached to an entry; call before deleting the entry itself."""
+    if not has_app_context():
+        return
+    TimerEvent.query.filter_by(time_entry_id=entry_id).delete(synchronize_session=False)
+
+
+def merge_project_switch(previous_entry, subsequent_entry):
+    """Remove a project boundary while preserving all recorded work and breaks.
+
+    The earlier entry absorbs the subsequent entry. Boundary audit events are
+    normalized, break events are retained, and later switches are relinked to
+    the surviving entry. The caller owns the transaction.
+    """
+    if not previous_entry or not subsequent_entry or previous_entry.user_id != subsequent_entry.user_id:
+        raise ValueError("The project switch entries do not belong together.")
+    if not previous_entry.end_time:
+        raise ValueError("The previous session has no project-switch boundary.")
+    boundary_gap = abs((subsequent_entry.start_time - previous_entry.end_time).total_seconds())
+    if boundary_gap > 10:
+        raise ValueError("The sessions are no longer contiguous at this project switch.")
+
+    from app.models import ClientPrepaidConsumption
+
+    previous_consumption = ClientPrepaidConsumption.query.filter_by(time_entry_id=previous_entry.id).first()
+    subsequent_consumption = ClientPrepaidConsumption.query.filter_by(time_entry_id=subsequent_entry.id).first()
+    if previous_consumption and subsequent_consumption:
+        previous_key = (
+            previous_consumption.client_id,
+            previous_consumption.invoice_id,
+            previous_consumption.allocation_month,
+        )
+        subsequent_key = (
+            subsequent_consumption.client_id,
+            subsequent_consumption.invoice_id,
+            subsequent_consumption.allocation_month,
+        )
+        if previous_key != subsequent_key:
+            raise ValueError("The project sessions have incompatible prepaid-hour allocations.")
+        previous_consumption.seconds_consumed += subsequent_consumption.seconds_consumed
+        db.session.delete(subsequent_consumption)
+    elif subsequent_consumption:
+        subsequent_consumption.time_entry_id = previous_entry.id
+
+    # Preserve every non-cascading reference before the absorbed TimeEntry is
+    # deleted. Core updates avoid stale ORM relationship state nulling required
+    # foreign keys during flush on PostgreSQL.
+    for table_name in (
+        "time_entry_approvals",
+        "client_time_approvals",
+        "calendar_sync_events",
+        "focus_sessions",
+        "integration_external_event_links",
+    ):
+        table = db.metadata.tables.get(table_name)
+        if table is not None:
+            db.session.execute(
+                table.update()
+                .where(table.c.time_entry_id == subsequent_entry.id)
+                .values(time_entry_id=previous_entry.id)
+            )
+
+    attached_events = TimerEvent.query.filter_by(
+        user_id=previous_entry.user_id,
+        time_entry_id=subsequent_entry.id,
+    ).all()
+    for event in attached_events:
+        if event.event_type in BREAK_EVENT_TYPES or event.event_type == "clock_out":
+            event.time_entry_id = previous_entry.id
+        else:
+            db.session.delete(event)
+
+    TimerEvent.query.filter_by(
+        user_id=previous_entry.user_id,
+        related_entry_id=subsequent_entry.id,
+    ).update({TimerEvent.related_entry_id: previous_entry.id}, synchronize_session=False)
+
+    previous_entry.end_time = subsequent_entry.end_time
+    previous_entry.paused_at = subsequent_entry.paused_at
+    previous_entry.last_heartbeat_at = subsequent_entry.last_heartbeat_at
+    previous_entry.idle_notified_at = subsequent_entry.idle_notified_at
+
+    db.session.flush()
+    clock_out_events = (
+        TimerEvent.query.filter_by(
+            user_id=previous_entry.user_id,
+            time_entry_id=previous_entry.id,
+            event_type="clock_out",
+        )
+        .order_by(TimerEvent.id.asc())
+        .all()
+    )
+    for index, event in enumerate(clock_out_events):
+        if previous_entry.end_time and index == 0:
+            event.occurred_at = previous_entry.end_time
+        else:
+            db.session.delete(event)
+
+    recompute_break_seconds(previous_entry)
+    if previous_entry.end_time is None:
+        previous_entry.duration_seconds = None
+    db.session.delete(subsequent_entry)
+    return previous_entry
+
+
+def fabricate_centered_break(entry, break_seconds, session_start, session_end):
+    """Insert one break event pair of the given total duration, centered in the session.
+
+    Manual entries only record an aggregate break amount; centering it in the session
+    gives that amount a concrete place on the dashboard timeline. Caller commits.
+    """
+    from datetime import timedelta
+
+    midpoint = session_start + (session_end - session_start) / 2
+    half_break = timedelta(seconds=break_seconds / 2)
+    break_start = max(midpoint - half_break, session_start)
+    break_end = min(midpoint + half_break, session_end)
+
+    db.session.add_all(
+        [
+            TimerEvent(
+                user_id=entry.user_id, time_entry_id=entry.id, event_type="break_start", occurred_at=break_start
+            ),
+            TimerEvent(user_id=entry.user_id, time_entry_id=entry.id, event_type="break_end", occurred_at=break_end),
+        ]
+    )
+
+
+def _datetime_in_user_timezone(dt, user):
+    """Return a datetime as seen in the user's timezone.
+
+    Aware datetimes are converted directly; naive ones are treated as stored
+    app-timezone values (the convention used across the database).
+    """
+    from app.utils.timezone import convert_app_datetime_to_user, get_timezone_for_user
+
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        return dt.astimezone(get_timezone_for_user(user))
+    return convert_app_datetime_to_user(dt, user) or dt
+
+
+def _minute_on_timeline(dt, user, timeline_date):
+    shown = _datetime_in_user_timezone(dt, user)
+    day_offset = (shown.date() - timeline_date).days
+    return day_offset * 24 * 60 + shown.hour * 60 + shown.minute + shown.second / 60
+
+
+def current_timeline_position(now=None, user=None, timeline_date=None):
+    """Percent position of 'now' on the dashboard timeline, clamped to [0, 100].
+
+    Uses the user's timezone so the indicator lands where "now" actually sits
+    relative to the displayed event times, even when the app timezone differs.
+    """
+    from app.utils.timezone import now_in_user_timezone
+
+    if now is None:
+        now = now_in_user_timezone(user)
+    shown = _datetime_in_user_timezone(now, user)
+    resolved_date = timeline_date or shown.date()
+    minute = _minute_on_timeline(shown, user, resolved_date)
+    span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
+    return round(max(0.0, min(100.0, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
+
+
+def build_timeline_segments(timeline, now=None, user=None, timeline_date=None):
+    """Derive colored work/break segments from an ordered timeline for rendering."""
+    segments = []
+    current_status = "none"
+    last_position = None
+
+    def close_segment(end_position):
+        if last_position is None or current_status == "none":
+            return
+        segments.append(
+            {
+                "type": current_status,
+                "start": last_position,
+                "width": max(0, end_position - last_position),
+            }
+        )
+
+    status_by_type = {
+        "clock_in": "active",
+        "project_switch": "active",
+        "break_end": "active",
+        "break_start": "break",
+        "clock_out": "none",
+    }
+    for event in timeline:
+        position = event["timeline_position"]
+        close_segment(position)
+        current_status = status_by_type.get(event["event_type"], current_status)
+        last_position = position
+
+    if last_position is not None and current_status != "none":
+        now_position = current_timeline_position(now=now, user=user, timeline_date=timeline_date)
+        if now_position > last_position:
+            segments.append({"type": current_status, "start": last_position, "width": now_position - last_position})
+
+    return segments
+
+
+def build_timeline(user, entries, timeline_date=None):
+    """Combine exact captured events (breaks) with inferred historical entry boundaries."""
+    entries = sorted(entries, key=lambda item: (item.start_time, item.id))
+    if not entries:
+        return []
+
+    if timeline_date is None:
+        from app.utils.timezone import now_in_user_timezone
+
+        timeline_date = now_in_user_timezone(user).date()
+
+    ids = [entry.id for entry in entries]
+
+    # ONLY fetch breaks from TimerEvent! Boundary events are always inferred from TimeEntry to prevent desync.
+    break_events = (
+        TimerEvent.query.filter(
+            TimerEvent.user_id == user.id,
+            TimerEvent.time_entry_id.in_(ids),
+            TimerEvent.event_type.in_(BREAK_EVENT_TYPES),
+        )
+        .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+        .all()
+    )
+
+    timeline = []
+
+    for event in break_events:
+        project = event.entry.project if event.entry else None
+
+        # Clamp breaks strictly within TimeEntry boundaries so they don't look weird if start_time/end_time was edited
+        occurred_at = event.occurred_at
+        if event.entry:
+            if occurred_at < event.entry.start_time:
+                occurred_at = event.entry.start_time
+            if event.entry.end_time and occurred_at > event.entry.end_time:
+                occurred_at = event.entry.end_time
+
+        # Skip break_end if it's exactly on top of clock_out
+        if event.event_type == "break_end" and event.entry and event.entry.end_time:
+            if abs((occurred_at - event.entry.end_time).total_seconds()) <= 2:
+                continue
+
+        timeline.append(
+            {
+                "event_id": event.id,
+                "entry_id": event.time_entry_id,
+                "related_entry_id": event.related_entry_id,
+                "event_type": event.event_type,
+                "occurred_at": occurred_at,
+                "project_name": project.name if project else None,
+                "captured": True,
+            }
+        )
+
+    for index, entry in enumerate(entries):
+        previous = entries[index - 1] if index else None
+        contiguous_previous = bool(
+            previous and previous.end_time and abs((entry.start_time - previous.end_time).total_seconds()) <= 10
+        )
+        start_type = "project_switch" if contiguous_previous else "clock_in"
+
+        timeline.append(
+            {
+                "event_id": None,
+                "entry_id": entry.id,
+                "related_entry_id": previous.id if contiguous_previous else None,
+                "event_type": start_type,
+                "occurred_at": entry.start_time,
+                "project_name": entry.project.name if entry.project else None,
+                "captured": False,
+            }
+        )
+
+        next_entry = entries[index + 1] if index + 1 < len(entries) else None
+        contiguous_next = bool(
+            entry.end_time and next_entry and abs((next_entry.start_time - entry.end_time).total_seconds()) <= 10
+        )
+        if entry.end_time and not contiguous_next:
+            timeline.append(
+                {
+                    "event_id": None,
+                    "entry_id": entry.id,
+                    "related_entry_id": None,
+                    "event_type": "clock_out",
+                    "occurred_at": entry.end_time,
+                    "project_name": entry.project.name if entry.project else None,
+                    "captured": False,
+                }
+            )
+
+    timeline = sorted(timeline, key=lambda item: (item["occurred_at"], item["event_id"] or 0))
+    span = TIMELINE_END_MINUTE - TIMELINE_START_MINUTE
+    # Lanes alternate within each event group (boundaries vs breaks) instead of
+    # globally, so deleting one marker never reshuffles unrelated markers onto
+    # the other label row.
+    lane_counters = {"boundary": 0, "break": 0}
+    for item in timeline:
+        # Positions are derived from the same user-timezone view that renders
+        # the displayed times, so markers always line up with their labels.
+        minute = _minute_on_timeline(item["occurred_at"], user, timeline_date)
+        item["timeline_position"] = round(max(0, min(100, (minute - TIMELINE_START_MINUTE) / span * 100)), 4)
+        group = "break" if item["event_type"] in BREAK_EVENT_TYPES else "boundary"
+        item["timeline_lane"] = lane_counters[group] % 2
+        lane_counters[group] += 1
+        item["outside_timeline"] = minute < TIMELINE_START_MINUTE or minute > TIMELINE_END_MINUTE
+    return timeline

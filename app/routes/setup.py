@@ -129,7 +129,7 @@ def initial_setup():
                 check_and_send_telemetry()
             except Exception:
                 pass
-            flash(_("Setup complete! Thank you for helping us improve TimeTracker."), "success")
+            flash(_("EvilTime setup complete."), "success")
         else:
             flash(
                 _("Setup complete! Detailed analytics is disabled; anonymous base telemetry remains active."), "success"

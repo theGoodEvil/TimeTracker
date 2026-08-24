@@ -95,6 +95,7 @@ class KeyboardShortcutManager {
         this.register('c c', () => this.createClient(), { id: 'create_client', description: 'Create new client', category: 'Actions' });
         this.register('t s', () => this.startTimer(), { id: 'timer_start', description: 'Start timer', category: 'Timer' });
         this.register('t p', () => this.pauseTimer(), { id: 'timer_pause', description: 'Pause timer', category: 'Timer' });
+        this.register('t o', () => this.clockOut(), { id: 'timer_stop', description: 'Clock out', category: 'Timer' });
         this.register('t l', () => this.logTime(), { id: 'timer_log', description: 'Log time manually', category: 'Timer' });
         this.register('Ctrl+A', () => this.selectAllRows(), { id: 'table_select_all', context: 'table', description: 'Select all rows', category: 'Table' });
         this.register('Delete', () => this.deleteSelected(), { id: 'table_delete', context: 'table', description: 'Delete selected rows', category: 'Table' });
@@ -495,13 +496,23 @@ class KeyboardShortcutManager {
     }
 
     startTimer() {
-        const btn = document.querySelector('#openStartTimer, button[onclick*="startTimer"]');
-        if (btn) btn.click();
+        if (window.evilTimeTimerControl) window.evilTimeTimerControl.open();
     }
 
-    pauseTimer() {
-        const btn = document.querySelector('button[onclick*="pauseTimer"], button[onclick*="stopTimer"]');
-        if (btn) btn.click();
+    async pauseTimer() {
+        if (!window.evilTimeTimerControl) return;
+        try {
+            const response = await fetch('/api/timer/status', { credentials: 'same-origin' });
+            const status = await response.json();
+            if (!status.active) window.evilTimeTimerControl.open();
+            else window.evilTimeTimerControl.action(status.timer.paused ? 'resume' : 'pause');
+        } catch (_) {
+            window.evilTimeTimerControl.open();
+        }
+    }
+
+    clockOut() {
+        if (window.evilTimeTimerControl) window.evilTimeTimerControl.action('stop');
     }
 
     logTime() {
@@ -581,6 +592,4 @@ class KeyboardShortcutManager {
 
 // Initialize
 window.shortcutManager = new KeyboardShortcutManager();
-
-
 

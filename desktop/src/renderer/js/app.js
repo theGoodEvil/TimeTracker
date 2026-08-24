@@ -450,7 +450,7 @@ async function handleLoginTestServer() {
     return;
   }
   const ver = pub.app_version ? ` (server version ${pub.app_version})` : '';
-  showSuccess(`TimeTracker server detected${ver}. Continue to sign in.`);
+  showSuccess(`EvilTime server detected${ver}. Continue to sign in.`);
   if (contServer) contServer.disabled = false;
 }
 

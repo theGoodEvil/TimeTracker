@@ -75,11 +75,9 @@ def safe_commit(action: Optional[str] = None, context: Optional[Dict[str, Any]] 
         return True
     except ProgrammingError as e:
         # Check if this is a "relation does not exist" error for optional tables
-        # (time_entry_approvals, donation_interactions) - model has relationship but table missing
+        # (time_entry_approvals) - model has relationship but table missing
         error_str = str(e.orig) if hasattr(e, "orig") else str(e)
-        missing_table = ("time_entry_approvals" in error_str and "does not exist" in error_str) or (
-            "donation_interactions" in error_str and "does not exist" in error_str
-        )
+        missing_table = "time_entry_approvals" in error_str and "does not exist" in error_str
         if missing_table:
             # Try to rollback and retry the commit
             try:

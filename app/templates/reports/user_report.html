@@ -116,27 +116,27 @@
             {% for username, totals in user_totals.items() %}
             <tr class="border-b border-border-light dark:border-border-dark">
                 <td class="p-2" data-label="User">{{ username }}</td>
-                <td class="p-2 font-semibold" data-label="Total Hours">{{ "%.2f"|format(totals.hours) }}</td>
+                <td class="p-2 font-semibold" data-label="Total Hours">{{ totals.hours|hours_minutes }}</td>
                 <td class="p-2 text-green-600 dark:text-green-400" data-label="Regular Hours">
-                    {{ "%.2f"|format(totals.regular_hours) if totals.regular_hours is defined else "%.2f"|format(totals.hours) }}
+                    {% if totals.regular_hours is defined %}{{ totals.regular_hours|hours_minutes }}{% else %}{{ totals.hours|hours_minutes }}{% endif %}
                 </td>
                 <td class="p-2" data-label="Overtime Hours">
                     {% if totals.overtime_hours is defined and totals.overtime_hours > 0 %}
                         <span class="text-orange-600 dark:text-orange-400 font-semibold">
-                            <i class="fas fa-business-time mr-1"></i>{{ "%.2f"|format(totals.overtime_hours) }}
+                            <i class="fas fa-business-time mr-1"></i>{{ totals.overtime_hours|hours_minutes }}
                         </span>
                     {% else %}
-                        <span class="text-gray-400">0.00</span>
+                        <span class="text-gray-400">0:00h</span>
                     {% endif %}
                 </td>
                 <td class="p-2" data-label="Undertime Hours">
                     {% if totals.undertime_hours is defined and totals.undertime_hours > 0 %}
-                        <span class="text-amber-600 dark:text-amber-400 font-medium">{{ "%.2f"|format(totals.undertime_hours) }}</span>
+                        <span class="text-amber-600 dark:text-amber-400 font-medium">{{ totals.undertime_hours|hours_minutes }}</span>
                     {% else %}
-                        <span class="text-gray-400">0.00</span>
+                        <span class="text-gray-400">0:00h</span>
                     {% endif %}
                 </td>
-                <td class="p-2" data-label="Billable Hours">{{ "%.2f"|format(totals.billable_hours) }}</td>
+                <td class="p-2" data-label="Billable Hours">{{ totals.billable_hours|hours_minutes }}</td>
                 <td class="p-2 text-center" data-label="Days with Overtime">
                     {% if totals.days_with_overtime is defined and totals.days_with_overtime > 0 %}
                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">

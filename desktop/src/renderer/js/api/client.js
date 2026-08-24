@@ -82,7 +82,7 @@ function classifyAxiosError(error) {
   if (error.code === 'ECONNREFUSED') {
     return {
       code: 'REFUSED',
-      message: 'Connection refused. Check the host, port, and that the TimeTracker server is running.',
+      message: 'Connection refused. Check the host, port, and that the EvilTime server is running.',
     };
   }
   if (error.code === 'ENETUNREACH' || error.code === 'EHOSTUNREACH') {
@@ -96,7 +96,7 @@ function classifyAxiosError(error) {
     return {
       code: 'UNKNOWN',
       message:
-        'Server not reachable. Check the URL, VPN, firewall, and that the TimeTracker server is running.',
+        'Server not reachable. Check the URL, VPN, firewall, and that the EvilTime server is running.',
     };
   }
   return { code: 'UNKNOWN', message: msg };
@@ -106,7 +106,7 @@ function classifyAxiosError(error) {
  * @param {unknown} data
  * @returns {boolean}
  */
-function isTimeTrackerInfoPayload(data) {
+function isEvilTimeInfoPayload(data) {
   return (
     data !== null &&
     typeof data === 'object' &&
@@ -191,7 +191,7 @@ class ApiClient {
   }
 
   /**
-   * Unauthenticated check: reachable TimeTracker JSON at GET /api/v1/info.
+   * Unauthenticated check: reachable EvilTime JSON at GET /api/v1/info.
    * @param {string} baseUrl
    * @returns {Promise<ValidationResult>}
    */
@@ -226,12 +226,12 @@ class ApiClient {
         };
       }
       const data = response.data;
-      if (!isTimeTrackerInfoPayload(data)) {
+      if (!isEvilTimeInfoPayload(data)) {
         return {
           ok: false,
           code: 'NOT_TIMETRACKER',
           message:
-            'This address did not return a TimeTracker API response. Check the URL (base URL only, no path) and port.',
+            'This address did not return an EvilTime API response. Check the URL (base URL only, no path) and port.',
         };
       }
       if (data.setup_required === true) {
@@ -239,7 +239,7 @@ class ApiClient {
           ok: false,
           code: 'SETUP_REQUIRED',
           message:
-            'TimeTracker is not fully set up yet. Open this server URL in a browser, complete initial setup, then try again.',
+            'EvilTime is not fully set up yet. Open this server URL in a browser, complete initial setup, then try again.',
         };
       }
       const appVersion = typeof data.app_version === 'string' ? data.app_version : null;
@@ -313,7 +313,7 @@ class ApiClient {
         return {
           ok: false,
           code: 'INVALID_RESPONSE',
-          message: 'Server response was not a valid TimeTracker user payload.',
+          message: 'Server response was not a valid EvilTime user payload.',
         };
       }
       return { ok: true };
@@ -563,5 +563,6 @@ class ApiClient {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = ApiClient;
   module.exports.classifyAxiosError = classifyAxiosError;
-  module.exports.isTimeTrackerInfoPayload = isTimeTrackerInfoPayload;
+  module.exports.isEvilTimeInfoPayload = isEvilTimeInfoPayload;
+  module.exports.isTimeTrackerInfoPayload = isEvilTimeInfoPayload;
 }

@@ -309,16 +309,23 @@ class WorkforceGovernanceService:
             user_query = user_query.filter(User.id.in_(team_user_ids))
         users = user_query.order_by(User.username.asc()).all()
 
+        from app.services.weekly_work_service import WeeklyWorkService
+        from app.models import WeeklyTimeGoal
+
         rows: List[Dict[str, Any]] = []
         for user in users:
-            default_daily_hours = float(getattr(user, "default_daily_working_hours", 8) or 8)
-            working_days = 0
+            is_single_week = start_date.weekday() == 0 and end_date == start_date + timedelta(days=6)
+
+            expected_hours = 0.0
             day = start_date
             while day <= end_date:
                 if day.weekday() < 5 and not self.is_holiday(day):
-                    working_days += 1
+                    week_start = WeeklyWorkService.week_start(day, user)
+                    weekly_expected = WeeklyWorkService.expected_hours(user, week_start)
+                    expected_hours += weekly_expected / 5.0
                 day += timedelta(days=1)
-            expected_hours = round(working_days * default_daily_hours, 2)
+
+            expected_hours = round(expected_hours, 2)
 
             entry_seconds = (
                 db.session.query(func.sum(TimeEntry.duration_seconds))
@@ -331,7 +338,17 @@ class WorkforceGovernanceService:
                 .scalar()
                 or 0
             )
-            allocated_hours = round(float(entry_seconds) / 3600.0, 2)
+            allocated_hours = float(entry_seconds) / 3600.0
+            if is_single_week:
+                week_start = WeeklyWorkService.week_start(start_date, user)
+                goal = WeeklyTimeGoal.query.filter(
+                    WeeklyTimeGoal.user_id == user.id,
+                    WeeklyTimeGoal.week_start_date == week_start,
+                    WeeklyTimeGoal.status != "cancelled",
+                ).first()
+                if goal:
+                    allocated_hours += float(goal.actual_hours_adjustment or 0)
+            allocated_hours = round(max(0, allocated_hours), 2)
 
             leave_hours = (
                 db.session.query(func.sum(TimeOffRequest.requested_hours))

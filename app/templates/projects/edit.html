@@ -14,7 +14,7 @@
 <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
     <div class="lg:col-span-2">
         <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
-            <form method="POST" action="{{ url_for('projects.edit_project', project_id=project.id) }}" novalidate data-validate-form>
+            <form method="POST" action="{{ url_for('projects.edit_project', project_id=project.id) }}" enctype="multipart/form-data" novalidate data-validate-form>
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
 
                 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -42,6 +42,8 @@
                         <p class="text-xs mt-1"><a href="{{ url_for('clients.create_client') }}" class="text-primary hover:underline">{{ _('Create new client') }}</a></p>
                     </div>
                 </div>
+
+                {% include 'projects/_icon_picker.html' %}
 
                 <div>
                     <div class="flex items-center justify-between">
@@ -142,6 +144,7 @@
 {% endblock %}
 
 {% block scripts_extra %}
+<script src="{{ asset_url('project-emoji-picker') }}"></script>
 <script src="{{ url_for('static', filename='vendor/pickr/pickr.min.js') }}"></script>
 <script src="{{ url_for('static', filename='js/gantt-color-picker.js') }}"></script>
 <script src="{{ url_for('static', filename='vendor/toastui/toastui-editor.js') }}"></script>
@@ -223,5 +226,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
-

@@ -580,9 +580,15 @@ def _weekly_goal_to_dict(goal):
     return {
         "id": goal.id,
         "user_id": goal.user_id,
-        "week_start": goal.week_start.isoformat() if goal.week_start else None,
-        "target_hours": float(goal.target_hours) if goal.target_hours else None,
+        "week_start": goal.week_start_date.isoformat() if goal.week_start_date else None,
+        "week_end": goal.week_end_date.isoformat() if goal.week_end_date else None,
+        "target_hours": float(goal.target_hours) if goal.target_hours is not None else None,
+        "actual_hours_adjustment": goal.actual_hours_adjustment,
+        "exclude_weekends": goal.exclude_weekends,
+        "status": goal.status,
+        "notes": goal.notes,
         "created_at": goal.created_at.isoformat() if goal.created_at else None,
+        "updated_at": goal.updated_at.isoformat() if goal.updated_at else None,
     }
 
 

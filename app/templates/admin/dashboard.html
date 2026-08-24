@@ -112,7 +112,7 @@
         <div class="flex items-start justify-between">
             <div class="flex-1">
                 <p class="text-sm font-medium text-text-muted-light dark:text-text-muted-dark mb-1">{{ _('Total Hours') }}</p>
-                <h3 class="text-3xl font-bold text-text-light dark:text-text-dark mb-2">{{ "%.1f"|format(stats.total_hours / 3600 if stats.total_hours else 0) }}</h3>
+                <h3 class="text-3xl font-bold text-text-light dark:text-text-dark mb-2">{{ (stats.total_hours / 3600 if stats.total_hours else 0)|hours_minutes }}</h3>
                 <p class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('All time tracked') }}</p>
             </div>
             <div class="w-12 h-12 bg-cyan-500/10 dark:bg-cyan-500/20 rounded-lg flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-200">
@@ -127,7 +127,7 @@
         <div class="flex items-start justify-between">
             <div class="flex-1">
                 <p class="text-sm font-medium text-text-muted-light dark:text-text-muted-dark mb-1">{{ _('Billable Hours') }}</p>
-                <h3 class="text-3xl font-bold text-text-light dark:text-text-dark mb-2">{{ "%.1f"|format(stats.billable_hours / 3600 if stats.billable_hours else 0) }}</h3>
+                <h3 class="text-3xl font-bold text-text-light dark:text-text-dark mb-2">{{ (stats.billable_hours / 3600 if stats.billable_hours else 0)|hours_minutes }}</h3>
                 <p class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Billable time') }}</p>
             </div>
             <div class="w-12 h-12 bg-amber-500/10 dark:bg-amber-500/20 rounded-lg flex items-center justify-center backdrop-blur-sm group-hover:scale-110 transition-transform duration-200">

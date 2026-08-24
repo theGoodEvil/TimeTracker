@@ -35,7 +35,7 @@ class TimeEntry(db.Model):
     billable = db.Column(db.Boolean, default=True, nullable=False)
     paid = db.Column(db.Boolean, default=False, nullable=False, index=True)
     invoice_number = db.Column(db.String(100), nullable=True)
-    # Idle timeout: clients POST /timer/heartbeat while active; server job auto-stops when stale
+    # Best-effort liveness telemetry. Heartbeats never stop a persisted timer.
     last_heartbeat_at = db.Column(db.DateTime, nullable=True, index=True)
     idle_notified_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=local_now, nullable=False)
@@ -62,6 +62,7 @@ class TimeEntry(db.Model):
         invoice_number=None,
         duration_seconds=None,
         break_seconds=None,
+        paused_at=None,
         **kwargs,
     ):
         """Initialize a TimeEntry instance.
@@ -81,10 +82,13 @@ class TimeEntry(db.Model):
             invoice_number: Optional internal invoice number reference
             duration_seconds: Optional duration override (usually calculated automatically)
             break_seconds: Optional break time in seconds to subtract from duration
+            paused_at: Optional timestamp at which an active timer entered a break
             **kwargs: Additional keyword arguments (for SQLAlchemy compatibility)
         """
         if break_seconds is not None:
             self.break_seconds = int(break_seconds)
+        if paused_at is not None:
+            self.paused_at = paused_at
         if user_id is not None:
             self.user_id = user_id
         if project_id is not None:
@@ -281,9 +285,9 @@ class TimeEntry(db.Model):
                 self.duration_seconds = raw_seconds
 
     def record_heartbeat(self, at=None):
-        """Record client activity for idle timeout enforcement.
+        """Record best-effort client liveness without changing timer state.
 
-        Clears any pending idle notification so the server grace window resets.
+        Clear obsolete idle-notification state left by older EvilTime versions.
         """
         if self.end_time:
             raise ValueError("Cannot heartbeat a stopped timer")
@@ -298,10 +302,16 @@ class TimeEntry(db.Model):
             raise ValueError("Timer is already stopped")
 
         # Use local timezone for consistency with database storage
-        if end_time:
-            self.end_time = end_time
-        else:
-            self.end_time = local_now()
+        self.end_time = end_time or local_now()
+
+        # A clock-out while paused must preserve that final break segment. This
+        # also clears the paused state so completed records are self-consistent.
+        if self.paused_at:
+            paused_at = self._naive_dt(self.paused_at)
+            stopped_at = self._naive_dt(self.end_time)
+            if paused_at and stopped_at and stopped_at > paused_at:
+                self.break_seconds = (self.break_seconds or 0) + int((stopped_at - paused_at).total_seconds())
+            self.paused_at = None
 
         self.idle_notified_at = None
         self.calculate_duration()
@@ -386,6 +396,7 @@ class TimeEntry(db.Model):
             "paid": self.paid,
             "invoice_number": self.invoice_number,
             "is_active": self.is_active,
+            "is_paused": self.is_paused,
             "last_heartbeat_at": self.last_heartbeat_at.isoformat() if self.last_heartbeat_at else None,
             "idle_notified": bool(self.idle_notified_at),
             "idle_notified_at": self.idle_notified_at.isoformat() if self.idle_notified_at else None,
@@ -393,8 +404,11 @@ class TimeEntry(db.Model):
             "updated_at": self.updated_at.isoformat() if self.updated_at else None,
             "user": self.user.username if self.user else None,
             "project": self.project.name if self.project else None,
+            "project_name": self.project.name if self.project else None,
             "client": self.client.name if self.client else None,
+            "client_name": self.client.name if self.client else None,
             "task": self.task.name if self.task else None,
+            "task_name": self.task.name if self.task else None,
         }
 
     @classmethod

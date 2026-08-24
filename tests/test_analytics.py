@@ -66,7 +66,9 @@ class TestTrackEvent:
     @patch("app.telemetry.service._send_otlp_event")
     def test_track_event_when_enabled(self, mock_send, _mock_enabled, app):
         """Test that events are sent when OTLP is configured"""
-        with patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}):
+        with patch.dict(
+            os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}
+        ):
             track_event(123, "test.event", {"property": "value"})
             assert mock_send.called
             call_args = mock_send.call_args
@@ -87,13 +89,17 @@ class TestTrackEvent:
     def test_track_event_handles_errors_gracefully(self, mock_send, _mock_enabled, app):
         """Test that tracking errors don't crash the application"""
         mock_send.side_effect = Exception("Telemetry error")
-        with patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}):
+        with patch.dict(
+            os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}
+        ):
             # Should not raise an exception
             track_event(123, "test.event", {})
 
     def test_track_event_with_none_properties(self, app):
         """Test that track_event handles None properties"""
-        with patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}):
+        with patch.dict(
+            os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}
+        ):
             with patch("app.telemetry.service.is_detailed_analytics_enabled", return_value=True):
                 with patch("app.telemetry.service._send_otlp_event") as mock_send:
                     track_event(123, "test.event", None)
@@ -184,6 +190,15 @@ class TestSentryIntegration:
                 mock_init.assert_not_called()
 
 
+def test_testing_app_config_does_not_mutate_database_environment(monkeypatch):
+    monkeypatch.setenv("DATABASE_URL", "sqlite:///:memory:")
+
+    app = create_app({"TESTING": True})
+
+    assert app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:///")
+    assert os.environ["DATABASE_URL"] == "sqlite:///:memory:"
+
+
 class TestRequestIDAttachment:
     """Tests for request ID attachment"""
 
@@ -244,7 +259,9 @@ class TestAnalyticsPrivacy:
     @patch("app.telemetry.service._send_otlp_event")
     def test_telemetry_uses_internal_ids(self, mock_send, _mock_enabled, app):
         """Test that telemetry events use internal IDs, not PII"""
-        with patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}):
+        with patch.dict(
+            os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "https://otlp.example.com", "OTEL_EXPORTER_OTLP_TOKEN": "x"}
+        ):
             # Should use numeric ID, not email
             track_event(123, "test.event", {"project_id": 456})
 

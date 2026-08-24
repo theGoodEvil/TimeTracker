@@ -44,7 +44,7 @@
                         </div>
                         <div>
                             <p class="text-sm font-medium text-text-muted-light dark:text-text-muted-dark">{{ _('Total Hours') }}</p>
-                            <p class="text-lg font-bold text-text-light dark:text-text-dark">{{ "%.2f"|format(stat.total_hours) }}h</p>
+                            <p class="text-lg font-bold text-text-light dark:text-text-dark">{{ stat.total_hours|hours_minutes }}</p>
                         </div>
                     </div>
                 </div>

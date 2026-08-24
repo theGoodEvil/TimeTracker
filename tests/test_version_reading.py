@@ -2,8 +2,6 @@
 Tests for version reading from setup.py
 """
 
-import pytest
-import re
 from app.config.analytics_defaults import _get_version_from_setup, get_analytics_config
 
 
@@ -19,18 +17,14 @@ class TestVersionReading:
         assert isinstance(version, str)
         assert len(version) > 0
 
-        # Should match semantic versioning pattern (e.g., "3.0.0")
-        # Allow versions like: 3.0.0, 3.0.0-beta, 3.0.0.dev1
-        version_pattern = r"^\d+\.\d+\.\d+.*$"
-        assert re.match(version_pattern, version), f"Version '{version}' doesn't match expected pattern"
+        assert version.endswith("-evil")
 
     def test_get_version_ignores_docker_placeholder_app_version(self, monkeypatch):
-        """Dockerfile defaults APP_VERSION=dev-0; that must not hide setup.py semver."""
+        """Upstream Docker version variables do not change EvilTime releases."""
         monkeypatch.setenv("APP_VERSION", "dev-0")
         monkeypatch.delenv("TIMETRACKER_VERSION", raising=False)
         version = _get_version_from_setup()
-        version_pattern = r"^\d+\.\d+\.\d+.*$"
-        assert re.match(version_pattern, version), f"Version '{version}' doesn't match expected pattern"
+        assert version == "5.11.4-evil"
 
     def test_version_in_analytics_config(self):
         """Test that version is included in analytics config"""

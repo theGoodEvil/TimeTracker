@@ -19,7 +19,7 @@
 ) }}
 
 <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-    {{ stat_card(_('Total Hours'), '%.2f'|format(total_hours), 'fas fa-hourglass-half', 'blue-500') }}
+    {{ stat_card(_('Total Hours'), total_hours|hours_minutes, 'fas fa-hourglass-half', 'blue-500') }}
     {{ stat_card(_('Entries'), total_entries, 'fas fa-list', 'purple-500') }}
     {{ stat_card(_('Days'), grouped|length, 'fas fa-calendar-day', 'emerald-500') }}
 </div>
@@ -57,7 +57,7 @@
                 <span>{{ day.date|format_date if day.date else '-' }}</span>
             </div>
             <div class="text-sm text-text-muted-light dark:text-text-muted-dark">
-                <span class="font-semibold text-text-light dark:text-text-dark">{{ '%.2f'|format(day.total_hours) }}</span> {{ _('hours') }}
+                <span class="font-semibold text-text-light dark:text-text-dark">{{ day.total_hours|hours_minutes }}</span>
                 · {{ day.entries|length }} {{ _('entries') }}
             </div>
         </div>
@@ -78,7 +78,7 @@
                     <tr class="border-t border-border-light dark:border-border-dark">
                         <td class="p-3 whitespace-nowrap" data-label="{{ _('Start') }}">{{ entry.start_time|user_time if entry.start_time else '-' }}</td>
                         <td class="p-3 whitespace-nowrap" data-label="{{ _('End') }}">{{ entry.end_time|user_time if entry.end_time else '-' }}</td>
-                        <td class="p-3 whitespace-nowrap font-medium mobile-card-header" data-label="{{ _('Hours') }}">{{ '%.2f'|format(entry.duration_hours) }}</td>
+                        <td class="p-3 whitespace-nowrap font-medium mobile-card-header" data-label="{{ _('Hours') }}">{{ entry.duration_hours|hours_minutes }}</td>
                         <td class="p-3" data-label="{{ _('Task') }}">{{ entry.task.name if entry.task else '—' }}</td>
                         <td class="p-3" data-label="{{ _('Description') }}">
                             {% if entry.notes %}
@@ -99,5 +99,4 @@
 {% endif %}
 
 {% endblock %}
-
 

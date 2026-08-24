@@ -47,7 +47,7 @@
                                     {{ day.date|format_date if day.date else '-' }}
                                 </div>
                                 <div class="text-xs text-text-muted-light dark:text-text-muted-dark">
-                                    <span class="font-semibold text-text-light dark:text-text-dark">{{ '%.2f'|format(day.total_hours) }}</span> {{ _('h') }}
+                                    <span class="font-semibold text-text-light dark:text-text-dark">{{ day.total_hours|hours_minutes }}</span>
                                     · {{ day.entries|length }} {{ _('entries') }}
                                 </div>
                             </div>
@@ -56,7 +56,7 @@
                                 <label class="flex items-start gap-3 p-3 rounded border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark">
                                     <input type="checkbox" class="mt-1" name="time_entries[]" value="{{ entry.id }}">
                                     <div class="flex-1 text-sm">
-                                        <div class="font-medium">{{ entry.task.name if entry.task else _('Time Entry') }} · {{ '%.2f'|format(entry.duration_hours) }} {{ _('h') }}</div>
+                                        <div class="font-medium">{{ entry.task.name if entry.task else _('Time Entry') }} · {{ entry.duration_hours|hours_minutes }}</div>
                                         <div class="text-text-muted-light dark:text-text-muted-dark">
                                             {{ entry.start_time|user_time }} → {{ entry.end_time|user_time if entry.end_time else '-' }}
                                             {% if entry.notes %} · {{ entry.notes[:120] }}{% if entry.notes|length > 120 %}…{% endif %}{% endif %}
@@ -74,7 +74,7 @@
                         <label class="flex items-start gap-3 p-3 rounded border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark">
                             <input type="checkbox" class="mt-1" name="time_entries[]" value="{{ entry.id }}">
                             <div class="flex-1 text-sm">
-                                <div class="font-medium">{{ entry.task.name if entry.task else _('Time Entry') }} · {{ '%.2f'|format(entry.duration_hours) }} {{ _('h') }}</div>
+                                <div class="font-medium">{{ entry.task.name if entry.task else _('Time Entry') }} · {{ entry.duration_hours|hours_minutes }}</div>
                                 <div class="text-text-muted-light dark:text-text-muted-dark">
                                     {{ entry.start_time|user_datetime }} → {{ entry.end_time|user_datetime if entry.end_time else '-' }}
                                     {% if entry.notes %} · {{ entry.notes[:80] }}{% if entry.notes|length > 80 %}…{% endif %}{% endif %}
@@ -101,7 +101,7 @@
                             <li>{{ _('%(count)s billable entry/entries already on another invoice for this client.', count=diag.already_on_other_invoice_count) }}</li>
                             {% endif %}
                             {% if diag.get('other_project_unbilled_hours', 0) > 0 %}
-                            <li>{{ _('This client has %(hours)s unbilled hours on other project(s): %(names)s. Create or edit the invoice for the correct project.', hours='%.2f'|format(diag.other_project_unbilled_hours), names=diag.other_project_names|join(', ')) }}</li>
+                            <li>{{ _('This client has %(hours)s unbilled hours on other project(s): %(names)s. Create or edit the invoice for the correct project.', hours=diag.other_project_unbilled_hours|hours_minutes, names=diag.other_project_names|join(', ')) }}</li>
                             {% endif %}
                         </ul>
                     </div>
@@ -196,7 +196,7 @@
     <div class="space-y-4">
         <div class="bg-card-light dark:bg-card-dark p-6 rounded-xl border border-border-light dark:border-border-dark shadow-sm">
             <h3 class="text-lg font-semibold mb-3">{{ _('Selection Summary') }}</h3>
-            <div class="text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Total available hours') }}: <span class="font-semibold text-text-light dark:text-text-dark">{{ '%.2f'|format(total_available_hours) }}</span></div>
+            <div class="text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Total available hours') }}: <span class="font-semibold text-text-light dark:text-text-dark">{{ total_available_hours|hours_minutes }}</span></div>
             <div class="text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Total available costs') }}: <span class="font-semibold text-text-light dark:text-text-dark">{{ '%.2f'|format(total_available_costs) }} {{ currency }}</span></div>
             <div class="text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Total available expenses') }}: <span class="font-semibold text-text-light dark:text-text-dark">{{ '%.2f'|format(total_available_expenses) }} {{ currency }}</span></div>
             <div class="text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Total available goods') }}: <span class="font-semibold text-text-light dark:text-text-dark">{{ '%.2f'|format(total_available_goods) }} {{ currency }}</span></div>
@@ -204,14 +204,14 @@
             <div class="mt-4 pt-4 border-t border-border-light dark:border-border-dark">
                 <h4 class="text-sm font-semibold text-text-light dark:text-text-dark mb-2">{{ _('Prepaid Hours Overview') }}</h4>
                 <p class="text-xs text-text-muted-light dark:text-text-muted-dark mb-2">
-                    {{ _('Plan includes %(hours)s hours per cycle (resets on day %(day)s).', hours='%.2f'|format(prepaid_plan_hours), day=prepaid_reset_day) }}
+                    {{ _('Plan includes %(hours)s per cycle (resets on day %(day)s).', hours=prepaid_plan_hours|hours_minutes, day=prepaid_reset_day) }}
                 </p>
                 {% if prepaid_summary %}
                 <ul class="space-y-1 text-xs text-text-muted-light dark:text-text-muted-dark">
                     {% for item in prepaid_summary %}
                     <li class="flex justify-between gap-4">
                         <span class="font-medium text-text-light dark:text-text-dark">{{ item.allocation_month_label }}</span>
-                        <span>{{ _('Consumed: %(consumed)s h • Remaining: %(remaining)s h', consumed='%.2f'|format(item.consumed_hours), remaining='%.2f'|format(item.remaining_hours)) }}</span>
+                        <span>{{ _('Consumed: %(consumed)s • Remaining: %(remaining)s', consumed=item.consumed_hours|hours_minutes, remaining=item.remaining_hours|hours_minutes) }}</span>
                     </li>
                     {% endfor %}
                 </ul>
@@ -259,5 +259,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
 

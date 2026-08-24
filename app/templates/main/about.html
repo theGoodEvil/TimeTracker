@@ -18,8 +18,8 @@
     <div class="absolute top-0 right-0 w-64 h-64 bg-primary/5 rounded-full blur-3xl -mr-32 -mt-32"></div>
     <div class="absolute bottom-0 left-0 w-64 h-64 bg-secondary/5 rounded-full blur-3xl -ml-32 -mb-32"></div>
     <div class="relative z-10">
-        <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="TimeTracker Logo" class="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-4 sm:mb-6 drop-shadow-lg">
-        <h2 class="text-2xl sm:text-3xl font-bold mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">TimeTracker</h2>
+        <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-20 h-20 sm:w-32 sm:h-32 mx-auto mb-4 sm:mb-6 object-contain">
+        <h2 class="text-2xl sm:text-3xl font-bold mb-3 bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">EvilTime</h2>
         <p class="text-text-muted-light dark:text-text-muted-dark max-w-2xl mx-auto text-sm sm:text-lg">
             {{ _('A comprehensive web-based time tracking application built with Flask, featuring project management, client organization, task management, invoicing, and advanced analytics.') }}
         </p>
@@ -39,13 +39,6 @@
         </span>
     </div>
 </div>
-
-{% if current_user.is_authenticated and current_user.ui_show_donate and not is_license_activated %}
-<div class="mb-6 sm:mb-8 p-4 sm:p-5 rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-    <p class="text-sm text-text-light dark:text-text-dark">{{ _('TimeTracker is free and open source. You can donate or buy a supporter license — features are never locked.') }}</p>
-    <button type="button" class="btn btn-primary flex-shrink-0 w-full sm:w-auto text-center js-open-support-modal">{{ _('Support TimeTracker') }}</button>
-</div>
-{% endif %}
 
 <!-- Highlights -->
 <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
@@ -183,46 +176,10 @@
         </div>
     </div>
     <div class="mt-4 flex flex-wrap gap-3">
-        <a href="https://github.com/drytrix/TimeTracker" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark">
+        <a href="https://git.domisbu.de/Domi2803/EvilTime" target="_blank" rel="noopener" class="px-4 py-2 rounded-lg border border-border-light dark:border-border-dark hover:bg-background-light dark:hover:bg-background-dark">
             <i class="fab fa-github mr-2"></i>{{ _('View on GitHub') }}
         </a>
-        {% if current_user.is_authenticated and (not settings or not getattr(settings, 'donate_ui_hidden', false)) and current_user.ui_show_donate %}
-        <a href="{{ url_for('main.donate') }}" class="px-4 py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-semibold shadow-md hover:shadow-lg transition-all">
-            <i class="fas fa-heart mr-2"></i>{{ _('Support updates') }}
-        </a>
-        {% endif %}
     </div>
-    
-    {% if current_user.is_authenticated and (not settings or not getattr(settings, 'donate_ui_hidden', false)) and current_user.ui_show_donate %}
-    <!-- Support Section -->
-    <div class="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 p-6 rounded-lg border border-amber-200 dark:border-amber-800 mt-6">
-        <div class="flex items-start gap-4">
-            <div class="flex-shrink-0">
-                <i class="fas fa-mug-saucer text-3xl text-amber-600 dark:text-amber-400"></i>
-            </div>
-            <div class="flex-1">
-                <h3 class="text-lg font-semibold mb-2 text-amber-900 dark:text-amber-100">
-                    {{ _('Support TimeTracker Development') }}
-                </h3>
-                <p class="text-sm text-amber-800 dark:text-amber-200 mb-4">
-                    {{ _('TimeTracker is free and open-source. Support updates and new features — or remove prompts with a one-time key.') }}
-                </p>
-                <div class="flex flex-wrap gap-2">
-                    <a href="{{ url_for('main.donate') }}" class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-lg font-medium transition-colors">
-                        <i class="fas fa-info-circle mr-2"></i>{{ _('Support / Get key') }}
-                    </a>
-                    <a href="https://buymeacoffee.com/DryTrix?utm_source=timetracker&utm_medium=about_page&utm_campaign=support" target="_blank" rel="noopener" onclick="trackDonationClick('about_page')" class="px-4 py-2 bg-white hover:bg-amber-50 text-amber-600 rounded-lg font-medium transition-colors border border-amber-600">
-                        <i class="fas fa-mug-saucer mr-2"></i>{{ _('Donate') }}
-                    </a>
-                </div>
-                <p class="mt-3 text-xs text-amber-700 dark:text-amber-300">
-                    {{ _('Remove prompts with a one-time key.') }}
-                    <a href="{{ support_purchase_url }}" target="_blank" rel="noopener noreferrer" class="underline hover:no-underline">{{ _('Get key') }}</a>
-                </p>
-            </div>
-        </div>
-    </div>
-    {% endif %}
 </div>
 
 <!-- Getting Help -->

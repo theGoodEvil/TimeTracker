@@ -269,6 +269,8 @@ class ApiTokenService:
             "write:contacts",
             "write:time_approvals",
             "write:inventory",
+            "mcp:migrate",
+            "mcp:access",
             "admin:all",
             "*",
         ]

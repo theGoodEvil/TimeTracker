@@ -1,23 +1,10 @@
-<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <defs>
-    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#1da1f2"/>
-      <stop offset="100%" stop-color="#27e0dd"/>
-    </linearGradient>
-  </defs>
-
-  <!-- Rounded square background -->
-  <rect x="32" y="32" width="448" height="448" rx="96" ry="96" fill="url(#grad)"/>
-
-  <!-- Clock circle -->
-  <circle cx="256" cy="256" r="150" fill="none" stroke="white" stroke-width="28"/>
-
-  <!-- Clock hour marks -->
-  <line x1="256" y1="126" x2="256" y2="150" stroke="white" stroke-width="20"/>
-  <line x1="256" y1="362" x2="256" y2="386" stroke="white" stroke-width="20"/>
-  <line x1="126" y1="256" x2="150" y2="256" stroke="white" stroke-width="20"/>
-  <line x1="362" y1="256" x2="386" y2="256" stroke="white" stroke-width="20"/>
-
-  <!-- Checkmark (clock hands stylized) -->
-  <path d="M 205 265 L 255 315 L 355 205" fill="none" stroke="white" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title">
+  <title id="title">EvilTime</title>
+  <defs><linearGradient id="eviltime-green" x1="40" y1="20" x2="480" y2="500" gradientUnits="userSpaceOnUse"><stop stop-color="#78bd87"/><stop offset="1" stop-color="#4e965f"/></linearGradient></defs>
+  <rect width="512" height="512" rx="128" fill="url(#eviltime-green)"/>
+  <path d="M144 178 104 106l86 44M368 178l40-72-86 44" fill="#172b1d" stroke="#172b1d" stroke-width="16" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="270" r="142" fill="#fff"/>
+  <circle cx="256" cy="270" r="116" fill="none" stroke="#172b1d" stroke-width="18"/>
+  <path d="M256 198v78l56 38" fill="none" stroke="#64b376" stroke-width="24" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="256" cy="270" r="14" fill="#172b1d"/>
 </svg>

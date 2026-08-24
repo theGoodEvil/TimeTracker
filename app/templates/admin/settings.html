@@ -103,9 +103,8 @@
                         <input type="number" name="rounding_minutes" id="rounding_minutes" value="{{ settings.rounding_minutes }}" required class="form-input">
                         <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">Default interval for users who have not set a personal rounding interval (1 = no rounding). Users can override this in their settings.</p>
                     </div>
-                    <div>
-                        <label for="idle_timeout_minutes" class="form-label">Idle Timeout (Minutes)</label>
-                        <input type="number" name="idle_timeout_minutes" id="idle_timeout_minutes" value="{{ settings.idle_timeout_minutes }}" required class="form-input">
+                    <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-gray-600 dark:text-gray-300">
+                        EvilTime never clocks an employee out because a device is idle or offline.
                     </div>
                     <div class="md:col-span-2 flex items-center">
                         <input type="checkbox" name="single_active_timer" id="single_active_timer" {% if settings.single_active_timer %}checked{% endif %} class="h-4 w-4 rounded border-gray-300 text-indigo-600 shadow-sm focus:border-indigo-500 focus:ring-indigo-500">
@@ -245,55 +244,6 @@
                         Note: Admin users are configured via the ADMIN_USERNAMES environment variable, not in this UI.
                     </p>
                 </div>
-            </div>
-
-            <!-- Support / Donate visibility (system-wide) -->
-            <div class="border-b border-border-light dark:border-border-dark pb-6" id="donateVisibilitySection">
-                <h2 class="text-lg font-semibold mb-4"><i class="fas fa-eye-slash mr-2"></i>{{ _('Support visibility') }}</h2>
-                <p class="text-sm text-text-muted-light dark:text-text-muted-dark mb-4">
-                    {{ _('Remove donate and support prompts for all users with a one-time key (€25, one key per instance).') }}
-                </p>
-                <ol class="list-decimal list-inside space-y-2 mb-4 text-sm text-text-light dark:text-text-dark">
-                    <li>{{ _('Copy your System ID below and use it when buying the key.') }}</li>
-                    <li><a href="{{ support_purchase_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 text-blue-600 dark:text-blue-400 hover:underline">{{ _('Buy key') }} <i class="fas fa-external-link-alt text-xs"></i></a> {{ _('— key sent by email.') }}</li>
-                    <li>{{ _('Paste the code below and click Verify.') }}</li>
-                </ol>
-                <p class="mb-4">
-                    <a href="{{ support_purchase_url }}" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-md transition">
-                        <i class="fas fa-key mr-1"></i>{{ _('Get key') }}
-                        <i class="fas fa-external-link-alt text-xs"></i>
-                    </a>
-                </p>
-                {% if system_instance_id %}
-                <div class="mb-4">
-                    <label class="form-label">{{ _('Step 1: System ID') }}</label>
-                    <div class="flex items-center gap-2">
-                        <input type="text" id="adminSystemInstanceId" value="{{ system_instance_id }}" readonly class="flex-1 form-input font-mono text-sm bg-gray-100 dark:bg-gray-700">
-                        <button type="button" onclick="copyAdminSystemId(this)" class="px-3 py-2 bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 rounded-md text-sm font-medium transition">
-                            <i class="fas fa-copy mr-1"></i>{{ _('Copy') }}
-                        </button>
-                    </div>
-                    <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Use this ID when purchasing your key.') }}</p>
-                </div>
-                {% endif %}
-                {% if settings.donate_ui_hidden %}
-                <div class="p-4 rounded-lg bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800">
-                    <p class="text-sm font-medium text-green-800 dark:text-green-200">
-                        <i class="fas fa-check-circle mr-2"></i>{{ _('Supporter instance: prompts are minimized; support entry points remain available.') }}
-                    </p>
-                </div>
-                {% else %}
-                <div class="flex flex-wrap items-end gap-2">
-                    <div class="flex-1 min-w-[200px]">
-                        <label for="adminDonateHideCode" class="form-label">{{ _('Step 3: Paste code') }}</label>
-                        <input type="text" id="adminDonateHideCode" placeholder="{{ _('Enter code from email') }}" class="form-input w-full">
-                    </div>
-                    <button type="button" id="adminVerifyDonateHideCodeBtn" onclick="verifyAdminDonateHideCode()" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-md text-sm font-medium transition">
-                        {{ _('Verify and hide for everyone') }}
-                    </button>
-                </div>
-                <p id="adminDonateHideCodeMessage" class="mt-2 text-sm hidden"></p>
-                {% endif %}
             </div>
 
             <!-- Company Branding -->
@@ -852,61 +802,6 @@ async function confirmRemoveLogo() {
     if (confirmed) {
         document.getElementById('removeLogoForm').submit();
     }
-}
-
-function copyAdminSystemId(btn) {
-    const input = document.getElementById('adminSystemInstanceId');
-    if (input) {
-        input.select();
-        document.execCommand('copy');
-        const orig = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-check mr-1"></i>{{ _("Copied") }}';
-        setTimeout(function() { btn.innerHTML = orig; }, 2000);
-    }
-}
-
-async function verifyAdminDonateHideCode() {
-    const codeInput = document.getElementById('adminDonateHideCode');
-    const msgEl = document.getElementById('adminDonateHideCodeMessage');
-    const btn = document.getElementById('adminVerifyDonateHideCodeBtn');
-    if (!codeInput || !msgEl || !btn) return;
-    msgEl.classList.add('hidden');
-    msgEl.textContent = '';
-    const code = (codeInput.value || '').trim();
-    if (!code) {
-        msgEl.textContent = '{{ _("Please enter a code.") }}';
-        msgEl.classList.remove('hidden');
-        msgEl.classList.add('text-amber-600', 'dark:text-amber-400');
-        return;
-    }
-    btn.disabled = true;
-    const csrfToken = document.querySelector('meta[name="csrf-token"]') ? document.querySelector('meta[name="csrf-token"]').content : '';
-    try {
-        const res = await fetch('{{ url_for("admin.admin_verify_donate_hide_code") }}', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-            body: JSON.stringify({ code: code })
-        });
-        const data = await res.json().catch(function() { return {}; });
-        if (res.ok && data.success) {
-            msgEl.textContent = '{{ _("Success. Donate UI is now hidden for everyone. Reload the page to see the change.") }}';
-            msgEl.classList.remove('text-amber-600', 'dark:text-amber-400', 'text-red-600', 'dark:text-red-400');
-            msgEl.classList.add('text-green-600', 'dark:text-green-400');
-            msgEl.classList.remove('hidden');
-            setTimeout(function() { window.location.reload(); }, 1500);
-        } else {
-            msgEl.textContent = data.error || '{{ _("Invalid code.") }}';
-            msgEl.classList.remove('text-green-600', 'dark:text-green-400');
-            msgEl.classList.add('text-red-600', 'dark:text-red-400');
-            msgEl.classList.remove('hidden');
-        }
-    } catch (e) {
-        msgEl.textContent = '{{ _("Request failed.") }}';
-        msgEl.classList.remove('text-green-600', 'dark:text-green-400');
-        msgEl.classList.add('text-red-600', 'dark:text-red-400');
-        msgEl.classList.remove('hidden');
-    }
-    btn.disabled = false;
 }
 
 // Initialize: keep collapsed by default; toggle time entry min length visibility

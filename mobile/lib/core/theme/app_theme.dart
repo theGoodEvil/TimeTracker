@@ -3,13 +3,13 @@ import 'package:google_fonts/google_fonts.dart';
 
 import 'app_tokens.dart';
 
-/// TimeTracker brand colors aligned with the webapp (brand-colors.css / tailwind.config.js).
+/// EvilTime brand colors aligned with the webapp (brand-colors.css / tailwind.config.js).
 class AppColors {
   // Primary & secondary (webapp)
-  static const Color primary = Color(0xFF4A90E2);
-  static const Color primaryDark = Color(0xFF3B82F6);
-  static const Color secondary = Color(0xFF50E3C2);
-  static const Color secondaryDark = Color(0xFF06B6D4);
+  static const Color primary = Color(0xFF64B376);
+  static const Color primaryDark = Color(0xFF4E965F);
+  static const Color secondary = Color(0xFF9BD0A7);
+  static const Color secondaryDark = Color(0xFF64B376);
 
   // Light mode (webapp)
   static const Color bgLight = Color(0xFFF7F9FB);

@@ -1,7 +1,7 @@
 {
-  "name": "timetracker-frontend",
+  "name": "eviltime-frontend",
   "version": "1.0.0",
-  "description": "Frontend assets for TimeTracker",
+  "description": "Frontend assets for EvilTime",
   "main": "index.js",
   "scripts": {
     "generate:icons": "node scripts/generate-icons.js",
@@ -35,6 +35,8 @@
     "animejs": "3.2.1",
     "chart.js": "4.4.0",
     "cmdk": "^1.1.1",
+    "emoji-picker-element": "^1.29.1",
+    "emoji-picker-element-data": "^1.8.0",
     "flatpickr": "4.6.13",
     "frappe-gantt": "0.6.1",
     "fullcalendar": "6.1.15",

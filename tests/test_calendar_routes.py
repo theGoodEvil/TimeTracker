@@ -5,10 +5,9 @@ Tests calendar views, event CRUD operations, and API endpoints.
 
 import pytest
 import json
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from app.models import CalendarEvent, Task
 from app import db
-
 
 # ============================================================================
 # Calendar View Routes
@@ -68,7 +67,11 @@ def test_calendar_default_view_no_param_uses_month_or_session(authenticated_clie
     assert response.status_code == 200, "Calendar view should be available for authenticated users"
     # Template injects viewType: 'month' or last session value
     assert b"viewType:" in response.data
-    assert b"viewType: 'day'" in response.data or b"viewType: 'week'" in response.data or b"viewType: 'month'" in response.data
+    assert (
+        b"viewType: 'day'" in response.data
+        or b"viewType: 'week'" in response.data
+        or b"viewType: 'month'" in response.data
+    )
 
 
 @pytest.mark.routes
@@ -149,6 +152,40 @@ def test_get_calendar_data_includes_holidays(authenticated_client, app):
         data = response.get_json()
         assert "holidays" in data
         assert any(h.get("title") == "Test Holiday" for h in data["holidays"])
+
+
+@pytest.mark.api
+@pytest.mark.routes
+def test_calendar_data_accepts_aware_range_with_naive_active_timer(authenticated_client, app, user, project):
+    """RFC3339 ranges must compare safely with app-local naive timer rows."""
+    from factories import TimeEntryFactory
+    from app.utils.timezone import now_in_app_timezone
+
+    active_start = now_in_app_timezone().replace(microsecond=0)
+    with app.app_context():
+        TimeEntryFactory(
+            user_id=user.id,
+            project_id=project.id,
+            start_time=active_start.replace(tzinfo=None),
+            end_time=None,
+        )
+        db.session.commit()
+
+    range_start = (active_start.astimezone(timezone.utc) - timedelta(hours=1)).isoformat()
+    range_end = (active_start.astimezone(timezone.utc) + timedelta(hours=1)).isoformat()
+    response = authenticated_client.get(
+        "/api/calendar/data",
+        query_string={
+            "start": range_start,
+            "end": range_end,
+            "include_tasks": "false",
+            "include_holidays": "false",
+            "include_time_off": "false",
+        },
+    )
+
+    assert response.status_code == 200
+    assert any(item.get("is_running") for item in response.get_json()["time_entries"])
 
 
 @pytest.mark.api

@@ -70,7 +70,7 @@
             {% if report_data.summary %}
             <p><strong>Total Entries:</strong> {{ report_data.summary.get('total_entries', 0) }}</p>
             {% if report_data.summary.get('total_hours') %}
-            <p><strong>Total Hours:</strong> {{ "%.2f"|format(report_data.summary.get('total_hours', 0)) }}</p>
+            <p><strong>Total Hours:</strong> {{ report_data.summary.get('total_hours', 0)|hours_minutes }}</p>
             {% endif %}
             {% if report_data.summary.get('total_amount') is not none %}
             <p><strong>Total Amount:</strong> {{ "%.2f"|format(report_data.summary.get('total_amount', 0)) }}</p>
@@ -117,7 +117,7 @@
     
     <div class="footer">
         <p>Generated at: {{ generated_at|user_datetime if generated_at else 'N/A' }}</p>
-        <p>This is an automated report from TimeTracker.</p>
+        <p>This is an automated report from EvilTime.</p>
     </div>
 </body>
 </html>

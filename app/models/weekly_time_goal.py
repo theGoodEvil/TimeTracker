@@ -25,6 +25,8 @@ class WeeklyTimeGoal(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
     target_hours = db.Column(db.Float, nullable=False)  # Target hours for the week
+    # Optional correction added to the detailed project time for this week.
+    actual_hours_adjustment = db.Column(db.Float, nullable=True)
     week_start_date = db.Column(db.Date, nullable=False, index=True)  # Monday of the week
     week_end_date = db.Column(db.Date, nullable=False)  # Sunday of the week (or Friday if exclude_weekends is True)
     exclude_weekends = db.Column(
@@ -78,13 +80,15 @@ class WeeklyTimeGoal(db.Model):
         # Allow status override from kwargs
         if "status" in kwargs:
             self.status = kwargs["status"]
+        if "actual_hours_adjustment" in kwargs:
+            self.actual_hours_adjustment = kwargs["actual_hours_adjustment"]
 
     def __repr__(self):
         return f"<WeeklyTimeGoal user_id={self.user_id} week={self.week_start_date} target={self.target_hours}h>"
 
     @property
-    def actual_hours(self):
-        """Calculate actual hours worked during this week"""
+    def tracked_hours(self):
+        """Calculate project hours recorded during this week."""
         from app.models.time_entry import TimeEntry
 
         # Query time entries for this user within the week range
@@ -100,8 +104,19 @@ class WeeklyTimeGoal(db.Model):
         if self.exclude_weekends:
             entries = [e for e in entries if e.start_time.date().weekday() < 5]
 
-        total_seconds = sum(entry.duration_seconds for entry in entries)
+        total_seconds = sum((entry.duration_seconds or 0) for entry in entries)
         return round(total_seconds / 3600, 2)
+
+    @property
+    def actual_hours(self):
+        """Return project time plus the optional weekly correction."""
+        adjustment = float(self.actual_hours_adjustment or 0)
+        return round(max(0, self.tracked_hours + adjustment), 2)
+
+    @property
+    def overtime_hours(self):
+        """Signed weekly balance: positive is overtime, negative is missing time."""
+        return round(self.actual_hours - self.target_hours, 2)
 
     @property
     def progress_percentage(self):
@@ -190,6 +205,9 @@ class WeeklyTimeGoal(db.Model):
             "user_id": self.user_id,
             "target_hours": self.target_hours,
             "actual_hours": self.actual_hours,
+            "tracked_hours": self.tracked_hours,
+            "actual_hours_adjustment": self.actual_hours_adjustment,
+            "overtime_hours": self.overtime_hours,
             "week_start_date": self.week_start_date.isoformat(),
             "week_end_date": self.week_end_date.isoformat(),
             "exclude_weekends": self.exclude_weekends,

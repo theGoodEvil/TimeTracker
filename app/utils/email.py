@@ -593,7 +593,7 @@ def check_email_configuration():
     return status
 
 
-def send_test_email(recipient_email, sender_name="TimeTracker Admin"):
+def send_test_email(recipient_email, sender_name="EvilTime Admin"):
     """Send a test email to verify email configuration
 
     Args:

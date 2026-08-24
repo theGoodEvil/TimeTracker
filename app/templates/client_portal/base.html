@@ -22,12 +22,8 @@
     <meta name="twitter:image" content="{% block twitter_image %}{{ url_for('static', filename='images/og-image.png', _external=True) }}{% endblock %}">
     
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="icon" type="image/x-icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
-    <link rel="alternate icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
-    <link rel="apple-touch-icon" sizes="180x180" href="{{ url_for('static', filename='images/apple-touch-icon.png') }}">
-    <link rel="icon" type="image/png" sizes="192x192" href="{{ url_for('static', filename='images/android-chrome-192x192.png') }}">
-    <link rel="icon" type="image/png" sizes="512x512" href="{{ url_for('static', filename='images/android-chrome-512x512.png') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
     {# Inter is self-hosted via @font-face in dist/output.css (app/static/vendor/inter). #}
     {# Font Awesome must load BEFORE dist/output.css: its `.fa-solid{display:inline-block}`
        has the same specificity as Tailwind's `.hidden{display:none}`, so whichever
@@ -238,7 +234,7 @@
                 <!-- Logo and Client Name -->
                 <div class="flex items-center space-x-4">
                     <a href="{{ url_for('client_portal.dashboard') }}" class="flex items-center space-x-2 hover:opacity-80 transition-opacity">
-                        <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="Logo" class="h-8 w-8">
+                        <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="h-8 w-8 object-contain">
                         <h1 class="text-xl font-bold text-primary hidden sm:block">{{ _('Client Portal') }}</h1>
                     </a>
                     {% if current_client %}
@@ -325,7 +321,7 @@
         <div class="p-5 border-b border-border-light dark:border-border-dark bg-gradient-to-r from-primary/5 to-transparent">
             <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center space-x-3">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="Logo" class="h-7 w-7">
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="h-7 w-7 object-contain">
                     <span class="font-bold text-primary text-lg">{{ _('Client Portal') }}</span>
                 </div>
                 <button onclick="closeMobileMenu()" class="p-2.5 rounded-lg hover:bg-background-light dark:hover:bg-background-dark transition-colors">

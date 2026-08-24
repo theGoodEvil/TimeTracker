@@ -29,95 +29,21 @@ SENTRY_TRACES_RATE_DEFAULT = "0.1"
 # All builds have analytics configured, but telemetry is OPT-IN
 TELE_ENABLED_DEFAULT = "false"  # Disabled by default for privacy
 
-# Dockerfile default ARG APP_VERSION=dev-0; treat as unset so setup.py is used in generic images.
-_DOCKER_DEFAULT_APP_VERSION_PLACEHOLDER = "dev-0"
-
 
 def get_version_from_setup():
     """
-    Get the application version from setup.py.
+    Return the EvilTime release version.
 
-    setup.py is the SINGLE SOURCE OF TRUTH for version information.
-    This function reads setup.py at runtime to get the current version.
-    All other code should reference this function, not define versions themselves.
-
-    Override at runtime with TIMETRACKER_VERSION or APP_VERSION (e.g. CI/containers).
-    The Docker build default ``dev-0`` is ignored so the version from setup.py is shown
-    when no real override is set.
-
-    This function tries multiple paths to find setup.py to work correctly
-    in both production and development modes.
+    The legacy function name is retained for API compatibility, but EvilTime's
+    version is sourced from ``EVILTIME_VERSION`` / the ``EVILTIME_VERSION`` file
+    and never from upstream package tags.
 
     Returns:
-        str: Application version (e.g., "4.5.0") or "unknown" if setup.py can't be read
+        str: EvilTime application version (for example ``5.11.4-evil``)
     """
-    import os
-    import re
+    from app.version import get_eviltime_version
 
-    tt = (os.environ.get("TIMETRACKER_VERSION") or "").strip()
-    app_v = (os.environ.get("APP_VERSION") or "").strip()
-    ph = _DOCKER_DEFAULT_APP_VERSION_PLACEHOLDER
-    if tt and tt != ph:
-        return tt
-    if app_v and app_v != ph:
-        return app_v
-
-    # Try multiple possible paths to setup.py
-    possible_paths = []
-
-    # Path 1: Relative to this file (app/config/analytics_defaults.py -> setup.py)
-    try:
-        base_path = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-        possible_paths.append(os.path.join(base_path, "setup.py"))
-    except Exception:
-        pass
-
-    # Path 2: Current working directory
-    try:
-        possible_paths.append(os.path.join(os.getcwd(), "setup.py"))
-    except Exception:
-        pass
-
-    # Path 3: From environment variable (if set)
-    try:
-        project_root = os.getenv("PROJECT_ROOT") or os.getenv("APP_ROOT")
-        if project_root:
-            possible_paths.append(os.path.join(project_root, "setup.py"))
-    except Exception:
-        pass
-
-    # Path 4: Try to find setup.py by walking up from current file
-    try:
-        current = os.path.dirname(__file__)
-        for _ in range(5):  # Max 5 levels up
-            current = os.path.dirname(current)
-            setup_path = os.path.join(current, "setup.py")
-            if os.path.exists(setup_path):
-                possible_paths.append(setup_path)
-                break
-    except Exception:
-        pass
-
-    # Try each path until we find setup.py
-    for setup_path in possible_paths:
-        try:
-            if os.path.exists(setup_path):
-                # Read setup.py
-                with open(setup_path, "r", encoding="utf-8") as f:
-                    content = f.read()
-
-                # Extract version using regex
-                # Matches: version='X.Y.Z' or version="X.Y.Z"
-                version_match = re.search(r'version\s*=\s*[\'"]([^\'"]+)[\'"]', content)
-
-                if version_match:
-                    return version_match.group(1)
-        except Exception:
-            continue
-
-    # Fallback version if setup.py can't be read
-    # This is the ONLY place besides setup.py where version is defined
-    return "unknown"
+    return get_eviltime_version()
 
 
 # Keep the old function name for backward compatibility

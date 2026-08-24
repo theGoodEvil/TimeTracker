@@ -254,7 +254,7 @@
   </script>
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts_extra %}
 <script nonce="{{ csp_nonce() }}">
 // Global chart instances
 let charts = {};
@@ -611,7 +611,7 @@ class AnalyticsDashboard {
         const summaryEl = document.getElementById('overtimeSummary');
         const daysLabelEl = document.getElementById('overtimeDaysLabel');
         if (summaryEl) {
-            summaryEl.textContent = (summary.total_regular_hours || 0).toFixed(1) + 'h / ' + (summary.total_overtime_hours || 0).toFixed(1) + 'h';
+            summaryEl.textContent = window.formatHoursMinutes(summary.total_regular_hours || 0) + ' / ' + window.formatHoursMinutes(summary.total_overtime_hours || 0);
         }
         if (daysLabelEl && data.users && data.users.length > 0) {
             const daysWithOt = data.users.reduce((s, u) => s + (u.days_with_overtime || 0), 0);
@@ -690,14 +690,14 @@ class AnalyticsDashboard {
             const totalHours = data.datasets[0].data.reduce((sum, hours) => sum + hours, 0);
             const avgDailyHours = totalHours / data.datasets[0].data.length;
             
-            document.getElementById('totalHours').textContent = totalHours.toFixed(1) + 'h';
-            document.getElementById('avgDailyHours').textContent = avgDailyHours.toFixed(1) + 'h';
+            document.getElementById('totalHours').textContent = window.formatHoursMinutes(totalHours);
+            document.getElementById('avgDailyHours').textContent = window.formatHoursMinutes(avgDailyHours);
             
             // Get billable data
             const billableResponse = await fetch(`/api/analytics/billable-vs-nonbillable?days=${this.timeRange}`);
             const billableData = await billableResponse.json();
             const billableHours = billableData.datasets[0].data[0];
-            document.getElementById('billableHours').textContent = billableHours.toFixed(1) + 'h';
+            document.getElementById('billableHours').textContent = window.formatHoursMinutes(billableHours);
             
             // Get project count
             const projectResponse = await fetch(`/api/analytics/hours-by-project?days=${this.timeRange}`);

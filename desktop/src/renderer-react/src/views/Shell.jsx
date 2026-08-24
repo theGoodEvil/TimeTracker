@@ -27,8 +27,8 @@ export function AuthFlow(props) {
           <img src="../assets/logo.svg" alt="" />
           <div>
             <p className="eyebrow">Desktop workspace</p>
-            <h1>Connect to TimeTracker</h1>
-            <p>Use your server URL and normal TimeTracker account.</p>
+            <h1>Connect to EvilTime</h1>
+            <p>Use your server URL and normal EvilTime account.</p>
           </div>
         </div>
         <div className="stepper" aria-label="Setup progress">
@@ -139,7 +139,7 @@ export function Sidebar({ activeView, onChange }) {
       <div className="sidebar-brand">
         <img src="../assets/logo.svg" alt="" />
         <div>
-          <strong>TimeTracker</strong>
+          <strong>EvilTime</strong>
           <span>Desktop 5.9.3</span>
         </div>
       </div>

@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; connect-src 'self' http: https: ws: wss:; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https:;">
-  <title>TimeTracker</title>
+  <title>EvilTime</title>
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="../../assets/icon.png">
   <link rel="icon" type="image/x-icon" href="../../assets/icon.ico">
@@ -16,9 +16,9 @@
     <!-- Loading Screen -->
     <div id="loading-screen" class="screen active">
       <div class="loading-container">
-        <img src="../../assets/logo.svg" alt="TimeTracker Logo" class="loading-logo" id="loading-logo">
+        <img src="../../assets/logo.svg" alt="EvilTime Logo" class="loading-logo" id="loading-logo">
         <div class="loading-spinner"></div>
-        <h1>TimeTracker</h1>
+        <h1>EvilTime</h1>
         <p>Loading...</p>
       </div>
     </div>
@@ -27,12 +27,12 @@
     <div id="login-screen" class="screen">
       <div class="login-container">
         <div class="login-header">
-          <img src="../../assets/logo.svg" alt="TimeTracker Logo" class="logo-image" id="login-logo">
-          <h1>TimeTracker</h1>
+          <img src="../../assets/logo.svg" alt="EvilTime Logo" class="logo-image" id="login-logo">
+          <h1>EvilTime</h1>
           <p id="login-subtitle">Connect to your server</p>
         </div>
         <div id="wizard-step-welcome" class="login-wizard-step">
-          <p class="wizard-intro">Welcome. This app talks to <strong>your</strong> TimeTracker server—nothing is hardcoded. You will enter the server address, verify the connection, then sign in with your TimeTracker username and password.</p>
+          <p class="wizard-intro">Welcome. This app talks to <strong>your</strong> EvilTime server—nothing is hardcoded. You will enter the server address, verify the connection, then sign in with your EvilTime username and password.</p>
           <div class="form-group wizard-actions">
             <button type="button" id="login-wizard-continue" class="btn btn-primary">Get started</button>
           </div>
@@ -59,7 +59,7 @@
             <div class="form-group">
               <label for="login-password">Password</label>
               <input type="password" id="login-password" required autocomplete="current-password">
-              <small>Use the same TimeTracker account you use in the web or mobile app.</small>
+              <small>Use the same EvilTime account you use in the web or mobile app.</small>
             </div>
             <div class="form-group wizard-actions">
               <button type="button" id="login-wizard-back" class="btn btn-secondary">Back</button>
@@ -76,7 +76,7 @@
       <!-- Header -->
       <header class="app-header">
         <div class="header-left">
-          <h1>TimeTracker</h1>
+          <h1>EvilTime</h1>
           <div class="header-connection" role="group" aria-label="Server connection">
             <span id="connection-status" class="connection-status" role="status" aria-live="polite" aria-label="Connection status" title=""></span>
             <div class="header-connection-details">
@@ -257,7 +257,7 @@
             <div class="form-group">
               <label for="settings-server-url">Server URL</label>
               <input type="url" id="settings-server-url" placeholder="https://your-server.com">
-              <small>Enter the URL of your TimeTracker server</small>
+              <small>Enter the URL of your EvilTime server</small>
             </div>
             <div class="form-group">
               <label for="settings-username">Username</label>

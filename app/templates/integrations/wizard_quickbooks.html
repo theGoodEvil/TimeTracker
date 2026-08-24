@@ -79,10 +79,10 @@
                 <select id="sync_direction" name="sync_direction"
                         class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark">
                     <option value="quickbooks_to_timetracker" {% if current_config.get('sync_direction', 'timetracker_to_quickbooks') == 'quickbooks_to_timetracker' %}selected{% endif %}>
-                        {{ _('QuickBooks → TimeTracker (Import only)') }}
+                        {{ _('QuickBooks → EvilTime (Import only)') }}
                     </option>
                     <option value="timetracker_to_quickbooks" {% if current_config.get('sync_direction', 'timetracker_to_quickbooks') == 'timetracker_to_quickbooks' %}selected{% endif %}>
-                        {{ _('TimeTracker → QuickBooks (Export only)') }}
+                        {{ _('EvilTime → QuickBooks (Export only)') }}
                     </option>
                     <option value="bidirectional" {% if current_config.get('sync_direction') == 'bidirectional' %}selected{% endif %}>
                         {{ _('Bidirectional (Two-way sync)') }}
@@ -165,7 +165,7 @@
                           class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark font-mono text-sm"
                           placeholder='{"1": "qb_customer_id_123", "2": "qb_customer_id_456"}'>{{ current_config.get('customer_mappings', '')|tojson|safe if current_config.get('customer_mappings') else '' }}</textarea>
                 <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('Map TimeTracker client IDs to QuickBooks customer IDs (JSON format)') }}
+                    {{ _('Map EvilTime client IDs to QuickBooks customer IDs (JSON format)') }}
                 </p>
             </div>
             
@@ -177,7 +177,7 @@
                           class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark font-mono text-sm"
                           placeholder='{"expense_category_1": "qb_account_id_123"}'>{{ current_config.get('account_mappings', '')|tojson|safe if current_config.get('account_mappings') else '' }}</textarea>
                 <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('Map TimeTracker expense category IDs to QuickBooks account IDs (JSON format)') }}
+                    {{ _('Map EvilTime expense category IDs to QuickBooks account IDs (JSON format)') }}
                 </p>
             </div>
         </div>

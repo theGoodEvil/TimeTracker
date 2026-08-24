@@ -8,6 +8,7 @@ Uses Redis INCR when REDIS_URL is reachable; otherwise a process-local fallback
 from __future__ import annotations
 
 import logging
+import hashlib
 import threading
 import time
 from typing import Any, Dict, Optional, Tuple
@@ -17,8 +18,8 @@ from flask import current_app
 logger = logging.getLogger(__name__)
 
 _LOCAL_LOCK = threading.Lock()
-_LOCAL_MINUTE: Dict[tuple, tuple] = {}  # (token_id, minute_epoch) -> (count, reset_ts)
-_LOCAL_HOUR: Dict[tuple, tuple] = {}  # (token_id, hour_epoch) -> (count, reset_ts)
+_LOCAL_MINUTE: Dict[tuple, tuple] = {}  # (namespace, token_id, minute_epoch) -> (count, reset_ts)
+_LOCAL_HOUR: Dict[tuple, tuple] = {}  # (namespace, token_id, hour_epoch) -> (count, reset_ts)
 
 
 def _limits_from_config() -> Tuple[int, int]:
@@ -28,6 +29,12 @@ def _limits_from_config() -> Tuple[int, int]:
     except Exception:
         per_min, per_hour = 100, 1000
     return max(1, per_min), max(1, per_hour)
+
+
+def _rate_limit_namespace() -> str:
+    """Stable, opaque namespace for one database-backed installation."""
+    database_uri = str(current_app.config.get("SQLALCHEMY_DATABASE_URI", "") or "default")
+    return hashlib.sha256(database_uri.encode("utf-8")).hexdigest()[:16]
 
 
 def _redis_client():
@@ -76,6 +83,7 @@ def consume_api_token_rate_limit(token_id: int) -> Tuple[bool, Dict[str, Any]]:
         remaining_hour, retry_after_seconds (when not allowed).
     """
     per_min, per_hour = _limits_from_config()
+    namespace = _rate_limit_namespace()
     now = time.time()
     minute_epoch = int(now // 60)
     hour_epoch = int(now // 3600)
@@ -83,8 +91,8 @@ def consume_api_token_rate_limit(token_id: int) -> Tuple[bool, Dict[str, Any]]:
     r = _redis_client()
     if r is not None:
         try:
-            km = f"tt:api_rl:{token_id}:m:{minute_epoch}"
-            kh = f"tt:api_rl:{token_id}:h:{hour_epoch}"
+            km = f"tt:api_rl:{namespace}:{token_id}:m:{minute_epoch}"
+            kh = f"tt:api_rl:{namespace}:{token_id}:h:{hour_epoch}"
             pipe = r.pipeline()
             pipe.incr(km)
             pipe.expire(km, 120)
@@ -120,8 +128,8 @@ def consume_api_token_rate_limit(token_id: int) -> Tuple[bool, Dict[str, Any]]:
 
     _cleanup_local(now)
     with _LOCAL_LOCK:
-        mk = (token_id, minute_epoch)
-        hk = (token_id, hour_epoch)
+        mk = (namespace, token_id, minute_epoch)
+        hk = (namespace, token_id, hour_epoch)
         exp_m = (minute_epoch + 1) * 60
         exp_h = (hour_epoch + 1) * 3600
         cm, _ = _LOCAL_MINUTE.get(mk, (0, exp_m))

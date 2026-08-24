@@ -6,7 +6,7 @@
     <title>{% block title %}{{ app_name }}{% endblock %}</title>
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <meta name="description" content="Professional time tracking and project management">
-    <meta name="theme-color" content="#4F46E5">
+    <meta name="theme-color" content="#64b376">
     
     <!-- Open Graph / Social Media -->
     <meta property="og:type" content="website">
@@ -58,99 +58,21 @@
                 {% endwith %}
             </div>
 
-            {% if current_user.is_authenticated and current_user.ui_show_donate and not is_license_activated %}
-            <!-- Dismissible Support Banner -->
-            <div id="supportBanner" class="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 border-b border-amber-200 dark:border-amber-800 px-4 py-3 opacity-0 invisible max-h-0 overflow-hidden transition-all duration-300 ease-in-out">
-                <div class="w-full flex items-center justify-between gap-4">
-                    <div class="flex items-center gap-3 flex-1">
-                        <i class="fas fa-mug-saucer text-amber-600 dark:text-amber-400 text-lg"></i>
-                        <div class="flex-1">
-                            <p class="text-sm font-medium text-amber-900 dark:text-amber-100" id="bannerTitle">
-                                {{ _('Enjoying TimeTracker?') }}
-                            </p>
-                            <p class="text-xs text-amber-700 dark:text-amber-300" id="bannerMessage">
-                                {{ _('Support independent development — licenses are supporter badges, not paywalls.') }}
-                            </p>
-                        </div>
-                    </div>
-                    <div class="flex items-center gap-2 flex-wrap">
-                        <a href="{{ url_for('main.donate') }}" 
-                           class="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white text-sm font-medium rounded-lg transition-colors">
-                            {{ _('Support / Get key') }}
-                        </a>
-                        <a href="https://buymeacoffee.com/DryTrix?utm_source=timetracker&utm_medium=banner&utm_campaign=support" 
-                           target="_blank" 
-                           rel="noopener noreferrer"
-                           onclick="trackDonationClick('banner_bmc')"
-                           class="px-3 py-1.5 bg-white hover:bg-amber-50 text-amber-600 text-sm font-medium rounded-lg transition-colors border border-amber-600">
-                            <i class="fas fa-mug-saucer mr-1"></i>{{ _('Buy Me a Coffee') }}
-                        </a>
-                        <a href="https://www.paypal.com/donate/?hosted_button_id=KZB27X5LNGU3J" 
-                           target="_blank" 
-                           rel="noopener noreferrer"
-                           onclick="trackDonationClick('banner_paypal')"
-                           class="px-3 py-1.5 text-white text-sm font-medium rounded-lg transition-colors border border-blue-600 hover:opacity-90" style="background: linear-gradient(to right, #0070ba, #003087);">
-                            <i class="fab fa-paypal mr-1"></i>{{ _('PayPal') }}
-                        </a>
-                        <button type="button" class="text-xs text-amber-700 dark:text-amber-300 hover:underline self-center js-open-support-modal">
-                            {{ _('Support / License') }}
-                        </button>
-                        <button onclick="dismissSupportBanner()" 
-                                class="p-1.5 text-amber-600 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-900/30 rounded transition-colors"
-                                aria-label="{{ _('Dismiss') }}">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
             <!-- Main page content: full width of column; inner pages may use their own max-w-* -->
             <div class="flex-1 flex flex-col min-w-0 w-full">
                 <main id="mainContentAnchor" class="flex-1 min-h-0 min-w-0 w-full p-4 sm:p-6 overflow-x-hidden">
                     {% block content %}{% endblock %}
                 </main>
                 {% if current_user.is_authenticated %}
-                <p class="text-center text-xs text-text-muted-light dark:text-text-muted-dark px-4 pb-2 w-full shrink-0">{{ _('Built by an independent developer') }}</p>
+                <p class="text-center text-xs text-text-muted-light dark:text-text-muted-dark px-4 pb-2 w-full shrink-0">EvilTime{% if settings and settings.company_name %} · {{ settings.company_name }}{% endif %}</p>
                 {% endif %}
             </div>
         </div>
 
         {% if current_user.is_authenticated %}
-        <meta name="idle-timeout-minutes" content="{{ settings.idle_timeout_minutes if settings else 30 }}">
-        {% endif %}
-
-        {% if is_admin_user %}
-        <div id="adminVersionUpdateRoot" class="hidden fixed bottom-20 right-4 z-[60] max-w-sm w-[min(24rem,calc(100vw-2rem))] rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-xl" role="region" aria-label="{{ _('Software update') }}">
-            <div class="p-4 sm:p-5">
-                <div class="flex items-start gap-3">
-                    <span class="text-2xl shrink-0" aria-hidden="true">&#128640;</span>
-                    <div class="min-w-0 flex-1">
-                        <h2 id="adminVersionUpdateTitle" class="text-sm font-semibold text-text-light dark:text-text-dark"></h2>
-                        <p id="adminVersionUpdatePublished" class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark"></p>
-                        <div id="adminVersionUpdateNotes" class="mt-2 text-sm text-text-light dark:text-text-dark whitespace-pre-wrap break-words max-h-40 overflow-y-auto"></div>
-                        <button type="button" id="adminVersionUpdateReadMore" class="hidden mt-1 text-xs text-primary hover:underline">{{ _('Read more') }}</button>
-                    </div>
-                    <button type="button" id="adminVersionUpdateClose" class="shrink-0 p-1 rounded-md text-text-muted-light hover:bg-background-light dark:text-text-muted-dark dark:hover:bg-background-dark" aria-label="{{ _('Close') }}">&times;</button>
-                </div>
-                <div class="mt-4 flex flex-wrap gap-2">
-                    <a id="adminVersionUpdateViewRelease" href="#" target="_blank" rel="noopener noreferrer" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary-dark">{{ _('View Release') }}</a>
-                    <button type="button" id="adminVersionUpdateDismiss" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-border-light dark:border-border-dark text-sm">{{ _('Dismiss') }}</button>
-                    <button type="button" id="adminVersionUpdateDismissVersion" class="inline-flex items-center justify-center px-3 py-1.5 rounded-lg border border-border-light dark:border-border-dark text-sm">{{ _("Don't show again for this version") }}</button>
-                </div>
-            </div>
-        </div>
-        {% endif %}
-
-        {% if current_user.is_authenticated and support_ui_json %}
-        <script nonce="{{ csp_nonce() }}" type="application/json" id="support-ui-bootstrap">{{ support_ui_json|safe }}</script>
-        {% include 'components/support_modal.html' %}
-        {% endif %}
-
-        {% if current_user.is_authenticated %}
-        {# Floating hub: Actions, Chat, AI. Admin: whole dock lifted to clear #adminVersionUpdateRoot. #}
+        {# Floating hub: Chat and AI. Timer controls live in the header and command palette. #}
         <div id="fabDock"
-             class="{% if is_admin_user %}fab-dock--admin{% endif %}"
+             class=""
              aria-label="{{ _('Quick actions dock') }}"
              data-dashboard-url="{{ url_for('main.dashboard') }}"
              data-manual-entry-url="{{ url_for('timer.manual_entry') }}"
@@ -158,39 +80,6 @@
              data-new-project-url="/projects/create"
              data-new-client-url="/clients/create"
              data-reports-url="/reports/">
-            <div id="unifiedActionsRoot" role="group" aria-label="{{ _('Actions') }}">
-                <div id="unifiedActionsMenu" class="hidden rounded-xl border border-border-light dark:border-border-dark bg-card-light dark:bg-card-dark shadow-2xl py-1 text-left" role="menu" aria-hidden="true">
-                    <button type="button" class="unified-actions__item flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark text-left" data-action="start" role="menuitem">
-                        <span class="w-5 text-center text-primary" aria-hidden="true"><i class="fas fa-play text-xs"></i></span>
-                        <span>{{ _('Start Timer') }}</span>
-                    </button>
-                    <button type="button" class="unified-actions__item flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark text-left" data-action="log" role="menuitem">
-                        <span class="w-5 text-center" aria-hidden="true"><i class="fas fa-clock text-xs"></i></span>
-                        <span>{{ _('Log Time') }}</span>
-                    </button>
-                    <button type="button" class="unified-actions__item flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark text-left" data-action="task" role="menuitem">
-                        <span class="w-5 text-center" aria-hidden="true"><i class="fas fa-tasks text-xs"></i></span>
-                        <span>{{ _('New Task') }}</span>
-                    </button>
-                    <div class="my-1 border-t border-border-light dark:border-border-dark"></div>
-                    <button type="button" class="unified-actions__item flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark text-left" data-action="project" role="menuitem">
-                        <span class="w-5 text-center" aria-hidden="true"><i class="fas fa-folder-plus text-xs"></i></span>
-                        <span>{{ _('New Project') }}</span>
-                    </button>
-                    <button type="button" class="unified-actions__item flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark text-left" data-action="client" role="menuitem">
-                        <span class="w-5 text-center" aria-hidden="true"><i class="fas fa-user-plus text-xs"></i></span>
-                        <span>{{ _('New Client') }}</span>
-                    </button>
-                    <button type="button" class="unified-actions__item flex w-full items-center gap-3 px-3 py-2.5 text-sm text-text-light dark:text-text-dark hover:bg-background-light dark:hover:bg-background-dark text-left" data-action="reports" role="menuitem">
-                        <span class="w-5 text-center" aria-hidden="true"><i class="fas fa-chart-line text-xs"></i></span>
-                        <span>{{ _('Reports') }}</span>
-                    </button>
-                </div>
-                <button type="button" id="unifiedActionsFab" class="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-primary text-white shadow-lg hover:bg-primary-dark focus:outline-none focus:ring-2 focus:ring-primary/50" aria-expanded="false" aria-haspopup="true" aria-controls="unifiedActionsMenu" title="{{ _('Actions') }}">
-                    <i class="fas fa-bolt text-xl" aria-hidden="true"></i>
-                    <span class="sr-only">{{ _('Actions') }}</span>
-                </button>
-            </div>
             {% if is_module_enabled('team_chat') %}
             {% include 'components/persistent_chat_widget.html' %}
             {% endif %}
@@ -232,13 +121,14 @@
             {% endif %}
         {% endif %}
 
+        {% if current_user.is_authenticated %}
+        {% include 'partials/_timer_control_modal.html' %}
+        {% endif %}
+
     </div>
     <script src="{{ url_for('static', filename='vendor/animejs/anime.min.js') }}"></script>
     <script src="{{ url_for('static', filename='vendor/flatpickr/flatpickr.min.js') }}"></script>
     <script src="{{ asset_url('core-a1') }}"></script>
-    {% if current_user.is_authenticated and support_ui_json %}
-    <script src="{{ asset_url('core-support') }}"></script>
-    {% endif %}
     <script src="{{ asset_url('core-a2') }}"></script>
     <!-- Floating timer bar, idle tracking: authenticated users only -->
     {% if current_user.is_authenticated %}
@@ -268,21 +158,6 @@
                         try { showToast(msg, 'info'); } catch (e) {}
                     }
                 });
-                // Server-side idle timeout (#722): show "Still working?" even when
-                // local idle detection did not fire (e.g. tab throttled).
-                socket.on('idle_timeout', function(data){
-                    try {
-                        if (typeof window.__ttShowIdlePrompt === 'function') {
-                            var stopTs = Date.now() - 30 * 60 * 1000;
-                            var meta = document.querySelector('meta[name="idle-timeout-minutes"]');
-                            var mins = meta ? parseInt(meta.getAttribute('content'), 10) : 30;
-                            if (!isNaN(mins) && mins >= 1) stopTs = Date.now() - mins * 60 * 1000;
-                            window.__ttShowIdlePrompt(stopTs);
-                        } else if (window.toastManager && data) {
-                            window.toastManager.warning(data.message || 'Still working?', data.title || 'Idle timer');
-                        }
-                    } catch (e) {}
-                });
             } catch (e) {
                 console.error('Mention socket init failed', e);
             }
@@ -291,9 +166,6 @@
     {% if ai_enabled %}
     <script src="{{ asset_url('core-ai') }}"></script>
     {% endif %}
-    {% endif %}
-    {% if is_admin_user %}
-    <script src="{{ asset_url('core-admin') }}"></script>
     {% endif %}
     <script nonce="{{ csp_nonce() }}">window.__BASE_INIT__={timerStatus:"{{ url_for('timer.timer_status') }}",stopTimer:"{{ url_for('timer.stop_timer') }}",dashboard:"{{ url_for('main.dashboard') }}",manualEntry:"{{ url_for('timer.manual_entry') }}",newTask:"{{ url_for('tasks.create_task') }}"};</script>
     <script src="{{ asset_url('core-c') }}"></script>
@@ -1083,197 +955,9 @@
         // Close on Escape
         document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closeAllMenus(); });
         
-        // Support Banner Logic with Smart Prompts
-        function dismissSupportBanner() {
-            const banner = document.getElementById('supportBanner');
-            if (banner) {
-                banner.classList.add('opacity-0', 'invisible', 'max-h-0', 'overflow-hidden');
-                banner.classList.remove('opacity-100', 'visible', 'max-h-[100px]');
-                // Store dismissal timestamp (show again after 30 days)
-                try {
-                    localStorage.setItem('supportBannerDismissed', Date.now().toString());
-                    // Track dismissal
-                    trackBannerDismissal();
-                } catch(e) {}
-            }
-        }
-        
-function trackBannerImpression(source) {
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            fetch('{{ url_for("main.track_support_impression") }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                credentials: 'same-origin',
-                body: JSON.stringify({ source: source || 'banner', variant: window.supportAbVariant || 'control' })
-            }).catch(function() {});
-        }
-
-        function trackBannerDismissal() {
-            // Get CSRF token from meta tag
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-            fetch('{{ url_for("main.track_banner_dismissal") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ variant: window.supportAbVariant || 'control' })
-            }).catch(() => {
-                // Silently fail if tracking doesn't work
-            });
-        }
-        
-        function trackDonationClick(source) {
-            // Get CSRF token from meta tag
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            
-            fetch('{{ url_for("main.track_donation_click") }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({
-                    source: source
-                })
-            }).catch(() => {
-                // Silently fail if tracking doesn't work
-            });
-        }
-        
-        function shouldShowSupportBanner() {
-            try {
-                // Check if dismissed recently (30 days)
-                const dismissed = localStorage.getItem('supportBannerDismissed');
-                if (dismissed) {
-                    const dismissedTime = parseInt(dismissed);
-                    const thirtyDays = 30 * 24 * 60 * 60 * 1000; // 30 days in milliseconds
-                    if ((Date.now() - dismissedTime) < thirtyDays) {
-                        return false;
-                    }
-                }
-                
-                // Check if user clicked donation link recently (30 days)
-                const lastClick = localStorage.getItem('donationLinkClicked');
-                if (lastClick) {
-                    const clickTime = parseInt(lastClick);
-                    const thirtyDays = 30 * 24 * 60 * 60 * 1000;
-                    if ((Date.now() - clickTime) < thirtyDays) {
-                        return false;
-                    }
-                }
-                
-                return true;
-            } catch(e) {
-                return true; // Show by default if localStorage fails
-            }
-        }
-        
-        function updateBannerMessage() {
-            // Get user stats from page if available
-            const bannerTitle = document.getElementById('bannerTitle');
-            const bannerMessage = document.getElementById('bannerMessage');
-            
-            if (!bannerTitle || !bannerMessage) return;
-            
-            // Try to get user stats from data attributes or API
-            const userStats = window.userStats || {};
-            const daysSinceSignup = userStats.days_since_signup || 0;
-            const timeEntriesCount = userStats.time_entries_count || 0;
-            const totalHours = userStats.total_hours || 0;
-            
-            // Smart messaging based on milestones
-            if (totalHours >= 100) {
-                bannerTitle.textContent = '{{ _("Amazing! You\'ve tracked over 100 hours") }}';
-                bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
-            } else if (timeEntriesCount >= 50) {
-                bannerTitle.textContent = '{{ _("Great progress! You\'ve logged 50+ entries") }}';
-                bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
-            } else if (daysSinceSignup >= 7) {
-                bannerTitle.textContent = '{{ _("Thanks for using TimeTracker!") }}';
-                bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
-            } else {
-                bannerTitle.textContent = '{{ _("Enjoying TimeTracker?") }}';
-                bannerMessage.textContent = '{{ _("Support updates and new features — or remove prompts with a key") }} ☕';
-            }
-        }
-        
-// Show support banner if conditions are met
-        // Check immediately to reserve space and prevent layout shift
-        (function() {
-            const banner = document.getElementById('supportBanner');
-            if (!banner) return;
-            // Server-side suppression: don't show if user clicked a support CTA in last 30 days
-            if ({{ 'true' if support_banner_suppressed else 'false' }}) { return; }
-
-            if (shouldShowSupportBanner()) {
-                // Update banner message based on user stats
-                updateBannerMessage();
-                
-                // Reserve space immediately by removing height constraints
-                // This prevents layout shift when banner becomes visible
-                banner.classList.remove('max-h-0', 'overflow-hidden');
-                // Space is now reserved, content just invisible
-                
-                // Show banner with a slight delay for better UX, but space is already reserved
-                setTimeout(() => {
-                    banner.classList.remove('opacity-0', 'invisible');
-                    banner.classList.add('opacity-100', 'visible');
-                    // Track banner impression once per page load (for funnel metrics)
-                    if (!window._supportBannerImpressionTracked) {
-                        window._supportBannerImpressionTracked = true;
-                        trackBannerImpression('banner');
-                    }
-                }, 2000); // Show after 2 seconds
-            } else {
-                // Keep it hidden and collapsed - no space reserved
-                banner.classList.add('max-h-0', 'overflow-hidden');
-            }
-        })();
-        
-        // Track donation link clicks
-        document.addEventListener('click', function(e) {
-            const link = e.target.closest('a[href*="buymeacoffee.com"], a[href*="paypal.com/donate"]');
-            if (link) {
-                try {
-                    localStorage.setItem('donationLinkClicked', Date.now().toString());
-                } catch(e) {}
-            }
-        });
     </script>
     
     <script src="{{ asset_url('core-f') }}"></script>
-    
-    <!-- User Stats for Smart Banner -->
-    {% if current_user.is_authenticated %}
-    <script nonce="{{ csp_nonce() }}">
-        window.userStats = {
-            days_since_signup: {{ user_stats.days_since_signup if user_stats else 0 }},
-            time_entries_count: {{ user_stats.time_entries_count if user_stats else 0 }},
-            total_hours: {{ user_stats.total_hours if user_stats else 0.0 }}
-        };
-    </script>
-    {% endif %}
-    
-    
-<!-- Global donation tracking and A/B variant -->
-    <script nonce="{{ csp_nonce() }}">
-        window.supportAbVariant = {{ (support_ab_variant or 'control')|tojson }};
-        function trackDonationClick(source) {
-            {% if current_user.is_authenticated %}
-            const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
-            fetch('{{ url_for("main.track_donation_click") }}', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                credentials: 'same-origin',
-                body: JSON.stringify({ source: source, variant: window.supportAbVariant || 'control' })
-            }).catch(function() {});
-            {% endif %}
-        }
-    </script>
     
     {% block scripts_extra %}{% endblock %}
     {% include 'partials/_bottom_nav.html' %}
@@ -1287,4 +971,3 @@ function trackBannerImpression(source) {
     {% endif %}
 </body>
 </html>
-

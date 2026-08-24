@@ -88,10 +88,10 @@
                 <select id="sync_direction" name="sync_direction"
                         class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark">
                     <option value="asana_to_timetracker" {% if current_config.get('sync_direction', 'asana_to_timetracker') == 'asana_to_timetracker' %}selected{% endif %}>
-                        {{ _('Asana → TimeTracker (Import only)') }}
+                        {{ _('Asana → EvilTime (Import only)') }}
                     </option>
                     <option value="timetracker_to_asana" {% if current_config.get('sync_direction') == 'timetracker_to_asana' %}selected{% endif %}>
-                        {{ _('TimeTracker → Asana (Export only)') }}
+                        {{ _('EvilTime → Asana (Export only)') }}
                     </option>
                     <option value="bidirectional" {% if current_config.get('sync_direction') == 'bidirectional' %}selected{% endif %}>
                         {{ _('Bidirectional (Two-way sync)') }}

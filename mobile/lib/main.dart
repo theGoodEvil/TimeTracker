@@ -17,20 +17,20 @@ void main() async {
   await NotificationService.instance.initialize();
   runApp(
     const ProviderScope(
-      child: TimeTrackerApp(),
+      child: EvilTimeApp(),
     ),
   );
 }
 
-class TimeTrackerApp extends ConsumerWidget {
-  const TimeTrackerApp({super.key});
+class EvilTimeApp extends ConsumerWidget {
+  const EvilTimeApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final themeModeString = ref.watch(themeModeProvider);
     final themeMode = themeModeFromString(themeModeString);
     return MaterialApp(
-      title: 'TimeTracker',
+      title: 'EvilTime',
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,

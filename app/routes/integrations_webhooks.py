@@ -401,7 +401,7 @@ def slack_attendance_save_config():
     if not _admin_required():
         return jsonify({"ok": False, "error": "Admin only"}), 403
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    integration = _ensure_global_integration(SLACK_ATTENDANCE_PROVIDER, "Slack Attendance")
+    integration = _ensure_global_integration(SLACK_ATTENDANCE_PROVIDER, "EvilTime Slack")
     result = SlackAttendanceConnector.save_config(integration, payload)
     status = 200 if result.get("ok") else 400
     return jsonify(result), status

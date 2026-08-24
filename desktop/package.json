@@ -1,7 +1,7 @@
 {
-  "name": "timetracker-desktop",
+  "name": "eviltime-desktop",
   "version": "5.11.4",
-  "description": "TimeTracker desktop app for Windows, Linux, and macOS",
+  "description": "EvilTime desktop app",
   "main": "src/main/main.js",
   "scripts": {
     "prestart": "npm run build:renderer",
@@ -22,13 +22,12 @@
     "dist": "npm run build:renderer && electron-builder --publish=never"
   },
   "keywords": [
-    "timetracker",
+    "eviltime",
     "time-tracking",
     "electron"
   ],
   "author": {
-    "name": "TimeTracker",
-    "email": "support@timetracker.app"
+    "name": "EvilTime contributors"
   },
   "homepage": "https://github.com/DRYTRIX/TimeTracker",
   "license": "MIT",
@@ -47,8 +46,8 @@
     "react-dom": "^19.2.5"
   },
   "build": {
-    "appId": "com.timetracker.desktop",
-    "productName": "TimeTracker",
+    "appId": "de.thegoodevil.eviltime.desktop",
+    "productName": "EvilTime",
     "directories": {
       "output": "dist"
     },
@@ -103,7 +102,7 @@
       ],
       "icon": "assets/icon.png",
       "category": "Utility",
-      "maintainer": "TimeTracker <support@timetracker.app>",
+      "maintainer": "EvilTime contributors",
       "artifactName": "${productName}-${version}-${arch}.${ext}"
     },
     "nsis": {

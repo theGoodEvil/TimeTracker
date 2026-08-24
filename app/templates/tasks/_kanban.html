@@ -1158,8 +1158,8 @@ window.openTaskModal = async function(taskId) {
       
       const tracked = task.total_hours || 0;
       document.getElementById('taskModalHoursInfo').textContent = 
-        `${tracked.toFixed(1)}h tracked / ${task.estimated_hours.toFixed(1)}h estimated`;
-      document.getElementById('taskModalEstimated').textContent = `${task.estimated_hours.toFixed(1)}h`;
+        `${window.formatHoursMinutes(tracked)} tracked / ${window.formatHoursMinutes(task.estimated_hours)} estimated`;
+      document.getElementById('taskModalEstimated').textContent = window.formatHoursMinutes(task.estimated_hours);
     } else {
       progressSection.style.display = 'none';
       estimatedSection2.style.display = 'none';
@@ -1179,7 +1179,7 @@ window.openTaskModal = async function(taskId) {
     
     // Stats
     document.getElementById('taskModalTotalHours').textContent = 
-      `${(task.total_hours || 0).toFixed(1)}h`;
+      window.formatHoursMinutes(task.total_hours || 0);
     
     // Created date
     const createdDate = new Date(task.created_at);
@@ -1395,5 +1395,4 @@ window.openTaskModal = async function(taskId) {
     </div>
   </div>
 </div>
-
 

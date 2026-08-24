@@ -10,13 +10,14 @@ from sqlalchemy.exc import ProgrammingError
 from app import db, log_event, socketio, track_event
 from app.constants import TimeEntrySource
 from app.models import Activity, Client, Project, Settings, Task, TimeEntry, User
+from app.models.time_entry import local_now
 from app.services.client_service import ClientService
 from app.services.project_service import ProjectService
 from app.services.time_tracking_service import TimeTrackingService
 from app.utils.db import safe_commit
 from app.utils.error_handling import safe_log
 from app.utils.posthog_funnels import track_onboarding_first_time_entry, track_onboarding_first_timer
-from app.utils.scope_filter import user_can_access_client, user_can_access_project
+from app.utils.scope_filter import user_can_access_client, user_can_access_project, user_can_clock_project
 from app.utils.timezone import parse_local_datetime, parse_user_local_datetime, utc_to_local
 
 _project_service = ProjectService()
@@ -76,14 +77,18 @@ def _edit_timer_form_projects_tasks(timer, can_edit_schedule):
 
 def _edit_timer_render_kwargs(timer, can_edit_schedule, show_source_dropdown):
     from app.utils.scope_filter import get_active_clients_for_user
+    from app.services.timer_event_service import get_break_pairs
 
     projects, tasks = _edit_timer_form_projects_tasks(timer, can_edit_schedule)
     clients = get_active_clients_for_user(current_user) if can_edit_schedule else []
+    breaks = get_break_pairs(timer.user_id, timer.id)
+
     return {
         "timer": timer,
         "projects": projects,
         "tasks": tasks,
         "clients": clients,
+        "breaks": breaks,
         "can_edit_schedule": can_edit_schedule,
         "show_source_dropdown": show_source_dropdown,
         "can_create_clients": current_user.is_admin or current_user.has_permission("create_clients"),
@@ -128,11 +133,15 @@ def start_timer():
             template.record_usage()
             db.session.commit()
 
-    # Require either project or client
+    # EvilTime uses project timers as the single work/attendance state. A bare
+    # clock-in resolves the user's default; client-only timers remain legacy data.
     if not project_id and not client_id:
-        flash(_("Either a project or a client is required"), "error")
-        current_app.logger.warning("Start timer failed: missing project_id and client_id")
+        project_id = getattr(current_user, "default_project_id", None)
+    if not project_id:
+        flash(_("Choose a project, or configure a default project in your settings."), "error")
+        current_app.logger.warning("Start timer failed: project required")
         return redirect(url_for("main.dashboard"))
+    client_id = None
 
     project = None
     client = None
@@ -191,7 +200,7 @@ def start_timer():
             return redirect(url_for("main.dashboard"))
 
     # Subcontractor scope: only allow starting timer on assigned project/client
-    if project_id and not user_can_access_project(current_user, project_id):
+    if project_id and not user_can_clock_project(current_user, project_id):
         flash(_("You do not have access to this project"), "error")
         current_app.logger.warning("Start timer denied: user has no access to project_id=%s", project_id)
         return redirect(url_for("main.dashboard"))
@@ -331,7 +340,7 @@ def start_timer():
         if task:
             payload["task_id"] = task.id
             payload["task_name"] = task.name
-        socketio.emit("timer_started", payload)
+        socketio.emit("timer_started", payload, room=f"user_{current_user.id}")
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_started: %s", e)
 
@@ -388,7 +397,7 @@ def start_timer_from_template(template_id):
         flash(_("Cannot start timer for this project"), "error")
         return redirect(url_for("time_entry_templates.list_templates"))
 
-    if not user_can_access_project(current_user, template.project_id):
+    if not user_can_clock_project(current_user, template.project_id):
         flash(_("You do not have access to this project"), "error")
         current_app.logger.warning(
             "Start timer from template denied: user has no access to project_id=%s", template.project_id
@@ -481,7 +490,7 @@ def start_timer_for_project(project_id):
         current_app.logger.warning("Start timer (GET) failed: project_id=%s is not active", project_id)
         return redirect(url_for("main.dashboard"))
 
-    if not user_can_access_project(current_user, project_id):
+    if not user_can_clock_project(current_user, project_id):
         flash(_("You do not have access to this project"), "error")
         current_app.logger.warning("Start timer (GET) denied: user has no access to project_id=%s", project_id)
         return redirect(url_for("main.dashboard"))
@@ -535,6 +544,7 @@ def start_timer_for_project(project_id):
                 "task_id": task_id,
                 "start_time": new_timer.start_time.isoformat(),
             },
+            room=f"user_{current_user.id}",
         )
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_started (GET): %s", e)
@@ -558,6 +568,39 @@ def start_timer_for_project(project_id):
     return redirect(url_for("main.dashboard"))
 
 
+@timer_bp.route("/timer/switch", methods=["POST"])
+@login_required
+def switch_timer():
+    """Atomically switch the user's work state to another active project."""
+    project_id = request.form.get("project_id", type=int)
+    project = Project.query.filter_by(id=project_id, status="active").first() if project_id else None
+    if not project or not user_can_clock_project(current_user, project.id):
+        flash(_("Select an active project you can access."), "error")
+        return redirect(url_for("main.dashboard"))
+    active = current_user.active_timer
+    if not active:
+        flash(_("No active project to switch."), "error")
+        return redirect(url_for("main.dashboard"))
+    service = TimeTrackingService()
+    switched = service.switch_timer(current_user.id, project.id)
+    if not switched.get("success"):
+        flash(_(switched.get("message") or "Could not switch projects."), "error")
+        return redirect(url_for("main.dashboard"))
+    timer = switched["timer"]
+    socketio.emit(
+        "timer_started",
+        {
+            "user_id": current_user.id,
+            "timer_id": timer.id,
+            "project_name": project.name,
+            "start_time": timer.start_time.isoformat(),
+        },
+        room=f"user_{current_user.id}",
+    )
+    flash(_("Switched to %(project)s", project=project.name), "success")
+    return redirect(url_for("main.dashboard"))
+
+
 @timer_bp.route("/timer/stop", methods=["POST"])
 @login_required
 def stop_timer():
@@ -571,7 +614,13 @@ def stop_timer():
 
     # Stop the timer
     try:
+        paused_before_stop = active_timer.paused_at is not None
         active_timer.stop_timer()
+        from app.services.timer_event_service import record_timer_event
+
+        if paused_before_stop:
+            record_timer_event("break_end", active_timer, occurred_at=active_timer.end_time)
+        record_timer_event("clock_out", active_timer, occurred_at=active_timer.end_time)
         current_app.logger.info("Stopped timer id=%s for user=%s", active_timer.id, current_user.username)
 
         from app.telemetry.otel_setup import business_span
@@ -639,6 +688,7 @@ def stop_timer():
             socketio.emit(
                 "timer_stopped",
                 {"user_id": current_user.id, "timer_id": active_timer.id, "duration": active_timer.duration_formatted},
+                room=f"user_{current_user.id}",
             )
         except Exception as e:
             current_app.logger.warning("Socket emit failed for timer_stopped: %s", e)
@@ -696,6 +746,14 @@ def pause_timer():
         return redirect(url_for("main.dashboard"))
     try:
         active_timer.pause_timer()
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("break_start", active_timer, occurred_at=active_timer.paused_at)
+        socketio.emit(
+            "timer_paused",
+            {"user_id": current_user.id, "timer_id": active_timer.id, "paused_at": active_timer.paused_at.isoformat()},
+            room=f"user_{current_user.id}",
+        )
         flash(_("Timer paused"), "success")
     except ValueError as e:
         flash(_(str(e)), "error")
@@ -720,7 +778,16 @@ def resume_timer():
         flash(_("No active timer to resume"), "error")
         return redirect(url_for("main.dashboard"))
     try:
+        resumed_at = local_now()
         active_timer.resume_timer()
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("break_end", active_timer, occurred_at=resumed_at)
+        socketio.emit(
+            "timer_resumed",
+            {"user_id": current_user.id, "timer_id": active_timer.id, "break_seconds": active_timer.break_seconds or 0},
+            room=f"user_{current_user.id}",
+        )
         flash(_("Timer resumed"), "success")
     except ValueError as e:
         flash(_(str(e)), "error")
@@ -800,6 +867,11 @@ def timer_status():
                 "duration_formatted": active_timer.duration_formatted,
                 "paused": getattr(active_timer, "is_paused", False),
                 "paused_at": active_timer.paused_at.isoformat() if active_timer.paused_at else None,
+                "paused_duration_seconds": (
+                    max(0, int((local_now() - active_timer._naive_dt(active_timer.paused_at)).total_seconds()))
+                    if active_timer.paused_at
+                    else 0
+                ),
                 "break_seconds": getattr(active_timer, "break_seconds", None) or 0,
                 "break_formatted": getattr(active_timer, "break_formatted", "00:00:00"),
             },
@@ -975,14 +1047,49 @@ def edit_timer(timer_id):
             else:
                 update_params["end_time"] = None
 
-            # Parse break time (HH:MM) to seconds; empty clears break
-            import re
+            # Extract and calculate break subevents
+            from app.utils.timezone import parse_user_local_datetime_from_string
 
-            if break_time:
-                m = re.match(r"^(\d{1,3}):([0-5]\d)$", break_time.strip())
-                update_params["break_seconds"] = (int(m.group(1)) * 3600 + int(m.group(2)) * 60) if m else 0
-            else:
-                update_params["break_seconds"] = 0
+            break_starts = request.form.getlist("break_start[]")
+            break_ends = request.form.getlist("break_end[]")
+
+            valid_breaks = []
+            for bs_str, be_str in zip(break_starts, break_ends):
+                if bs_str and be_str:
+                    bs = parse_user_local_datetime_from_string(bs_str, user=current_user)
+                    be = parse_user_local_datetime_from_string(be_str, user=current_user)
+                    if bs and be and bs < be:
+                        # Ensure breaks are within the bounds of the entry (if entry has bounds)
+                        # We use new_start_time and new_end_time if provided, else timer.start_time / end_time
+                        eff_start = update_params.get("start_time", timer.start_time)
+                        eff_end = update_params.get("end_time", timer.end_time)
+
+                        if eff_start and bs < eff_start:
+                            bs = eff_start
+                        if eff_end and be > eff_end:
+                            be = eff_end
+
+                        if bs < be:
+                            valid_breaks.append((bs, be))
+
+            # Sort to prevent negative overlapping durations if they messed up the UI
+            valid_breaks.sort(key=lambda x: x[0])
+
+            # Merge overlapping breaks
+            merged_breaks = []
+            for b in valid_breaks:
+                if not merged_breaks:
+                    merged_breaks.append(b)
+                else:
+                    last = merged_breaks[-1]
+                    if b[0] <= last[1]:
+                        merged_breaks[-1] = (last[0], max(last[1], b[1]))
+                    else:
+                        merged_breaks.append(b)
+
+            total_break_sec = sum(int((be - bs).total_seconds()) for bs, be in merged_breaks)
+            update_params["break_seconds"] = total_break_sec
+
 
         # Call service layer to update
         result = service.update_entry(**update_params)
@@ -995,6 +1102,13 @@ def edit_timer(timer_id):
             )
 
         entry = result.get("entry")
+
+        if entry and can_edit_schedule:
+            from app.services.timer_event_service import replace_break_events
+
+            # Single atomic sync: replace captured break events to match the submitted rows.
+            replace_break_events(entry, merged_breaks)
+            safe_commit("update_timer_breaks", {"entry_id": entry.id})
 
         # Log activity
         if entry:
@@ -1117,6 +1231,13 @@ def delete_timer(timer_id):
 
     # Capture entry info for logging before deletion
     entry_id = timer.id
+
+    # Remove dependent timeline events before the entry itself
+    from app.services.timer_event_service import delete_entry_events
+
+    delete_entry_events(entry_id)
+    db.session.commit()  # Commit the deletion of subevents before the entry itself
+
     duration_formatted = timer.duration_formatted
     project_name = timer.project.name if timer.project else None
     client_name = timer.client.name if timer.client else None
@@ -2142,6 +2263,9 @@ def resume_timer_by_id(timer_id):
         project_id,
         client_id,
     )
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     # Track timer resumed event
     log_event(
@@ -2213,7 +2337,7 @@ def resume_timer_by_id(timer_id):
             if task:
                 payload["task_id"] = task_id
                 payload["task_name"] = task.name
-        socketio.emit("timer_started", payload)
+        socketio.emit("timer_started", payload, room=f"user_{current_user.id}")
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_resumed: %s", e)
 

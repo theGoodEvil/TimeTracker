@@ -155,7 +155,7 @@ function registerGlobalShortcuts() {
       focusMainWindow();
     });
   } catch (e) {
-    console.warn('TimeTracker: could not register global shortcuts:', e.message);
+    console.warn('EvilTime: could not register global shortcuts:', e.message);
   }
 }
 
@@ -188,7 +188,7 @@ app.whenReady().then(() => {
       if (idleMonitor) idleMonitor.confirmStillWorking();
     });
   } catch (e) {
-    console.warn('TimeTracker: could not register powerMonitor resume:', e.message);
+    console.warn('EvilTime: could not register powerMonitor resume:', e.message);
   }
   
   // Listen for timer status updates from renderer (via IPC)
@@ -209,7 +209,7 @@ app.whenReady().then(() => {
       const label = data.elapsedLabel || 'running';
       updateTrayTooltip(paused ? `Paused: ${label}` : `Timer: ${label}`);
     } else if (updateTrayTooltip) {
-      updateTrayTooltip('TimeTracker');
+      updateTrayTooltip('EvilTime');
     }
   });
 
@@ -312,7 +312,7 @@ ipcMain.on('timer:stop', async (event) => {
   currentTimer = null;
   sendToMainWindow('timer:stop');
   if (tray) {
-    updateTrayTooltip('TimeTracker');
+    updateTrayTooltip('EvilTime');
   }
 });
 
