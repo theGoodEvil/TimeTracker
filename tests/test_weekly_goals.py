@@ -321,6 +321,12 @@ def test_weekly_goals_index_page(authenticated_client):
     """Test weekly goals index page loads."""
     response = authenticated_client.get("/goals")
     assert response.status_code == 200
+    assert b"data-week-adjustment-form" in response.data
+    assert b"data-week-hours-preview" in response.data
+    assert b"data-week-preview-actual" in response.data
+    assert b"data-tracked-hours" in response.data
+    assert b"sm:items-start" in response.data
+    assert b"sm:pt-6" in response.data
 
 
 @pytest.mark.smoke

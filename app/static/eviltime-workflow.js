@@ -187,6 +187,58 @@
     return modal && !modal.classList.contains('hidden');
   }
 
+  function normalizedWeekStart(value, weekStartDay) {
+    var parts = String(value || '').split('-').map(Number);
+    if (parts.length !== 3 || parts.some(function (part) { return !Number.isFinite(part); })) return '';
+    var selected = new Date(parts[0], parts[1] - 1, parts[2]);
+    var firstDay = Number(weekStartDay);
+    if (!Number.isFinite(firstDay) || firstDay < 0 || firstDay > 6) firstDay = 1;
+    selected.setDate(selected.getDate() - ((selected.getDay() - firstDay + 7) % 7));
+    return [
+      selected.getFullYear(),
+      String(selected.getMonth() + 1).padStart(2, '0'),
+      String(selected.getDate()).padStart(2, '0')
+    ].join('-');
+  }
+
+  function initWeeklyHoursPreviews() {
+    var trackedByWeek = {};
+    document.querySelectorAll('[data-week-edit]').forEach(function (trigger) {
+      trackedByWeek[trigger.dataset.weekStart] = Number(trigger.dataset.trackedHours) || 0;
+    });
+
+    document.querySelectorAll('[data-week-adjustment-form]').forEach(function (form) {
+      var start = form.querySelector('[name="week_start"]');
+      var expected = form.querySelector('[name="expected_hours"]');
+      var adjustment = form.querySelector('[name="actual_hours_adjustment"]');
+      var preview = form.querySelector('[data-week-hours-preview]');
+      if (!start || !expected || !adjustment || !preview) return;
+
+      function update() {
+        var week = normalizedWeekStart(start.value, form.dataset.weekStartDay);
+        var fixedTracked = form.dataset.trackedHours;
+        var trackedHours = fixedTracked === undefined ? (trackedByWeek[week] || 0) : (Number(fixedTracked) || 0);
+        var adjustmentHours = Number(adjustment.value) || 0;
+        var expectedHours = Number(expected.value) || 0;
+        var actualHours = Math.max(0, trackedHours + adjustmentHours);
+        var isCounted = trackedHours > 0 || adjustment.value.trim() !== '';
+        var balanceHours = isCounted ? actualHours - expectedHours : 0;
+
+        preview.querySelector('[data-week-preview-tracked]').textContent = formatHoursMinutes(trackedHours * 3600);
+        preview.querySelector('[data-week-preview-adjustment]').textContent = formatSignedHoursMinutes(adjustmentHours * 3600);
+        preview.querySelector('[data-week-preview-actual]').textContent = formatHoursMinutes(actualHours * 3600);
+        preview.querySelector('[data-week-preview-balance]').textContent = formatSignedHoursMinutes(balanceHours * 3600);
+      }
+
+      [start, expected, adjustment].forEach(function (input) {
+        input.addEventListener('input', update);
+        input.addEventListener('change', update);
+      });
+      form.updateWeeklyHoursPreview = update;
+      update();
+    });
+  }
+
   function initWeeklyEditModal() {
     var modal = document.getElementById('weeklyEditModal');
     if (!modal) return;
@@ -195,6 +247,7 @@
     var expected = document.getElementById('weeklyEditExpected');
     var adjustment = document.getElementById('weeklyEditAdjustment');
     var notes = document.getElementById('weeklyEditNotes');
+    var form = modal.querySelector('[data-week-adjustment-form]');
     var lastTrigger = null;
 
     function open(trigger) {
@@ -204,6 +257,8 @@
       expected.value = trigger.dataset.expectedHours || '';
       adjustment.value = trigger.dataset.actualAdjustment || '';
       notes.value = trigger.dataset.notes || '';
+      form.dataset.trackedHours = trigger.dataset.trackedHours || '0';
+      if (form.updateWeeklyHoursPreview) form.updateWeeklyHoursPreview();
       openModal(modal);
       window.setTimeout(function () { expected.focus(); expected.select(); }, 0);
     }
@@ -630,6 +685,7 @@
 
   onReady(function () {
     initDashboard();
+    initWeeklyHoursPreviews();
     initWeeklyEditModal();
     initTimelineEditModal();
     initNowIndicator();

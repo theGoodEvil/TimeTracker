@@ -124,6 +124,10 @@ def test_dashboard_behaviour_is_in_compiled_source():
     assert "eviltime-week-today" in source
     assert "Notification.requestPermission" in source
     assert "data-week-edit" in source
+    assert "initWeeklyHoursPreviews" in source
+    assert "normalizedWeekStart" in source
+    assert "Math.max(0, trackedHours + adjustmentHours)" in source
+    assert "isCounted ? actualHours - expectedHours : 0" in source
     assert "eviltime-time-balance" in source
     assert "data-timeline-edit" in source
     assert "timelineConfirmModal" in source
