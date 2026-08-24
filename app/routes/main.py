@@ -516,7 +516,18 @@ def add_timeline_event():
             if not user_can_clock_project(current_user, project_id):
                 raise ValueError(_("You do not have access to the selected project."))
 
-            # Create a duplicate entry from the split point
+            from app.services.timer_event_service import break_event_ids_after_split, get_break_events
+
+            break_events = get_break_events(current_user.id, entry.id)
+            break_ids_to_move = break_event_ids_after_split(break_events, start)
+            if break_ids_to_move is None:
+                raise ValueError(_("A project switch cannot be placed inside a break."))
+
+            paused_at = entry._naive_dt(entry.paused_at) if entry.paused_at else None
+            if paused_at and paused_at < start:
+                raise ValueError(_("A project switch cannot be placed inside a break."))
+
+            # Create a duplicate entry from the split point.
             new_entry = TimeEntry(
                 user_id=current_user.id,
                 project_id=project_id,
@@ -525,17 +536,24 @@ def add_timeline_event():
                 source="manual",
                 billable=entry.billable,
             )
+            if paused_at and paused_at >= start:
+                new_entry.paused_at = paused_at
+                entry.paused_at = None
             entry.end_time = start
 
             db.session.add(new_entry)
             db.session.flush()
 
-            # Transfer breaks that fall after the split
-            from app.services.timer_event_service import get_break_events
-
-            for b in get_break_events(current_user.id, entry.id):
-                if b.occurred_at >= start:
-                    b.time_entry_id = new_entry.id
+            # Move complete break pairs only; never leave one half behind.
+            for break_event in break_events:
+                if break_event.id in break_ids_to_move:
+                    break_event.time_entry_id = new_entry.id
+            for clock_out_event in TimerEvent.query.filter_by(
+                user_id=current_user.id,
+                time_entry_id=entry.id,
+                event_type="clock_out",
+            ).all():
+                clock_out_event.time_entry_id = new_entry.id
             db.session.flush()
 
             # Recompute breaks for both halves of the split session

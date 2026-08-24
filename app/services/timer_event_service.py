@@ -74,6 +74,46 @@ def get_break_pairs(user_id, entry_id):
     return pairs
 
 
+def break_event_ids_after_split(events, split_at):
+    """Return IDs of complete break groups that belong after ``split_at``.
+
+    A split on a break start moves the whole pair; a split on its end keeps the
+    whole pair on the earlier entry. ``None`` signals that the requested split
+    falls inside a completed or open break and would tear its events apart.
+    """
+    move_ids = set()
+    open_start = None
+
+    for event in events:
+        if event.event_type == "break_start":
+            if open_start is not None:
+                if open_start.occurred_at < split_at:
+                    return None
+                move_ids.add(open_start.id)
+            open_start = event
+            continue
+
+        if event.event_type != "break_end":
+            continue
+        if open_start is None:
+            if event.occurred_at >= split_at:
+                move_ids.add(event.id)
+            continue
+
+        if open_start.occurred_at < split_at < event.occurred_at:
+            return None
+        if split_at <= open_start.occurred_at:
+            move_ids.update((open_start.id, event.id))
+        open_start = None
+
+    if open_start is not None:
+        if open_start.occurred_at < split_at:
+            return None
+        move_ids.add(open_start.id)
+
+    return move_ids
+
+
 def sum_break_seconds(events):
     """Total break seconds across ordered break_start/break_end events."""
     total = 0
@@ -140,7 +180,9 @@ def fabricate_centered_break(entry, break_seconds, session_start, session_end):
 
     db.session.add_all(
         [
-            TimerEvent(user_id=entry.user_id, time_entry_id=entry.id, event_type="break_start", occurred_at=break_start),
+            TimerEvent(
+                user_id=entry.user_id, time_entry_id=entry.id, event_type="break_start", occurred_at=break_start
+            ),
             TimerEvent(user_id=entry.user_id, time_entry_id=entry.id, event_type="break_end", occurred_at=break_end),
         ]
     )
@@ -229,7 +271,7 @@ def build_timeline(user, entries):
         TimerEvent.query.filter(
             TimerEvent.user_id == user.id,
             TimerEvent.time_entry_id.in_(ids),
-            TimerEvent.event_type.in_(BREAK_EVENT_TYPES)
+            TimerEvent.event_type.in_(BREAK_EVENT_TYPES),
         )
         .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
         .all()
@@ -332,7 +374,5 @@ def build_timeline(user, entries):
         group = "break" if item["event_type"] in BREAK_EVENT_TYPES else "boundary"
         item["timeline_lane"] = lane_counters[group] % 2
         lane_counters[group] += 1
-        item["outside_timeline"] = (
-            minute < TIMELINE_START_MINUTE or minute > TIMELINE_END_MINUTE
-        )
+        item["outside_timeline"] = minute < TIMELINE_START_MINUTE or minute > TIMELINE_END_MINUTE
     return timeline

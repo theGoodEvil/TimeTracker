@@ -3,7 +3,7 @@
 from datetime import datetime, timedelta, timezone as dt_timezone
 
 from app import db
-from app.models import TimeEntry, TimerEvent
+from app.models import Project, TimeEntry, TimerEvent
 from app.services.timer_event_service import current_timeline_position
 
 
@@ -45,6 +45,18 @@ def _events(entry_id):
         .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
         .all()
     )
+
+
+def _second_project(user, project):
+    second = Project(
+        name="Second Project",
+        client_id=project.client_id,
+        created_by=user.id,
+        status="active",
+    )
+    db.session.add(second)
+    db.session.commit()
+    return second
 
 
 def test_delete_break_end_keeps_clock_out_position(app, client, authenticated_client, user, project):
@@ -225,6 +237,95 @@ def test_break_edit_cannot_extend_work_session(app, client, authenticated_client
     assert entry.end_time.strftime("%H:%M") == "17:00"
     assert break_end.occurred_at.strftime("%H:%M") == "13:00"
     assert entry.break_seconds == 60 * 60
+
+
+def test_project_switch_inside_break_is_rejected(app, client, authenticated_client, user, project):
+    entry = _seed_day(app, user, project)
+    second_project = _second_project(user, project)
+    date = entry.start_time.strftime("%Y-%m-%d")
+
+    response = _post_timeline(
+        client,
+        "/dashboard/timeline/add",
+        event_kind="project_switch",
+        project_id=second_project.id,
+        start_at=f"{date}T12:30",
+    )
+
+    assert b"A project switch cannot be placed inside a break." in response.data
+    assert TimeEntry.query.filter_by(user_id=user.id).count() == 1
+    assert TimerEvent.query.filter_by(user_id=user.id, event_type="project_switch").count() == 0
+    assert [(event.event_type, event.occurred_at.strftime("%H:%M")) for event in _events(entry.id)] == [
+        ("clock_in", "08:00"),
+        ("break_start", "12:00"),
+        ("break_end", "13:00"),
+        ("clock_out", "17:00"),
+    ]
+
+
+def test_project_switch_on_break_start_moves_whole_pair(app, client, authenticated_client, user, project):
+    entry = _seed_day(app, user, project)
+    second_project = _second_project(user, project)
+    date = entry.start_time.strftime("%Y-%m-%d")
+
+    _post_timeline(
+        client,
+        "/dashboard/timeline/add",
+        event_kind="project_switch",
+        project_id=second_project.id,
+        start_at=f"{date}T12:00",
+    )
+
+    new_entry = TimeEntry.query.filter_by(user_id=user.id, project_id=second_project.id).one()
+    db.session.refresh(entry)
+    assert [event.event_type for event in _events(entry.id)] == ["clock_in"]
+    assert [event.event_type for event in _events(new_entry.id)] == [
+        "break_start",
+        "project_switch",
+        "break_end",
+        "clock_out",
+    ]
+    assert entry.break_seconds == 0
+    assert new_entry.break_seconds == 60 * 60
+
+
+def test_project_switch_preserves_active_pause_state(app, client, authenticated_client, user, project):
+    date = datetime.utcnow().replace(hour=8, minute=0, second=0, microsecond=0)
+    entry = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=date,
+        paused_at=date.replace(hour=8, minute=45),
+        source="auto",
+    )
+    db.session.add(entry)
+    db.session.flush()
+    break_start = TimerEvent(
+        user_id=user.id,
+        time_entry_id=entry.id,
+        event_type="break_start",
+        occurred_at=entry.paused_at,
+    )
+    db.session.add(break_start)
+    db.session.commit()
+    second_project = _second_project(user, project)
+
+    _post_timeline(
+        client,
+        "/dashboard/timeline/add",
+        event_kind="project_switch",
+        project_id=second_project.id,
+        start_at=f"{date.strftime('%Y-%m-%d')}T08:30",
+    )
+
+    new_entry = TimeEntry.query.filter_by(user_id=user.id, project_id=second_project.id).one()
+    db.session.refresh(entry)
+    db.session.refresh(break_start)
+    assert entry.end_time.strftime("%H:%M") == "08:30"
+    assert entry.paused_at is None
+    assert new_entry.end_time is None
+    assert new_entry.paused_at.strftime("%H:%M") == "08:45"
+    assert break_start.time_entry_id == new_entry.id
 
 
 def test_lane_assignment_is_group_scoped(app, client, authenticated_client, user, project):
