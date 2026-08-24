@@ -105,18 +105,28 @@ def dashboard():
 
     # Include the live entry. The browser then advances these values locally,
     # while Socket.IO events trigger an immediate refresh after state changes.
-    today_local = local_now().date()
+    from sqlalchemy import or_
+
+    from app.utils.timezone import now_in_user_timezone, user_day_bounds_app_naive
+
+    timeline_date = now_in_user_timezone(current_user).date()
+    day_start, day_end = user_day_bounds_app_naive(current_user, timeline_date)
     today_entries = TimeEntry.query.filter(
         TimeEntry.user_id == current_user.id,
-        TimeEntry.start_time >= datetime.combine(today_local, datetime.min.time()),
-        TimeEntry.start_time <= datetime.combine(today_local, datetime.max.time()),
+        TimeEntry.start_time >= day_start,
+        TimeEntry.start_time < day_end,
+    ).all()
+    timeline_entries = TimeEntry.query.filter(
+        TimeEntry.user_id == current_user.id,
+        TimeEntry.start_time < day_end,
+        or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > day_start),
     ).all()
     from app.services.timer_event_service import build_timeline, build_timeline_segments, current_timeline_position
     from app.utils.timezone import get_app_timezone, get_user_timezone_name
 
-    today_timeline = build_timeline(current_user, today_entries)
-    timeline_segments = build_timeline_segments(today_timeline, user=current_user)
-    timeline_now = current_timeline_position(user=current_user)
+    today_timeline = build_timeline(current_user, timeline_entries, timeline_date=timeline_date)
+    timeline_segments = build_timeline_segments(today_timeline, user=current_user, timeline_date=timeline_date)
+    timeline_now = current_timeline_position(user=current_user, timeline_date=timeline_date)
     timeline_timezone = get_user_timezone_name(current_user) or get_app_timezone()
 
     today_work_seconds = sum(
@@ -157,7 +167,7 @@ def dashboard():
         status_action_at=status_action_at,
         today_timeline=today_timeline,
         timeline_segments=timeline_segments,
-        timeline_date=local_now().date(),
+        timeline_date=timeline_date,
         timeline_now=timeline_now,
         timeline_timezone=timeline_timezone,
         can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
@@ -475,12 +485,16 @@ def add_timeline_event():
     from app.services.timer_event_service import recompute_break_seconds
     from app.utils.db import safe_commit
     from app.utils.scope_filter import user_can_clock_project
-    from app.utils.timezone import parse_user_local_datetime_from_string
+    from app.utils.timezone import (
+        convert_app_datetime_to_user,
+        now_in_user_timezone,
+        parse_user_local_datetime_from_string,
+    )
 
     event_kind = (request.form.get("event_kind") or "break").strip()
     start = parse_user_local_datetime_from_string(request.form.get("start_at"), user=current_user)
     end = parse_user_local_datetime_from_string(request.form.get("end_at"), user=current_user)
-    today = local_now().date()
+    today = now_in_user_timezone(current_user).date()
 
     try:
         if event_kind not in {"break", "work_session", "project_switch"}:
@@ -494,7 +508,9 @@ def add_timeline_event():
                 raise ValueError(_("Start time is required for a project switch."))
             end = start  # dummy
 
-        if start.date() != today or end.date() != today:
+        start_user_date = convert_app_datetime_to_user(start, current_user).date()
+        end_user_date = convert_app_datetime_to_user(end, current_user).date()
+        if start_user_date != today or end_user_date != today:
             raise ValueError(_("Dashboard timeline events must be within today."))
 
         if event_kind == "project_switch":

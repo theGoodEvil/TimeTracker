@@ -1,6 +1,6 @@
 """Regression tests for dashboard timeline mutations (add / edit / delete events)."""
 
-from datetime import datetime, timedelta, timezone as dt_timezone
+from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from app import db
 from app.models import Project, TimeEntry, TimerEvent
@@ -414,6 +414,60 @@ def test_marker_positions_match_displayed_user_time(app, client, authenticated_c
     shown_minute = 15 * 60 + ((entry.start_time.minute) or 0)
     expected = (shown_minute - 8 * 60) / ((22 - 8) * 60) * 100
     assert abs(by_type["clock_in"]["timeline_position"] - expected) < 0.01
+
+
+def test_timeline_positions_are_relative_to_requested_user_date(app, user, project):
+    from app.services.timer_event_service import build_timeline
+
+    user.timezone = "Asia/Tokyo"
+    entry = TimeEntry(
+        user_id=user.id,
+        project_id=project.id,
+        start_time=datetime(2026, 8, 23, 16, 0),  # 23:00 Tokyo on the previous day
+        end_time=datetime(2026, 8, 24, 5, 0),  # 12:00 Tokyo on the requested day
+        source="manual",
+    )
+    db.session.add(entry)
+    db.session.commit()
+
+    timeline = build_timeline(user, [entry], timeline_date=date(2026, 8, 24))
+    by_type = {item["event_type"]: item for item in timeline}
+    assert by_type["clock_in"]["timeline_position"] == 0
+    assert by_type["clock_in"]["outside_timeline"] is True
+    assert abs(by_type["clock_out"]["timeline_position"] - (4 / 14 * 100)) < 0.01
+    assert by_type["clock_out"]["outside_timeline"] is False
+
+
+def test_user_day_bounds_are_projected_into_app_timezone(app, user):
+    from app.utils.timezone import user_day_bounds_app_naive
+
+    user.timezone = "Asia/Tokyo"
+    start, end = user_day_bounds_app_naive(user, date(2026, 8, 24))
+    assert start == datetime(2026, 8, 23, 17, 0)
+    assert end == datetime(2026, 8, 24, 17, 0)
+
+
+def test_timeline_add_accepts_user_today_across_app_date_boundary(
+    app, client, authenticated_client, user, project, monkeypatch
+):
+    user_now = datetime(2026, 8, 24, 12, 0, tzinfo=dt_timezone(timedelta(hours=9)))
+    monkeypatch.setattr("app.utils.timezone.now_in_user_timezone", lambda user=None: user_now)
+    user.timezone = "Asia/Tokyo"
+    db.session.commit()
+
+    response = _post_timeline(
+        client,
+        "/dashboard/timeline/add",
+        event_kind="work_session",
+        project_id=project.id,
+        start_at="2026-08-24T01:00",
+        end_at="2026-08-24T02:00",
+    )
+
+    assert b"Timeline event added." in response.data
+    entry = TimeEntry.query.filter_by(user_id=user.id, project_id=project.id).one()
+    assert entry.start_time == datetime(2026, 8, 23, 18, 0)
+    assert entry.end_time == datetime(2026, 8, 23, 19, 0)
 
 
 def test_timeline_uses_one_user_timezone_clock_for_defaults_and_now_marker(app):
