@@ -1,6 +1,6 @@
 services:
   app:
-    image: ghcr.io/drytrix/timetracker:latest
+    build: .
     container_name: timetracker-app
     environment:
       - TZ=${TZ:-Europe/Brussels}
