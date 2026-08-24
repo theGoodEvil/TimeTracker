@@ -61,7 +61,7 @@
       try {
         if ('serviceWorker' in navigator) {
           navigator.serviceWorker.ready.then(function(registration){
-            registration.showNotification(title, { body: message, icon: '/static/images/timetracker-logo.svg', tag: key, data: { url: '/' } });
+            registration.showNotification(title, { body: message, icon: '/static/images/eviltime-logo.png', tag: key, data: { url: '/' } });
           }).catch(function(){ new Notification(title, { body: message, tag: key }); });
         } else {
           new Notification(title, { body: message, tag: key });

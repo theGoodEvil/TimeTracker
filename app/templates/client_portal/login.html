@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ _('Client Portal Login') }} - {{ app_name }}</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="alternate icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
     {# Inter is self-hosted via @font-face in dist/output.css (app/static/vendor/inter). #}
     {# Font Awesome must load BEFORE dist/output.css: its `.fa-solid{display:inline-block}`
        has the same specificity as Tailwind's `.hidden{display:none}`, so whichever
@@ -29,7 +28,7 @@
         <div class="w-full max-w-4xl grid grid-cols-1 md:grid-cols-2 gap-0 bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-xl shadow-lg overflow-hidden">
             <div class="hidden md:flex items-center justify-center p-10 bg-background-light dark:bg-background-dark">
                 <div class="text-center">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="logo" class="w-24 h-24 mx-auto">
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-24 h-24 mx-auto object-contain">
                     <h1 class="text-3xl font-bold mt-4 text-primary">EvilTime</h1>
                     <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Client Portal') }}</p>
                     <p class="mt-1 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('View your projects and invoices') }}</p>
@@ -37,7 +36,7 @@
             </div>
             <div class="p-6 sm:p-8">
                 <div class="flex items-center gap-3 mb-4 md:hidden">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="EvilTime Logo" class="w-10 h-10">
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-10 h-10 object-contain">
                     <span class="text-xl font-bold text-primary">{{ _('Client Portal') }}</span>
                 </div>
                 <h2 class="text-2xl font-bold tracking-tight">{{ _('Sign in to Client Portal') }}</h2>

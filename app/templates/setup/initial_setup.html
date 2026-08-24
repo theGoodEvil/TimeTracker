@@ -5,9 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ _('Welcome') }} - EvilTime</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="alternate icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
     {# Inter is self-hosted via @font-face in dist/output.css (app/static/vendor/inter). #}
     {# Font Awesome must load BEFORE dist/output.css: its `.fa-solid{display:inline-block}`
        has the same specificity as Tailwind's `.hidden{display:none}`, so whichever
@@ -30,7 +29,7 @@
             <!-- Left side - Branding -->
             <div class="hidden md:flex flex-col items-center justify-center p-10 bg-background-light dark:bg-background-dark border-r border-border-light dark:border-border-dark">
                 <div class="text-center">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="logo" class="w-24 h-24 mx-auto">
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-24 h-24 mx-auto object-contain">
                     <h1 class="text-3xl font-bold mt-4 text-primary">EvilTime</h1>
                     <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Track time. Stay organized.') }}</p>
                     <!-- Privacy Principles -->
@@ -67,7 +66,7 @@
             <!-- Right side - Wizard -->
             <div class="p-4 sm:p-8 overflow-y-auto max-h-[90vh]">
                 <div class="flex items-center gap-3 mb-4 md:hidden">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="EvilTime Logo" class="w-10 h-10">
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-10 h-10 object-contain">
                     <span class="text-xl font-bold text-primary">EvilTime</span>
                 </div>
                 <p class="text-sm font-medium text-text-muted-light dark:text-text-muted-dark mb-4" id="wizard-progress-label">{{ _('Step 1 of 7') }}</p>

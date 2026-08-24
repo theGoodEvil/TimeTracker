@@ -1,5 +1,5 @@
 /* EvilTime service worker — cache static assets; do not touch /api/v1/* (token auth). */
-const CACHE_NAME = 'eviltime-5.11.4-evil';
+const CACHE_NAME = 'eviltime-5.11.4-logo';
 
 const PRECACHE_URLS = [
   '/offline',
@@ -9,7 +9,7 @@ const PRECACHE_URLS = [
   '/static/enhanced-ui.js',
   '/static/charts.js',
   '/static/interactions.js',
-  '/static/images/timetracker-logo.svg',
+  '/static/images/eviltime-logo.png',
 ];
 
 self.addEventListener('install', (event) => {

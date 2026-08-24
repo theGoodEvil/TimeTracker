@@ -45,7 +45,7 @@ class SmartNotificationManager {
                     this.showNotification({
                         title: 'Notifications Enabled',
                         body: 'You will now receive notifications for important events',
-                        icon: '/static/images/timetracker-logo.svg',
+                        icon: '/static/images/eviltime-logo.png',
                         type: 'success'
                     });
                 }
@@ -142,8 +142,8 @@ class SmartNotificationManager {
 
         const options = {
             body: notification.message,
-            icon: '/static/images/timetracker-logo.svg',
-            badge: '/static/images/timetracker-logo.svg',
+            icon: '/static/images/eviltime-logo.png',
+            badge: '/static/images/eviltime-logo.png',
             tag: notification.group || notification.id,
             requireInteraction: notification.priority === 'high',
             silent: !this.preferences.sound
@@ -791,4 +791,3 @@ class NotificationCenter {
 // Initialize
 window.smartNotifications = new SmartNotificationManager();
 window.notificationCenter = new NotificationCenter(window.smartNotifications);
-
