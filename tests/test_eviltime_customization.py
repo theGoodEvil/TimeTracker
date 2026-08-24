@@ -49,6 +49,19 @@ def test_dashboard_renders_running_timer_before_javascript(authenticated_client,
     assert b"Clocked in at" in response.data
 
 
+def test_read_only_timeline_events_are_not_interactive_buttons(authenticated_client, active_timer, user, monkeypatch):
+    monkeypatch.setattr(user.__class__, "has_permission", lambda self, permission: False)
+
+    response = authenticated_client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert b'data-can-edit="false"' in response.data
+    assert b"<div data-timeline-event" in response.data
+    assert b'<button type="button" data-timeline-event' not in response.data
+    assert b"data-timeline-edit" not in response.data
+    assert b'id="timelineEditModal"' not in response.data
+
+
 def test_paused_dashboard_and_status_show_live_break_duration(authenticated_client, active_timer):
     active_timer.paused_at = local_now() - timedelta(minutes=2)
     db.session.commit()
@@ -538,7 +551,12 @@ def test_timeline_deduplicates_duplicate_clock_outs_and_overlapping_breaks(user,
     db.session.flush()
     # Add two clock_out events (duplicate) and a break_end at the exact same time as clock_out
     e1 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="clock_in", occurred_at=entry.start_time)
-    e2 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="break_start", occurred_at=datetime.combine(today, time(hour=11, minute=30)))
+    e2 = TimerEvent(
+        user_id=user.id,
+        time_entry_id=entry.id,
+        event_type="break_start",
+        occurred_at=datetime.combine(today, time(hour=11, minute=30)),
+    )
     e3 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="break_end", occurred_at=entry.end_time)
     e4 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="clock_out", occurred_at=entry.end_time)
     e5 = TimerEvent(user_id=user.id, time_entry_id=entry.id, event_type="clock_out", occurred_at=entry.end_time)

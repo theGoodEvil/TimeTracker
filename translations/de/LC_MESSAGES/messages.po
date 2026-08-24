@@ -26413,6 +26413,9 @@ msgstr "Timeline aktualisiert."
 msgid "Today's timeline"
 msgstr "Heutige Timeline"
 
+msgid "Your recorded clock events from 08:00 to 22:00."
+msgstr "Ihre erfassten Stempelereignisse von 08:00 bis 22:00 Uhr."
+
 msgid "Clock events and project changes in chronological order."
 msgstr "Stempelereignisse und Projektwechsel in zeitlicher Reihenfolge."
 

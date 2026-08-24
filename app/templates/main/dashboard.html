@@ -172,7 +172,7 @@
 
   <section class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-700 dark:bg-slate-900">
     <div class="flex items-start justify-between gap-4 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-      <div><h2 class="font-semibold text-slate-950 dark:text-white">{{ _("Today's timeline") }}</h2><p class="mt-0.5 text-xs text-slate-500">{{ _('Your day from 08:00 to 22:00. Select the line to add time, or drag an event to adjust it.') }}</p></div>
+      <div><h2 class="font-semibold text-slate-950 dark:text-white">{{ _("Today's timeline") }}</h2><p class="mt-0.5 text-xs text-slate-500">{% if can_edit_timeline %}{{ _('Your day from 08:00 to 22:00. Select the line to add time, or drag an event to adjust it.') }}{% else %}{{ _('Your recorded clock events from 08:00 to 22:00.') }}{% endif %}</p></div>
       {% if can_edit_timeline %}<button type="button" data-timeline-add-button class="btn btn-secondary btn-sm shrink-0"><i class="fas fa-plus"></i>{{ _('Add event') }}</button>{% endif %}
     </div>
     <div class="overflow-x-auto px-5 py-4">
@@ -199,17 +199,17 @@
         {% for event in today_timeline %}
         {% set label = _('Clocked in') if event.event_type == 'clock_in' else _('Switched project') if event.event_type == 'project_switch' else _('Clocked out') if event.event_type == 'clock_out' else _('Break started') if event.event_type == 'break_start' else _('Break ended') %}
         {% set icon = 'fa-play' if event.event_type == 'clock_in' else 'fa-shuffle' if event.event_type == 'project_switch' else 'fa-stop' if event.event_type == 'clock_out' else 'fa-mug-hot' if event.event_type == 'break_start' else 'fa-rotate-left' %}
-          <button type="button"{% if can_edit_timeline %} data-timeline-edit{% endif %} data-event-id="{{ event.event_id or '' }}" data-entry-id="{{ event.entry_id }}" data-related-entry-id="{{ event.related_entry_id or '' }}" data-event-type="{{ event.event_type }}" data-event-label="{{ label }}" data-occurred-at="{{ event.occurred_at|user_datetime_local }}" class="group absolute top-0 h-40 w-28 -translate-x-1/2 touch-none focus:outline-none pointer-events-none{% if event.outside_timeline %} opacity-70{% endif %}" style="left: {{ event.timeline_position }}%" aria-label="{{ _('Adjust %(event)s time', event=label) }}">
-            <span class="absolute left-1/2 w-px -translate-x-1/2 bg-slate-300 transition-colors group-hover:bg-primary dark:bg-slate-600 {% if event.timeline_lane == 0 %}timeline-event-connector-top{% else %}timeline-event-connector-bottom{% endif %}"></span>
-            <span class="timeline-event-dot pointer-events-auto absolute left-1/2 flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-white text-[9px] text-white shadow-md ring-1 ring-slate-200 transition duration-150 group-hover:scale-125 group-hover:ring-primary group-focus-visible:scale-125 group-focus-visible:ring-2 group-focus-visible:ring-primary dark:border-slate-900 dark:ring-slate-700 {% if event.event_type in ('break_start', 'break_end') %}bg-amber-500{% elif event.event_type == 'clock_out' %}bg-slate-500{% else %}bg-primary{% endif %}"><i class="fas {{ icon }}"></i></span>
-            <span class="pointer-events-auto absolute left-1/2 w-28 -translate-x-1/2 rounded-lg border border-slate-200 bg-white/95 px-2 py-1.5 text-center shadow-sm backdrop-blur transition group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md dark:border-slate-700 dark:bg-slate-900/95 {% if event.timeline_lane == 0 %}top-0{% else %}top-[130px]{% endif %}">
+          {% if can_edit_timeline %}<button type="button" data-timeline-event data-timeline-edit data-event-id="{{ event.event_id or '' }}" data-entry-id="{{ event.entry_id }}" data-related-entry-id="{{ event.related_entry_id or '' }}" data-event-type="{{ event.event_type }}" data-event-label="{{ label }}" data-occurred-at="{{ event.occurred_at|user_datetime_local }}" class="group pointer-events-none absolute top-0 h-40 w-28 -translate-x-1/2 touch-none focus:outline-none{% if event.outside_timeline %} opacity-70{% endif %}" style="left: {{ event.timeline_position }}%" aria-label="{{ _('Adjust %(event)s time', event=label) }}">{% else %}<div data-timeline-event class="pointer-events-none absolute top-0 h-40 w-28 -translate-x-1/2{% if event.outside_timeline %} opacity-70{% endif %}" style="left: {{ event.timeline_position }}%">{% endif %}
+            <span class="absolute left-1/2 w-px -translate-x-1/2 bg-slate-300{% if can_edit_timeline %} transition-colors group-hover:bg-primary{% endif %} dark:bg-slate-600 {% if event.timeline_lane == 0 %}timeline-event-connector-top{% else %}timeline-event-connector-bottom{% endif %}"></span>
+            <span class="timeline-event-dot absolute left-1/2 flex h-7 w-7 items-center justify-center rounded-full border-[3px] border-white text-[9px] text-white shadow-md ring-1 ring-slate-200 dark:border-slate-900 dark:ring-slate-700{% if can_edit_timeline %} pointer-events-auto transition duration-150 group-hover:scale-125 group-hover:ring-primary group-focus-visible:scale-125 group-focus-visible:ring-2 group-focus-visible:ring-primary{% endif %} {% if event.event_type in ('break_start', 'break_end') %}bg-amber-500{% elif event.event_type == 'clock_out' %}bg-slate-500{% else %}bg-primary{% endif %}"><i class="fas {{ icon }}"></i></span>
+            <span class="absolute left-1/2 w-28 -translate-x-1/2 rounded-lg border border-slate-200 bg-white/95 px-2 py-1.5 text-center shadow-sm backdrop-blur dark:border-slate-700 dark:bg-slate-900/95{% if can_edit_timeline %} pointer-events-auto transition group-hover:-translate-y-0.5 group-hover:border-primary/40 group-hover:shadow-md{% endif %} {% if event.timeline_lane == 0 %}top-0{% else %}top-[130px]{% endif %}">
               <span class="block truncate text-[10px] font-semibold text-slate-800 dark:text-slate-100">{{ label }}</span>
               <span class="block font-mono text-xs font-bold tabular-nums text-primary" data-timeline-time>{{ event.occurred_at|user_time }}</span>
               {% if event.project_name %}<span class="block truncate text-[9px] text-slate-400" title="{{ event.project_name }}">{{ event.project_name }}</span>{% endif %}
             </span>
-          </button>
+          {% if can_edit_timeline %}</button>{% else %}</div>{% endif %}
         {% endfor %}
-          {% if not today_timeline %}<p class="absolute inset-x-0 top-6 text-center text-sm text-slate-400">{{ _('No clock events today. Select the timeline to add one.') }}</p>{% endif %}
+          {% if not today_timeline %}<p class="absolute inset-x-0 top-6 text-center text-sm text-slate-400">{% if can_edit_timeline %}{{ _('No clock events today. Select the timeline to add one.') }}{% else %}{{ _('No clock events today.') }}{% endif %}</p>{% endif %}
         </div>
       </div>
     </div>
@@ -251,6 +251,7 @@
 </div>
 {% endif %}
 
+{% if can_edit_timeline %}
 <div id="timelineEditModal" class="fixed inset-0 z-[1000] hidden items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="timelineEditTitle">
   <button type="button" class="absolute inset-0 bg-slate-950/55 backdrop-blur-[1px]" data-timeline-modal-close aria-label="{{ _('Close') }}"></button>
   <div class="relative z-10 w-full max-w-md rounded-2xl border border-slate-200 bg-white p-5 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
@@ -290,6 +291,7 @@
     </div>
   </div>
 </div>
+{% endif %}
 
 {% if can_edit_timeline %}
 <div id="timelineContextMenu"
