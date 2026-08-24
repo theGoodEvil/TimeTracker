@@ -3,7 +3,7 @@
 from datetime import date, datetime, timedelta, timezone as dt_timezone
 
 from app import db
-from app.models import Project, TimeEntry, TimerEvent
+from app.models import ClientPrepaidConsumption, FocusSession, Project, TimeEntry, TimeEntryApproval, TimerEvent
 from app.services.timer_event_service import current_timeline_position
 
 
@@ -217,6 +217,21 @@ def test_delete_project_switch_merges_time_and_breaks_into_previous_session(
             ),
         ]
     )
+    approval = TimeEntryApproval(time_entry_id=second.id, requested_by=user.id)
+    focus_session = FocusSession(
+        user_id=user.id,
+        project_id=second_project.id,
+        time_entry_id=second.id,
+        started_at=second.start_time,
+        ended_at=second.end_time,
+    )
+    prepaid_consumption = ClientPrepaidConsumption(
+        client_id=project.client_id,
+        time_entry_id=second.id,
+        allocation_month=base.date().replace(day=1),
+        seconds_consumed=30 * 60,
+    )
+    db.session.add_all([approval, focus_session, prepaid_consumption])
     db.session.commit()
     second_id = second.id
 
@@ -236,6 +251,13 @@ def test_delete_project_switch_merges_time_and_breaks_into_previous_session(
     assert first.end_time == base + timedelta(hours=4)
     assert first.break_seconds == 15 * 60
     assert first.duration_seconds == 3 * 60 * 60 + 45 * 60
+    db.session.refresh(approval)
+    db.session.refresh(focus_session)
+    db.session.refresh(prepaid_consumption)
+    assert approval.time_entry_id == first.id
+    assert focus_session.time_entry_id == first.id
+    assert prepaid_consumption.time_entry_id == first.id
+    assert prepaid_consumption.seconds_consumed == 30 * 60
     assert (
         TimerEvent.query.filter_by(time_entry_id=third.id, event_type="project_switch").one().related_entry_id
         == first.id

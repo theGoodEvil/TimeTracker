@@ -180,6 +180,46 @@ def merge_project_switch(previous_entry, subsequent_entry):
     if boundary_gap > 10:
         raise ValueError("The sessions are no longer contiguous at this project switch.")
 
+    from app.models import ClientPrepaidConsumption
+
+    previous_consumption = ClientPrepaidConsumption.query.filter_by(time_entry_id=previous_entry.id).first()
+    subsequent_consumption = ClientPrepaidConsumption.query.filter_by(time_entry_id=subsequent_entry.id).first()
+    if previous_consumption and subsequent_consumption:
+        previous_key = (
+            previous_consumption.client_id,
+            previous_consumption.invoice_id,
+            previous_consumption.allocation_month,
+        )
+        subsequent_key = (
+            subsequent_consumption.client_id,
+            subsequent_consumption.invoice_id,
+            subsequent_consumption.allocation_month,
+        )
+        if previous_key != subsequent_key:
+            raise ValueError("The project sessions have incompatible prepaid-hour allocations.")
+        previous_consumption.seconds_consumed += subsequent_consumption.seconds_consumed
+        db.session.delete(subsequent_consumption)
+    elif subsequent_consumption:
+        subsequent_consumption.time_entry_id = previous_entry.id
+
+    # Preserve every non-cascading reference before the absorbed TimeEntry is
+    # deleted. Core updates avoid stale ORM relationship state nulling required
+    # foreign keys during flush on PostgreSQL.
+    for table_name in (
+        "time_entry_approvals",
+        "client_time_approvals",
+        "calendar_sync_events",
+        "focus_sessions",
+        "integration_external_event_links",
+    ):
+        table = db.metadata.tables.get(table_name)
+        if table is not None:
+            db.session.execute(
+                table.update()
+                .where(table.c.time_entry_id == subsequent_entry.id)
+                .values(time_entry_id=previous_entry.id)
+            )
+
     attached_events = TimerEvent.query.filter_by(
         user_id=previous_entry.user_id,
         time_entry_id=subsequent_entry.id,

@@ -82,6 +82,12 @@ def register_error_handlers(app):
     def handle_integrity_error(error):
         """Handle database integrity errors"""
         current_app.logger.error(f"Integrity error: {error}")
+        try:
+            from app import db
+
+            db.session.rollback()
+        except Exception:
+            current_app.logger.exception("Failed to roll back after an integrity error")
 
         if request.is_json or request.path.startswith("/api/"):
             # Try to extract meaningful error message
@@ -93,10 +99,20 @@ def register_error_handlers(app):
 
             return error_response(message=error_msg, error_code="integrity_error", status_code=409)
 
-        from flask import flash
+        from flask import flash, render_template
 
         flash("Database error occurred", "error")
-        return error, 409
+        return (
+            render_template(
+                "errors/generic.html",
+                error=error,
+                error_info={
+                    "title": "Database Conflict",
+                    "message": "The requested change conflicts with related data and was not saved.",
+                },
+            ),
+            409,
+        )
 
     @app.errorhandler(SQLAlchemyError)
     def handle_sqlalchemy_error(error):
