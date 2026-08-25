@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from app import db
-from app.utils.timezone import now_in_app_timezone
+from app.utils.timezone import now_in_app_timezone, to_app_timezone_naive
 
 
 def _isoformat_calendar(dt):
@@ -139,6 +139,8 @@ class CalendarEvent(db.Model):
         from app.models import Task, TimeEntry
 
         logger = logging.getLogger(__name__)
+        start_date = to_app_timezone_naive(start_date)
+        end_date = to_app_timezone_naive(end_date)
 
         print(f"\n{'*'*80}")
         print(f"MODEL - get_events_in_range called:")

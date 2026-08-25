@@ -25,6 +25,8 @@ class ProjectSchema(Schema):
     estimated_hours = fields.Float(allow_none=True)
     budget_amount = fields.Decimal(allow_none=True, places=2)
     budget_threshold_percent = fields.Int(missing=80)
+    icon_filename = fields.Str(dump_only=True, allow_none=True)
+    icon_emoji = fields.Str(dump_only=True, allow_none=True)
     created_at = fields.DateTime(dump_only=True)
     updated_at = fields.DateTime(dump_only=True)
     archived_at = fields.DateTime(dump_only=True, allow_none=True)

@@ -50,8 +50,6 @@ from app.integrations.google_calendar_connector import PROVIDER_KEY as GCAL_PROV
 from app.integrations.google_calendar_connector import GoogleCalendarConnector
 from app.integrations.slack_attendance_connector import PROVIDER_KEY as SLACK_ATTENDANCE_PROVIDER
 from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-from app.integrations.slack_connector import PROVIDER_KEY as SLACK_PROVIDER
-from app.integrations.slack_connector import SlackConnector
 from app.models import Integration
 from app.utils.db import safe_commit
 
@@ -299,80 +297,6 @@ def google_status():
 
 
 # =====================================================================
-# Slack
-# =====================================================================
-@integrations_webhooks_bp.route("/api/integrations/slack/events", methods=["POST"])
-@csrf.exempt
-def slack_events():
-    """Single endpoint for Events API URL verification and slash commands."""
-    raw_body = request.get_data() or b""
-    signature = request.headers.get("X-Slack-Signature")
-    timestamp = request.headers.get("X-Slack-Request-Timestamp")
-
-    # URL verification challenge arrives as JSON; still must verify.
-    if request.is_json:
-        payload: Dict[str, Any] = request.get_json(silent=True) or {}
-        connector = SlackConnector.find_by_signing_secret_match(signature, timestamp, raw_body)
-        if not connector:
-            return jsonify({"ok": False, "error": "Invalid signature"}), 401
-        if payload.get("type") == "url_verification" and payload.get("challenge"):
-            return jsonify({"challenge": payload["challenge"]})
-        return jsonify(connector.handle_webhook(payload, dict(request.headers), raw_body=raw_body).get("body") or {})
-
-    # Slash command — form-encoded.
-    form = request.form.to_dict()
-    connector = SlackConnector.find_by_signing_secret_match(signature, timestamp, raw_body)
-    if not connector:
-        return jsonify({"ok": False, "error": "Invalid signature"}), 401
-
-    result = connector.handle_slash_command(form)
-    status = int(result.get("status") or 200)
-    body = result.get("body") or {}
-    return jsonify(body), status
-
-
-@integrations_webhooks_bp.route("/api/integrations/slack/config", methods=["POST"])
-@login_required
-def slack_save_config():
-    payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    integration = _ensure_integration(SLACK_PROVIDER, user_id=current_user.id)
-    result = SlackConnector.save_config(integration, payload)
-    status = 200 if result.get("ok") else 400
-    return jsonify(result), status
-
-
-@integrations_webhooks_bp.route("/api/integrations/slack/test", methods=["POST"])
-@login_required
-def slack_test():
-    connector = SlackConnector.for_user(current_user)
-    if not connector:
-        return jsonify({"ok": False, "error": "Integration not configured"}), 404
-    return jsonify(connector.send_test_message())
-
-
-@integrations_webhooks_bp.route("/api/integrations/slack/status", methods=["GET"])
-@login_required
-def slack_status():
-    integration = Integration.query.filter_by(provider=SLACK_PROVIDER, user_id=current_user.id).first()
-    if not integration:
-        return jsonify({"ok": True, "connected": False})
-    cfg = integration.config or {}
-    return jsonify(
-        {
-            "ok": True,
-            "connected": bool(cfg.get("bot_token") and integration.is_active),
-            "channel_id": cfg.get("channel_id"),
-            "notify_on_start": bool(cfg.get("notify_on_start")),
-            "notify_on_stop": bool(cfg.get("notify_on_stop")),
-            "daily_summary": bool(cfg.get("daily_summary")),
-            "daily_summary_time": cfg.get("daily_summary_time") or "18:00",
-            "linked_slack_user_id": cfg.get("linked_slack_user_id"),
-            "has_signing_secret": bool(cfg.get("signing_secret")),
-            "events_url": url_for("integrations_webhooks.slack_events", _external=True),
-        }
-    )
-
-
 # =====================================================================
 # Slack Attendance (workspace-level /in, /brb, /back, /out)
 # =====================================================================
@@ -401,7 +325,7 @@ def slack_attendance_save_config():
     if not _admin_required():
         return jsonify({"ok": False, "error": "Admin only"}), 403
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    integration = _ensure_global_integration(SLACK_ATTENDANCE_PROVIDER, "Slack Attendance")
+    integration = _ensure_global_integration(SLACK_ATTENDANCE_PROVIDER, "EvilTime Slack")
     result = SlackAttendanceConnector.save_config(integration, payload)
     status = 200 if result.get("ok") else 400
     return jsonify(result), status

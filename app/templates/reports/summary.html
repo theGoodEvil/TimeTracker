@@ -15,9 +15,9 @@
 </div>
 
 <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-    {{ info_card("Today's Hours", "%.2f"|format(today_hours), "Logged today") }}
-    {{ info_card("Week's Hours", "%.2f"|format(week_hours), "Logged this week") }}
-    {{ info_card("Month's Hours", "%.2f"|format(month_hours), "Logged this month") }}
+    {{ info_card("Today's Hours", today_hours|hours_minutes, "Logged today") }}
+    {{ info_card("Week's Hours", week_hours|hours_minutes, "Logged this week") }}
+    {{ info_card("Month's Hours", month_hours|hours_minutes, "Logged this month") }}
 </div>
 
 <!-- Charts row -->
@@ -123,7 +123,7 @@
             {% for stat in project_stats %}
             <tr class="border-b border-border-light dark:border-border-dark">
                 <td class="p-2" data-label="Project">{{ stat.project.name }}</td>
-                <td class="p-2" data-label="Total Hours">{{ "%.2f"|format(stat.hours) }}</td>
+                <td class="p-2" data-label="Total Hours">{{ stat.hours|hours_minutes }}</td>
             </tr>
             {% else %}
             <tr>

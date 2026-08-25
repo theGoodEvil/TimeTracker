@@ -36,8 +36,6 @@ ENV FLASK_APP=app
 ENV FLASK_ENV=production
 ENV APP_VERSION=${APP_VERSION}
 ENV TZ=Europe/Rome
-# Support visibility: if donate_hide_public.pem is in project root it is copied to /app; set path so app finds it (override in compose if needed)
-ENV DONATE_HIDE_PUBLIC_KEY_FILE=/app/donate_hide_public.pem
 LABEL org.opencontainers.image.description="Self-hosted time tracking web application for projects, clients, and reports."
 
 # Install all system dependencies in a single layer
@@ -97,7 +95,7 @@ RUN mkdir -p \
     /app/static/uploads/logos \
     /app/app/static/dist
 
-# Copy project files with correct ownership (includes optional donate_hide_public.pem from root when present)
+# Copy project files with correct ownership
 COPY --chown=timetracker:timetracker . .
 
 # Also install certificate generation script to a stable path used by docs/compose
@@ -177,5 +175,3 @@ ENTRYPOINT ["/app/docker/entrypoint_fixed.sh"]
 
 # Run the application
 CMD ["python", "/app/start.py"]
-
-

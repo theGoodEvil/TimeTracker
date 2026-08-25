@@ -109,7 +109,7 @@
             <h2 class="text-lg font-semibold mb-3">{{ _('Leave Balances') }}</h2>
             {% if overtime_ytd_hours is defined %}
             <p class="text-sm text-text-muted-light dark:text-text-muted-dark mb-2">
-                {{ _('Accumulated overtime (YTD)') }}: <strong>{{ "%.2f"|format(overtime_ytd_hours) }}h</strong>
+                {{ _('Accumulated overtime (YTD)') }}: <strong>{{ overtime_ytd_hours|hours_minutes }}</strong>
                 {% if overtime_leave_type_id and overtime_ytd_hours > 0 %}
                 — <a href="#time-off-request-form" class="text-primary hover:underline js-take-overtime-as-leave">{{ _('Take as paid leave') }}</a>
                 {% endif %}
@@ -158,7 +158,7 @@
                 <div class="md:col-span-2 flex flex-col gap-1">
                     <input type="number" step="0.25" name="requested_hours" class="form-input js-requested-hours" placeholder="{{ _('Requested hours') }}" min="0" {% if overtime_ytd_hours is defined and overtime_ytd_hours > 0 %}data-overtime-max="{{ "%.2f"|format(overtime_ytd_hours) }}"{% endif %}>
                     {% if overtime_ytd_hours is defined and overtime_ytd_hours > 0 %}
-                    <span class="text-xs text-text-muted-light dark:text-text-muted-dark js-overtime-hint" style="display: none;">{{ _('Available overtime (YTD)') }}: {{ "%.2f"|format(overtime_ytd_hours) }}h</span>
+                    <span class="text-xs text-text-muted-light dark:text-text-muted-dark js-overtime-hint" style="display: none;">{{ _('Available overtime (YTD)') }}: {{ overtime_ytd_hours|hours_minutes }}</span>
                     {% endif %}
                 </div>
                 <input type="date" name="start_date" class="form-input" required>

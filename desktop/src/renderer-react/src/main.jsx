@@ -20,7 +20,6 @@ import { KanbanView } from './views/KanbanView.jsx';
 import { CrmView } from './views/CrmView.jsx';
 import { FinanceExtraView } from './views/FinanceExtraView.jsx';
 import { StartTimerDialog, TimeEntryDialog } from './views/Dialogs.jsx';
-import { formatAttendanceError, runAttendanceAction } from './views/WorkdayCard.jsx';
 
 const defaultConnection = {
   state: 'not_configured',
@@ -69,8 +68,6 @@ function App() {
   });
   const [startTimerOpen, setStartTimerOpen] = useState(false);
   const [newEntryOpen, setNewEntryOpen] = useState(false);
-  const [attendance, setAttendance] = useState(null);
-  const [attendanceLoading, setAttendanceLoading] = useState(false);
   const syncEngineRef = useRef(null);
 
   const showToast = useCallback((message, type = 'info') => {
@@ -150,19 +147,6 @@ function App() {
     storeSet('theme_mode', theme);
   }, [theme]);
 
-  const refreshAttendance = useCallback(async () => {
-    if (!apiClient) return;
-    setAttendanceLoading(true);
-    try {
-      const status = await apiClient.getAttendanceStatus();
-      setAttendance(status);
-    } catch {
-      setAttendance(null);
-    } finally {
-      setAttendanceLoading(false);
-    }
-  }, [apiClient]);
-
   const refreshCoreData = useCallback(async () => {
     if (!apiClient) return;
     setLoading((s) => ({ ...s, core: true }));
@@ -188,7 +172,6 @@ function App() {
         timeEntries: entries.time_entries || entries.entries || entries.items || [],
       });
       setConnection((c) => ({ ...c, state: 'connected', message: 'Connected', lastOk: Date.now() }));
-      refreshAttendance();
     } catch (error) {
       const classified = classifyAxiosError(error);
       setConnection((c) => ({ ...c, state: 'error', message: classified.message }));
@@ -196,7 +179,7 @@ function App() {
     } finally {
       setLoading((s) => ({ ...s, core: false }));
     }
-  }, [apiClient, showToast, refreshAttendance]);
+  }, [apiClient, showToast]);
 
   useEffect(() => {
     if (!apiClient) return;
@@ -290,38 +273,8 @@ function App() {
       paused,
       timer,
       elapsedLabel,
-      idle_timeout_minutes: timerPayload?.idle_timeout_minutes,
     });
   }, []);
-
-  useEffect(() => {
-    if (!apiClient || !window.electronAPI?.onIdlePrompt) return undefined;
-
-    const unsubPrompt = window.electronAPI.onIdlePrompt((payload) => {
-      const ok = window.confirm(
-        'Still working? Your timer will stop automatically if you do not confirm.\n\nPress OK if you are still working, or Cancel to stop the timer now.',
-      );
-      if (ok) {
-        window.electronAPI.idleStillWorking();
-        apiClient.sendHeartbeat().catch(() => {});
-      } else {
-        window.electronAPI.idleStop();
-      }
-    });
-    const unsubStopped = window.electronAPI.onIdleTimerStopped?.(() => {
-      refreshCoreData();
-      showToast('Timer stopped due to inactivity', 'warning');
-    });
-    const unsubDismissed = window.electronAPI.onIdleDismissed?.(() => {
-      // no-op; heartbeat already sent from main
-    });
-
-    return () => {
-      if (typeof unsubPrompt === 'function') unsubPrompt();
-      if (typeof unsubStopped === 'function') unsubStopped();
-      if (typeof unsubDismissed === 'function') unsubDismissed();
-    };
-  }, [apiClient, refreshCoreData, showToast]);
 
   useEffect(() => {
     if (!apiClient) return undefined;
@@ -338,7 +291,7 @@ function App() {
     setAuthInfo('');
     setDiagnostics(null);
     if (!normalized) {
-      setAuthError('Enter your TimeTracker server URL.');
+      setAuthError('Enter your EvilTime server URL.');
       return;
     }
     setConnection({ state: 'connecting', serverUrl: normalized, message: 'Testing server…', lastOk: null });
@@ -350,7 +303,7 @@ function App() {
       return;
     }
     setServerUrl(normalized);
-    setAuthInfo(`TimeTracker server detected${result.app_version ? ` (${result.app_version})` : ''}.`);
+    setAuthInfo(`EvilTime server detected${result.app_version ? ` (${result.app_version})` : ''}.`);
     setConnection({ state: 'connected', serverUrl: normalized, message: 'Server reachable', lastOk: Date.now() });
     setAuthStep('credentials');
   };
@@ -423,7 +376,6 @@ function App() {
     setPassword('');
     setAuthStep('server');
     setData(emptyData);
-    setAttendance(null);
     setConnection(defaultConnection);
   };
 
@@ -530,20 +482,6 @@ function App() {
       showToast('Timer resumed', 'success');
     } catch (error) {
       showToast(classifyAxiosError(error).message, 'error');
-    }
-  };
-
-  const handleAttendanceAction = async (action) => {
-    if (!apiClient) return;
-    setAttendanceLoading(true);
-    try {
-      const status = await runAttendanceAction(apiClient, action);
-      setAttendance(status);
-      if (action !== 'refresh') showToast('Workday updated', 'success');
-    } catch (error) {
-      showToast(formatAttendanceError(error), 'error');
-    } finally {
-      setAttendanceLoading(false);
     }
   };
 
@@ -661,9 +599,6 @@ function App() {
               onPause={pauseTimer}
               onResume={resumeTimer}
               syncStatus={syncStatus}
-              attendance={attendance}
-              onAttendanceAction={handleAttendanceAction}
-              attendanceLoading={attendanceLoading}
             />
           )}
           {activeView === 'projects' && (

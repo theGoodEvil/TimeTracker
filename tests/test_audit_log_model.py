@@ -160,12 +160,12 @@ class TestAuditLogModel:
             )
 
             # Filter by action
-            created_logs = AuditLog.get_recent(action="created", limit=10)
+            created_logs = AuditLog.get_recent(action="created", user_id=test_user.id, limit=10)
             assert len(created_logs) == 1
             assert created_logs[0].action == "created"
 
             # Filter by entity type
-            project_logs = AuditLog.get_recent(entity_type="Project", limit=10)
+            project_logs = AuditLog.get_recent(entity_type="Project", user_id=test_user.id, limit=10)
             assert len(project_logs) == 3
 
     def test_audit_log_to_dict(self, app, test_user, test_project):

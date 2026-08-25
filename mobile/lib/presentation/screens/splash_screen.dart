@@ -72,13 +72,13 @@ class _SplashScreenState extends ConsumerState<SplashScreen> {
                   child: Image.asset(
                     'assets/icon/app_icon.png',
                     fit: BoxFit.contain,
-                    semanticLabel: 'TimeTracker logo',
+                    semanticLabel: 'EvilTime logo',
                   ),
                 ),
               ),
               const SizedBox(height: 24),
               Text(
-                'TimeTracker',
+                'EvilTime',
                 style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       fontWeight: FontWeight.bold,
                     ),

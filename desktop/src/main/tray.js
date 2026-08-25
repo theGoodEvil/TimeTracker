@@ -38,23 +38,23 @@ function createTray(mainWindow) {
   try {
     icon = loadTrayNativeImage();
   } catch (e) {
-    console.warn('TimeTracker: tray icon load failed:', e.message);
+    console.warn('EvilTime: tray icon load failed:', e.message);
     return null;
   }
   if (!icon || icon.isEmpty()) {
-    console.warn('TimeTracker: tray icon empty; skipping system tray');
+    console.warn('EvilTime: tray icon empty; skipping system tray');
     return null;
   }
 
   try {
     tray = new Tray(icon);
   } catch (e) {
-    console.warn('TimeTracker: could not create tray:', e.message);
+    console.warn('EvilTime: could not create tray:', e.message);
     tray = null;
     return null;
   }
 
-  tray.setToolTip('TimeTracker');
+  tray.setToolTip('EvilTime');
 
   let isTimerRunning = false;
   let isTimerPaused = false;
@@ -146,7 +146,7 @@ function createTray(mainWindow) {
 
   function updateTooltip(text) {
     if (!tray || tray.isDestroyed()) return;
-    tray.setToolTip(`TimeTracker - ${text}`);
+    tray.setToolTip(`EvilTime - ${text}`);
   }
 
   function updateTrayTitle(title) {

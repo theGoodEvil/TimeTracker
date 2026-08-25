@@ -62,10 +62,10 @@
                 <select id="sync_direction" name="sync_direction"
                         class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark">
                     <option value="xero_to_timetracker" {% if current_config.get('sync_direction', 'timetracker_to_xero') == 'xero_to_timetracker' %}selected{% endif %}>
-                        {{ _('Xero → TimeTracker (Import only)') }}
+                        {{ _('Xero → EvilTime (Import only)') }}
                     </option>
                     <option value="timetracker_to_xero" {% if current_config.get('sync_direction', 'timetracker_to_xero') == 'timetracker_to_xero' %}selected{% endif %}>
-                        {{ _('TimeTracker → Xero (Export only)') }}
+                        {{ _('EvilTime → Xero (Export only)') }}
                     </option>
                     <option value="bidirectional" {% if current_config.get('sync_direction') == 'bidirectional' %}selected{% endif %}>
                         {{ _('Bidirectional (Two-way sync)') }}
@@ -148,7 +148,7 @@
                           class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark font-mono text-sm"
                           placeholder='{"1": "contact-uuid-123", "2": "contact-uuid-456"}'>{{ current_config.get('contact_mappings', '')|tojson|safe if current_config.get('contact_mappings') else '' }}</textarea>
                 <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('Map TimeTracker client IDs to Xero Contact IDs (JSON format)') }}
+                    {{ _('Map EvilTime client IDs to Xero Contact IDs (JSON format)') }}
                 </p>
             </div>
             
@@ -160,7 +160,7 @@
                           class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark font-mono text-sm"
                           placeholder='{"expense_category_1": "account_code_123"}'>{{ current_config.get('account_mappings', '')|tojson|safe if current_config.get('account_mappings') else '' }}</textarea>
                 <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">
-                    {{ _('Map TimeTracker expense category IDs to Xero account codes (JSON format)') }}
+                    {{ _('Map EvilTime expense category IDs to Xero account codes (JSON format)') }}
                 </p>
             </div>
         </div>

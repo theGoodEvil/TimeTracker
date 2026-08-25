@@ -3,11 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ _('Welcome') }} - TimeTracker</title>
+    <title>{{ _('Welcome') }} - EvilTime</title>
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="alternate icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
-    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/timetracker-logo.svg') }}">
+    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
+    <link rel="apple-touch-icon" href="{{ url_for('static', filename='images/eviltime-logo.png') }}">
     {# Inter is self-hosted via @font-face in dist/output.css (app/static/vendor/inter). #}
     {# Font Awesome must load BEFORE dist/output.css: its `.fa-solid{display:inline-block}`
        has the same specificity as Tailwind's `.hidden{display:none}`, so whichever
@@ -30,8 +29,8 @@
             <!-- Left side - Branding -->
             <div class="hidden md:flex flex-col items-center justify-center p-10 bg-background-light dark:bg-background-dark border-r border-border-light dark:border-border-dark">
                 <div class="text-center">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="logo" class="w-24 h-24 mx-auto">
-                    <h1 class="text-3xl font-bold mt-4 text-primary">TimeTracker</h1>
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-24 h-24 mx-auto object-contain">
+                    <h1 class="text-3xl font-bold mt-4 text-primary">EvilTime</h1>
                     <p class="mt-2 text-text-muted-light dark:text-text-muted-dark">{{ _('Track time. Stay organized.') }}</p>
                     <!-- Privacy Principles -->
                     <div class="mt-8 space-y-3 text-left">
@@ -67,8 +66,8 @@
             <!-- Right side - Wizard -->
             <div class="p-4 sm:p-8 overflow-y-auto max-h-[90vh]">
                 <div class="flex items-center gap-3 mb-4 md:hidden">
-                    <img src="{{ url_for('static', filename='images/timetracker-logo.svg') }}" alt="TimeTracker Logo" class="w-10 h-10">
-                    <span class="text-xl font-bold text-primary">TimeTracker</span>
+                    <img src="{{ url_for('static', filename='images/eviltime-logo.png') }}" alt="EvilTime Logo" class="w-10 h-10 object-contain">
+                    <span class="text-xl font-bold text-primary">EvilTime</span>
                 </div>
                 <p class="text-sm font-medium text-text-muted-light dark:text-text-muted-dark mb-4" id="wizard-progress-label">{{ _('Step 1 of 7') }}</p>
                 <div class="flex gap-1 mb-6" aria-hidden="true">
@@ -86,21 +85,21 @@
 
                     <!-- Step 1: Welcome -->
                     <div class="wizard-step" data-step="1" aria-current="step">
-                        <h2 class="text-2xl font-bold tracking-tight">{{ _('Welcome to TimeTracker') }}</h2>
+                        <h2 class="text-2xl font-bold tracking-tight">{{ _('Welcome to EvilTime') }}</h2>
                         <p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _("Let's get you set up in just a moment") }}</p>
                         <div class="mt-6 bg-primary/10 border border-primary/20 rounded-lg p-4">
-                            <h3 class="text-sm font-semibold text-primary mb-2">🎉 {{ _('Thank you for choosing TimeTracker!') }}</h3>
+                            <h3 class="text-sm font-semibold text-primary mb-2">🎉 {{ _('Thank you for choosing EvilTime!') }}</h3>
                             <p class="text-sm text-text-muted-light dark:text-text-muted-dark">
                                 {{ _('Your data stays on your server, and you have complete control.') }}
                             </p>
                         </div>
                     </div>
 
-                    <!-- Step 2: What will you use TimeTracker for? -->
+                    <!-- Step 2: What will you use EvilTime for? -->
                     <div class="wizard-step hidden" data-step="2">
-                        <h2 class="text-xl font-bold tracking-tight">{{ _('What will you use TimeTracker for?') }}</h2>
+                        <h2 class="text-xl font-bold tracking-tight">{{ _('What will you use EvilTime for?') }}</h2>
                         <p class="mt-2 text-sm text-text-muted-light dark:text-text-muted-dark">
-                            {{ _('TimeTracker ships with a lot of modules. Pick the closest match and we will switch off the ones you are unlikely to need, so the navigation stays manageable. You can change this any time in Admin → Modules.') }}
+                            {{ _('EvilTime ships with a lot of modules. Pick the closest match and we will switch off the ones you are unlikely to need, so the navigation stays manageable. You can change this any time in Admin → Modules.') }}
                         </p>
                         <fieldset class="mt-4 space-y-3">
                             <legend class="sr-only">{{ _('Module preset') }}</legend>
@@ -217,10 +216,8 @@
                                     <span class="block text-text-muted-light dark:text-text-muted-dark mt-0.5">{{ _('Only one running timer at a time per user') }}</span>
                                 </label>
                             </div>
-                            <div>
-                                <label for="idle_timeout_minutes" class="block text-sm font-medium mb-1">{{ _('Idle timeout (minutes)') }}</label>
-                                <input type="number" name="idle_timeout_minutes" id="idle_timeout_minutes" value="{{ settings.idle_timeout_minutes if settings else 30 }}" min="1" max="480" class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark text-text-light dark:text-text-dark focus:ring-2 focus:ring-primary focus:border-transparent">
-                                <p class="mt-1 text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('Pause timer after this many minutes of inactivity.') }}</p>
+                            <div class="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm text-text-muted-light dark:text-text-muted-dark">
+                                {{ _('EvilTime never clocks anyone out because a device is idle or offline.') }}
                             </div>
                         </div>
                     </div>
@@ -263,14 +260,14 @@
                     <!-- Step 7: Privacy & finish -->
                     <div class="wizard-step hidden" data-step="7">
                         <h2 class="text-xl font-bold tracking-tight">{{ _('Privacy & finish') }}</h2>
-                        <p class="mt-1 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Choose whether to help improve TimeTracker with anonymous usage data.') }}</p>
+                        <p class="mt-1 text-sm text-text-muted-light dark:text-text-muted-dark">{{ _('Choose whether to help improve EvilTime with anonymous usage data.') }}</p>
                         <div class="mt-4 bg-background-light dark:bg-gray-700 border border-border-light dark:border-border-dark rounded-lg p-4">
                             <div class="mb-3">
                                 <label class="flex items-start cursor-pointer">
                                     <input type="checkbox" name="telemetry_enabled" class="mt-1 h-4 w-4 text-primary border-border-light dark:border-border-dark rounded focus:ring-primary">
                                     <span class="ml-3 text-sm">
                                         <span class="font-medium">{{ _('Enable anonymous telemetry') }}</span>
-                                        <span class="block text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Help us understand usage patterns to improve TimeTracker') }}</span>
+                                        <span class="block text-text-muted-light dark:text-text-muted-dark mt-1">{{ _('Help us understand usage patterns to improve EvilTime') }}</span>
                                     </span>
                                 </label>
                             </div>
@@ -298,7 +295,7 @@
                             </details>
                         </div>
                         <div class="mt-4 text-xs text-text-muted-light dark:text-text-muted-dark">
-                            <p>{{ _('By continuing, you agree to use TimeTracker under the') }} <a href="https://www.gnu.org/licenses/gpl-3.0.html" class="text-primary hover:underline" target="_blank" rel="noopener">{{ _('GPL-3.0 License') }}</a></p>
+                            <p>{{ _('By continuing, you agree to use EvilTime under the') }} <a href="https://www.gnu.org/licenses/gpl-3.0.html" class="text-primary hover:underline" target="_blank" rel="noopener">{{ _('GPL-3.0 License') }}</a></p>
                         </div>
                     </div>
 

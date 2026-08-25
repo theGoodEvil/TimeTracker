@@ -2,7 +2,7 @@ import 'package:dio/dio.dart';
 import 'dart:typed_data';
 import 'package:timetracker_mobile/utils/ssl/ssl_utils.dart';
 
-/// HTTP client for TimeTracker `/api/v1` (Bearer token after login).
+/// HTTP client for EvilTime `/api/v1` (Bearer token after login).
 class ApiClient {
   ApiClient({
     required String baseUrl,

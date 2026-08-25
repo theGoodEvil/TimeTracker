@@ -47,19 +47,36 @@ import { commandScore } from 'cmdk/command-score';
   const subheader = $(sel.subheader);
 
   const csrfToken = () => document.querySelector('meta[name="csrf-token"]')?.content || '';
+  const tr = (name, fallback) => root.dataset[name] || fallback;
 
   const urls = {
     dashboard: root.dataset.dashboardUrl || '/',
+    productivity: root.dataset.productivityUrl || '/dashboard/productivity',
+    weeklyGoals: root.dataset.weeklyGoalsUrl || '/weekly-goals/',
     reports: root.dataset.reportsUrl || '/reports',
+    calendar: root.dataset.calendarUrl || '/calendar',
     clients: root.dataset.clientsUrl || '/clients',
-    newTimeEntry: root.dataset.newTimeEntryUrl || '/timer/manual',
+    newClient: root.dataset.newClientUrl || '/clients/create',
+    projects: root.dataset.projectsUrl || '/projects',
     newProject: root.dataset.newProjectUrl || '/projects/create',
+    tasks: root.dataset.tasksUrl || '/tasks',
+    newTask: root.dataset.newTaskUrl || '/tasks/create',
+    kanban: root.dataset.kanbanUrl || '/kanban',
+    invoices: root.dataset.invoicesUrl || '/invoices',
     newInvoice: root.dataset.newInvoiceUrl || '/invoices/create',
+    quotes: root.dataset.quotesUrl || '/quotes',
+    newQuote: root.dataset.newQuoteUrl || '/quotes/create',
+    expenses: root.dataset.expensesUrl || '/expenses',
+    newExpense: root.dataset.newExpenseUrl || '/expenses/create',
+    newTimeEntry: root.dataset.newTimeEntryUrl || '/timer/manual',
+    timeEntries: root.dataset.timeEntriesUrl || '/timer/entries',
+    settings: root.dataset.settingsUrl || '/user/settings',
+    help: root.dataset.helpUrl || '/help',
   };
 
   const state = {
     open: false,
-    mode: 'commands', // 'commands' | 'projects'
+    mode: 'commands', // 'commands' | 'projects' | 'edit-project' | 'view-project'
     selected: 0,
     query: '',
     lastFocus: null,
@@ -116,6 +133,7 @@ import { commandScore } from 'cmdk/command-score';
     if (subheader) subheader.classList.add('hidden');
     root.classList.remove('hidden');
     setTimeout(() => input?.focus(), 30);
+    fetchProjects().catch(() => {});
     applyFilter();
     render();
   }
@@ -151,7 +169,8 @@ import { commandScore } from 'cmdk/command-score';
   }
 
   async function startTimerWithProject(projectId) {
-    const res = await fetch('/api/timer/start', {
+    const status = await fetch('/api/timer/status', { credentials: 'same-origin' }).then((response) => response.json());
+    const res = await fetch(status.active ? '/api/timer/switch' : '/api/timer/start', {
       method: 'POST',
       credentials: 'same-origin',
       headers: {
@@ -166,6 +185,13 @@ import { commandScore } from 'cmdk/command-score';
       throw new Error(json.error || json.message || 'Failed to start timer');
     }
     return json;
+  }
+
+  async function toggleBreak() {
+    const status = await fetch('/api/timer/status', { credentials: 'same-origin' }).then((response) => response.json());
+    if (!status.active) throw new Error('No active timer');
+    closePalette();
+    window.evilTimeTimerControl?.action(status.timer.paused ? 'resume' : 'pause');
   }
 
   function setMode(mode, headerText = '') {
@@ -189,49 +215,420 @@ import { commandScore } from 'cmdk/command-score';
 
   function buildCommands() {
     state.commands = [
+      // --- Timer & Time Entries ---
       {
         id: 'start-timer',
-        title: 'Start Timer',
-        keywords: 'timer start track',
-        hint: isMac ? '⌘K' : 'Ctrl+K',
+        title: tr('clockCommand', 'Clock in or switch project'),
+        description: tr('clockDescription', 'Choose a project without leaving this panel'),
+        icon: 'fa-play',
+        keywords: 'timer start track clock in switch project',
+        hint: 'T S',
         action: async () => {
           try {
             await fetchProjects();
-            setMode('projects', 'Start Timer → Select a project');
+            setMode('projects', tr('selectProject', 'Timer / Select a project'));
           } catch (e) {
             showToast(e.message || 'Failed to load projects', 'danger');
           }
         },
       },
-      { id: 'new-time-entry', title: 'New Time Entry', keywords: 'manual log add', action: () => nav(urls.newTimeEntry) },
-      { id: 'new-project', title: 'New Project', keywords: 'project create add', action: () => nav(urls.newProject) },
-      { id: 'new-invoice', title: 'New Invoice', keywords: 'invoice billing create', action: () => nav(urls.newInvoice) },
-      { id: 'goto-dashboard', title: 'Go to Dashboard', keywords: 'home overview main', action: () => nav(urls.dashboard) },
-      { id: 'goto-reports', title: 'Go to Reports', keywords: 'analytics insights', action: () => nav(urls.reports) },
-      { id: 'goto-clients', title: 'Go to Clients', keywords: 'crm customers companies', action: () => nav(urls.clients) },
+      {
+        id: 'timer-controls',
+        title: tr('timerCommand', 'Open timer controls'),
+        description: tr('timerDescription', 'Pause, resume, clock out, or switch'),
+        icon: 'fa-stopwatch',
+        keywords: 'timer pause resume stop clock out controls modal',
+        hint: 'T P',
+        action: () => {
+          closePalette();
+          window.evilTimeTimerControl?.open();
+        },
+      },
+      {
+        id: 'toggle-break',
+        title: tr('breakCommand', 'Start or end break'),
+        description: tr('breakDescription', 'Toggle the break on your active timer'),
+        icon: 'fa-mug-hot',
+        keywords: 'pause resume break coffee rest',
+        hint: 'T B',
+        action: toggleBreak,
+      },
+      {
+        id: 'clock-out',
+        title: tr('clockOutCommand', 'Clock out'),
+        description: tr('clockOutDescription', 'Stop the active project timer'),
+        icon: 'fa-stop',
+        keywords: 'timer stop clock out finish end session',
+        hint: 'T O',
+        action: () => {
+          closePalette();
+          window.evilTimeTimerControl?.action('stop');
+        },
+      },
+      {
+        id: 'new-time-entry',
+        title: tr('logCommand', 'Log time manually'),
+        description: tr('logDescription', 'Add a completed time entry'),
+        icon: 'fa-clock',
+        keywords: 'manual log add time entry record retroactive',
+        hint: 'T L',
+        action: () => nav(urls.newTimeEntry),
+      },
+      {
+        id: 'goto-time-entries',
+        title: tr('timeEntriesCommand', 'Time entries'),
+        description: tr('timeEntriesDescription', 'Review all logged time entries'),
+        icon: 'fa-list-check',
+        keywords: 'time entries list history logs records overview',
+        hint: 'G E',
+        action: () => nav(urls.timeEntries),
+      },
+
+      // --- Projects ---
+      {
+        id: 'goto-projects',
+        title: tr('projectsCommand', 'Projects'),
+        description: tr('projectsDescription', 'View and manage all projects'),
+        icon: 'fa-folder',
+        keywords: 'projects list browse manage overview',
+        hint: 'G P',
+        action: () => nav(urls.projects),
+      },
+      {
+        id: 'new-project',
+        title: tr('newProjectCommand', 'Create project'),
+        description: tr('newProjectDescription', 'Set up a new project'),
+        icon: 'fa-folder-plus',
+        keywords: 'project create add new setup',
+        hint: 'C P',
+        action: () => nav(urls.newProject),
+      },
+      {
+        id: 'edit-project',
+        title: tr('editProjectCommand', 'Edit project'),
+        description: tr('editProjectDescription', 'Select a project to modify its settings'),
+        icon: 'fa-pen-to-square',
+        keywords: 'project edit modify update settings change rates icon',
+        hint: 'E P',
+        action: async () => {
+          try {
+            await fetchProjects();
+            setMode('edit-project', tr('selectEditProject', 'Edit project / Select a project'));
+          } catch (e) {
+            showToast(e.message || 'Failed to load projects', 'danger');
+          }
+        },
+      },
+      {
+        id: 'view-project',
+        title: tr('viewProjectCommand', 'Open project'),
+        description: tr('viewProjectDescription', 'Select a project to view its details'),
+        icon: 'fa-folder-open',
+        keywords: 'project open view details dashboard budget goods',
+        hint: 'V P',
+        action: async () => {
+          try {
+            await fetchProjects();
+            setMode('view-project', tr('selectViewProject', 'Open project / Select a project'));
+          } catch (e) {
+            showToast(e.message || 'Failed to load projects', 'danger');
+          }
+        },
+      },
+
+      // --- Tasks & Kanban ---
+      {
+        id: 'goto-tasks',
+        title: tr('tasksCommand', 'Tasks'),
+        description: tr('tasksDescription', 'Manage project tasks and to-dos'),
+        icon: 'fa-check-double',
+        keywords: 'tasks list todos items to-do',
+        hint: 'G T',
+        action: () => nav(urls.tasks),
+      },
+      {
+        id: 'new-task',
+        title: tr('newTaskCommand', 'Create task'),
+        description: tr('newTaskDescription', 'Create a new task item'),
+        icon: 'fa-square-plus',
+        keywords: 'task create add new todo item',
+        hint: 'C T',
+        action: () => nav(urls.newTask),
+      },
+      {
+        id: 'goto-kanban',
+        title: tr('kanbanCommand', 'Kanban board'),
+        description: tr('kanbanDescription', 'Visual task status board'),
+        icon: 'fa-table-columns',
+        keywords: 'kanban board agile sprint workflow columns cards',
+        hint: 'G K',
+        action: () => nav(urls.kanban),
+      },
+
+      // --- Clients ---
+      {
+        id: 'goto-clients',
+        title: tr('clientsCommand', 'Clients'),
+        description: tr('clientsDescription', 'Open clients and companies'),
+        icon: 'fa-building',
+        keywords: 'crm customers companies clients accounts',
+        hint: 'G C',
+        action: () => nav(urls.clients),
+      },
+      {
+        id: 'new-client',
+        title: tr('newClientCommand', 'Create client'),
+        description: tr('newClientDescription', 'Add a new client or company'),
+        icon: 'fa-user-plus',
+        keywords: 'client create add new customer company crm',
+        hint: 'C C',
+        action: () => nav(urls.newClient),
+      },
+
+      // --- Invoices & Quotes & Expenses ---
+      {
+        id: 'goto-invoices',
+        title: tr('invoicesCommand', 'Invoices'),
+        description: tr('invoicesDescription', 'Review billing and client invoices'),
+        icon: 'fa-file-invoice-dollar',
+        keywords: 'invoices billing payments accounts receivable',
+        hint: 'G I',
+        action: () => nav(urls.invoices),
+      },
+      {
+        id: 'new-invoice',
+        title: tr('newInvoiceCommand', 'Create invoice'),
+        description: tr('newInvoiceDescription', 'Start a new client invoice'),
+        icon: 'fa-file-circle-plus',
+        keywords: 'invoice billing create new bill draft',
+        hint: 'C I',
+        action: () => nav(urls.newInvoice),
+      },
+      {
+        id: 'goto-quotes',
+        title: tr('quotesCommand', 'Quotes'),
+        description: tr('quotesDescription', 'Review estimates and quotes'),
+        icon: 'fa-file-lines',
+        keywords: 'quotes estimates proposals offers bids',
+        hint: 'G Q',
+        action: () => nav(urls.quotes),
+      },
+      {
+        id: 'new-quote',
+        title: tr('newQuoteCommand', 'Create quote'),
+        description: tr('newQuoteDescription', 'Start a new quote or proposal'),
+        icon: 'fa-file-contract',
+        keywords: 'quote create new estimate proposal offer',
+        hint: 'C Q',
+        action: () => nav(urls.newQuote),
+      },
+      {
+        id: 'goto-expenses',
+        title: tr('expensesCommand', 'Expenses'),
+        description: tr('expensesDescription', 'Review tracked receipts and expenses'),
+        icon: 'fa-receipt',
+        keywords: 'expenses receipts spending costs purchases reimbursements',
+        hint: 'G X',
+        action: () => nav(urls.expenses),
+      },
+      {
+        id: 'new-expense',
+        title: tr('newExpenseCommand', 'Log expense'),
+        description: tr('newExpenseDescription', 'Record a new receipt or expense'),
+        icon: 'fa-money-bill-transfer',
+        keywords: 'expense log create receipt spending cost add',
+        hint: 'C X',
+        action: () => nav(urls.newExpense),
+      },
+
+      // --- Overviews & Analytics ---
+      {
+        id: 'goto-dashboard',
+        title: tr('dashboardCommand', 'Dashboard'),
+        description: tr('dashboardDescription', 'Return to your work overview'),
+        icon: 'fa-gauge-high',
+        keywords: 'home overview main dashboard status live',
+        hint: 'G D',
+        action: () => nav(urls.dashboard),
+      },
+      {
+        id: 'goto-productivity',
+        title: tr('productivityCommand', 'My productivity'),
+        description: tr('productivityDescription', 'View productivity metrics and streak'),
+        icon: 'fa-fire',
+        keywords: 'productivity metrics speed stats charts streak ranking',
+        hint: 'G M',
+        action: () => nav(urls.productivity),
+      },
+      {
+        id: 'goto-weekly-goals',
+        title: tr('weeklyGoalsCommand', 'Weekly overview'),
+        description: tr('weeklyGoalsDescription', 'Calendar week targets and balance'),
+        icon: 'fa-calendar-week',
+        keywords: 'weekly overview goals targets kw overtime balance week hours',
+        hint: 'G W',
+        action: () => nav(urls.weeklyGoals),
+      },
+      {
+        id: 'goto-calendar',
+        title: tr('calendarCommand', 'Calendar'),
+        description: tr('calendarDescription', 'View schedule and calendar events'),
+        icon: 'fa-calendar-days',
+        keywords: 'calendar schedule events meetings plan timeline',
+        hint: 'G A',
+        action: () => nav(urls.calendar),
+      },
+      {
+        id: 'goto-reports',
+        title: tr('reportsCommand', 'Reports'),
+        description: tr('reportsDescription', 'Review tracked time and analytics'),
+        icon: 'fa-chart-line',
+        keywords: 'reports analytics insights graphs export summary',
+        hint: 'G R',
+        action: () => nav(urls.reports),
+      },
+
+      // --- System & Preferences ---
+      {
+        id: 'toggle-theme',
+        title: tr('themeCommand', 'Toggle theme'),
+        description: tr('themeDescription', 'Switch between light and dark theme'),
+        icon: 'fa-circle-half-stroke',
+        keywords: 'theme dark mode light mode switch appearance toggle colors',
+        action: () => {
+          const isDark = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark');
+          const next = isDark ? 'light' : 'dark';
+          const optionBtn = document.querySelector(`.theme-option[data-theme="${next}"]`);
+          if (optionBtn) {
+            optionBtn.click();
+          } else {
+            document.documentElement.classList.toggle('dark', !isDark);
+            document.body.classList.toggle('dark', !isDark);
+            localStorage.setItem('color-theme', next);
+          }
+          closePalette();
+          showToast(`Switched to ${next} theme`, 'info');
+        },
+      },
+      {
+        id: 'goto-settings',
+        title: tr('settingsCommand', 'Settings & profile'),
+        description: tr('settingsDescription', 'Manage preferences, theme and account'),
+        icon: 'fa-gear',
+        keywords: 'settings preferences profile user password security account custom theme',
+        hint: 'G S',
+        action: () => nav(urls.settings),
+      },
+      {
+        id: 'goto-help',
+        title: tr('helpCommand', 'Help & shortcuts'),
+        description: tr('helpDescription', 'View shortcuts and documentation'),
+        icon: 'fa-circle-question',
+        keywords: 'help docs shortcuts documentation guide support faq',
+        hint: '?',
+        action: () => nav(urls.help),
+      },
     ];
   }
 
   function getActiveItems() {
-    if (state.mode === 'projects') {
+    if (state.mode === 'projects' || state.mode === 'edit-project' || state.mode === 'view-project') {
       const projects = state.projects || [];
-      return projects.map((p) => ({
-        id: `project:${p.id}`,
-        title: p.name || `Project #${p.id}`,
-        keywords: `${p.name || ''} ${p.client_name || ''}`.trim(),
-        hint: p.client_name ? String(p.client_name) : '',
-        action: async () => {
-          try {
-            await startTimerWithProject(p.id);
+      return projects.map((p) => {
+        let action;
+        let desc = p.client_name ? String(p.client_name) : (p.code || '');
+        if (state.mode === 'edit-project') {
+          desc = p.client_name ? `Edit project for ${p.client_name}` : (p.code ? `Edit [${p.code}]` : 'Open project edit form');
+          action = () => {
             closePalette();
-            showToast('Timer started', 'info');
-          } catch (e) {
-            showToast(e.message || 'Failed to start timer', 'danger');
-          }
-        },
-      }));
+            nav(`/projects/${p.id}/edit`);
+          };
+        } else if (state.mode === 'view-project') {
+          desc = p.client_name ? `View project for ${p.client_name}` : (p.code ? `View [${p.code}]` : 'Open project details');
+          action = () => {
+            closePalette();
+            nav(`/projects/${p.id}`);
+          };
+        } else {
+          action = async () => {
+            try {
+              await startTimerWithProject(p.id);
+              closePalette();
+              showToast('Timer started', 'info');
+            } catch (e) {
+              showToast(e.message || 'Failed to start timer', 'danger');
+            }
+          };
+        }
+        return {
+          id: `project:${state.mode}:${p.id}`,
+          title: p.name || `Project #${p.id}`,
+          description: desc,
+          icon: state.mode === 'edit-project' ? 'fa-pen-to-square' : (state.mode === 'view-project' ? 'fa-folder-open' : 'fa-folder'),
+          keywords: `${p.name || ''} ${p.client_name || ''} ${p.code || ''}`.trim(),
+          hint: p.client_name ? String(p.client_name) : (p.code || ''),
+          action: action,
+        };
+      });
     }
-    return state.commands;
+
+    let items = state.commands.slice();
+    
+    // Global search for projects across all project actions
+    if (state.mode === 'commands' && state.query && state.projects) {
+      const pItems = [];
+      state.projects.forEach(p => {
+        const keywords = `${p.name || ''} ${p.client_name || ''} ${p.code || ''}`.trim();
+        const baseDesc = p.client_name ? String(p.client_name) : (p.code || '');
+        
+        pItems.push({
+          id: `global:proj-clock:${p.id}`,
+          title: `Clock in / switch: ${p.name || `Project #${p.id}`}`,
+          description: baseDesc,
+          icon: 'fa-play',
+          keywords: keywords,
+          hint: 'Clock in',
+          action: async () => {
+            try {
+              await startTimerWithProject(p.id);
+              closePalette();
+              showToast('Timer started', 'info');
+            } catch (e) {
+              showToast(e.message || 'Failed to start timer', 'danger');
+            }
+          }
+        });
+        
+        pItems.push({
+          id: `global:proj-view:${p.id}`,
+          title: `Open project: ${p.name || `Project #${p.id}`}`,
+          description: baseDesc,
+          icon: 'fa-folder-open',
+          keywords: keywords,
+          hint: 'View',
+          action: () => {
+            closePalette();
+            nav(`/projects/${p.id}`);
+          }
+        });
+        
+        pItems.push({
+          id: `global:proj-edit:${p.id}`,
+          title: `Edit project: ${p.name || `Project #${p.id}`}`,
+          description: baseDesc,
+          icon: 'fa-pen-to-square',
+          keywords: keywords,
+          hint: 'Edit',
+          action: () => {
+            closePalette();
+            nav(`/projects/${p.id}/edit`);
+          }
+        });
+      });
+      items = items.concat(pItems);
+    }
+    
+    return items;
   }
 
   function applyFilter() {
@@ -247,7 +644,11 @@ import { commandScore } from 'cmdk/command-score';
     const scored = items
       .map((it) => {
         const haystack = `${it.title} ${it.keywords || ''}`;
-        const score = fuzzyRank(haystack, q);
+        let score = fuzzyRank(haystack, q);
+        // Boost scores to enforce ordering for global project actions
+        if (it.id.startsWith('global:proj-clock:')) score += 0.03;
+        else if (it.id.startsWith('global:proj-view:')) score += 0.02;
+        else if (it.id.startsWith('global:proj-edit:')) score += 0.01;
         return { it, score };
       })
       .filter((x) => x.score > 0);
@@ -261,8 +662,9 @@ import { commandScore } from 'cmdk/command-score';
     $all('[data-tt-cp-idx]', list).forEach((el) => {
       const idx = Number(el.getAttribute('data-tt-cp-idx') || '0');
       const active = idx === state.selected;
-      el.classList.toggle('bg-background-light', active);
-      el.classList.toggle('dark:bg-background-dark', active);
+      el.classList.toggle('bg-primary/10', active);
+      el.classList.toggle('ring-1', active);
+      el.classList.toggle('ring-primary/30', active);
     });
   }
 
@@ -279,7 +681,7 @@ import { commandScore } from 'cmdk/command-score';
 
     const items = state.filtered || [];
     if (!items.length) {
-      if (state.mode === 'projects') renderEmpty('No projects found.');
+      if (state.mode === 'projects') renderEmpty(tr('noProjects', 'No projects found.'));
       else renderEmpty('No commands found.');
       return;
     }
@@ -290,24 +692,40 @@ import { commandScore } from 'cmdk/command-score';
       btn.type = 'button';
       btn.setAttribute('data-tt-cp-idx', String(idx));
       btn.className =
-        'px-3 py-2 text-left flex items-center justify-between gap-3 hover:bg-background-light dark:hover:bg-background-dark focus:outline-none focus:ring-2 focus:ring-primary';
+        'mx-2 rounded-xl px-3 py-2.5 text-left flex items-center justify-between gap-3 hover:bg-primary/5 focus:outline-none focus:ring-2 focus:ring-primary';
 
       const left = document.createElement('div');
-      left.className = 'min-w-0 flex-1';
-      left.innerHTML = `<div class="truncate">${cmd.title}</div>`;
+      left.className = 'min-w-0 flex flex-1 items-center gap-3';
+      const icon = document.createElement('span');
+      icon.className = 'flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-300';
+      const iconGlyph = document.createElement('i');
+      iconGlyph.className = `fas ${cmd.icon || 'fa-arrow-right'}`;
+      icon.appendChild(iconGlyph);
+      const copy = document.createElement('span');
+      copy.className = 'min-w-0';
+      const title = document.createElement('span');
+      title.className = 'block truncate text-sm font-semibold';
+      title.textContent = cmd.title || '';
+      const description = document.createElement('span');
+      description.className = 'block truncate text-xs text-text-muted-light dark:text-text-muted-dark';
+      description.textContent = cmd.description || '';
+      copy.appendChild(title);
+      copy.appendChild(description);
+      left.appendChild(icon);
+      left.appendChild(copy);
 
       const right = document.createElement('div');
       right.className = 'shrink-0 text-xs text-text-muted-light dark:text-text-muted-dark flex items-center gap-2';
       if (cmd.hint) {
-        right.innerHTML = `<span class="truncate">${cmd.hint}</span>`;
+        const hint = document.createElement('span');
+        hint.className = 'truncate';
+        hint.textContent = cmd.hint;
+        right.appendChild(hint);
       }
 
       btn.appendChild(left);
       btn.appendChild(right);
-      btn.addEventListener('click', () => {
-        closePalette();
-        setTimeout(() => cmd.action?.(), 30);
-      });
+      btn.addEventListener('click', () => runCommand(cmd));
 
       list.appendChild(btn);
     });
@@ -325,7 +743,14 @@ import { commandScore } from 'cmdk/command-score';
 
     if (ev.key === 'Escape') {
       ev.preventDefault();
-      closePalette();
+      if (state.mode !== 'commands') setMode('commands');
+      else closePalette();
+      return;
+    }
+
+    if (ev.key === 'Backspace' && state.mode !== 'commands' && !input?.value) {
+      ev.preventDefault();
+      setMode('commands');
       return;
     }
 
@@ -346,10 +771,18 @@ import { commandScore } from 'cmdk/command-score';
     if (ev.key === 'Enter') {
       ev.preventDefault();
       const cmd = state.filtered?.[state.selected];
-      if (cmd) {
-        closePalette();
-        setTimeout(() => cmd.action?.(), 30);
-      }
+      if (cmd) runCommand(cmd);
+    }
+  }
+
+  async function runCommand(command) {
+    if (!command || typeof command.action !== 'function') return;
+    const modeBefore = state.mode;
+    try {
+      await command.action();
+      if (state.open && state.mode === modeBefore && modeBefore === 'commands') closePalette();
+    } catch (error) {
+      showToast(error.message || 'Action failed', 'danger');
     }
   }
 
@@ -397,6 +830,7 @@ import { commandScore } from 'cmdk/command-score';
     root.addEventListener('click', onRootClick);
     root.addEventListener('click', onBackdropClick);
     input?.addEventListener('input', onInput);
+    input?.addEventListener('keydown', onPaletteKeydown);
     closeBtn?.addEventListener('click', (e) => {
       e.preventDefault();
       closePalette();
@@ -407,4 +841,3 @@ import { commandScore } from 'cmdk/command-score';
 
   init();
 })();
-

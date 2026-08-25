@@ -4,9 +4,9 @@ import { formatMinutes } from '../utils/format.js';
 export function LoadingScreen() {
   return (
     <div className="loading-screen">
-      <img src="../assets/logo.svg" alt="TimeTracker" />
+      <img src="../assets/logo.svg" alt="EvilTime" />
       <div className="spinner" />
-      <h1>TimeTracker</h1>
+      <h1>EvilTime</h1>
       <p>Preparing your workspace…</p>
     </div>
   );

@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { EntryList, Panel, StatCard } from '../components/ui.jsx';
 import { formatDuration, isTimerPaused, timerElapsedSeconds } from '../utils/format.js';
-import { WorkdayCard } from './WorkdayCard.jsx';
 
 export function DashboardView({
   data,
@@ -12,9 +11,6 @@ export function DashboardView({
   onPause,
   onResume,
   syncStatus,
-  attendance,
-  onAttendanceAction,
-  attendanceLoading,
 }) {
   const active = data.timer?.active;
   const paused = isTimerPaused(data.timer);
@@ -29,11 +25,6 @@ export function DashboardView({
 
   return (
     <div className="view-stack">
-      <WorkdayCard
-        attendance={attendance}
-        loading={attendanceLoading}
-        onAction={onAttendanceAction}
-      />
       <div className="hero-card">
         <div>
           <p className="eyebrow">Active timer</p>

@@ -97,7 +97,7 @@
         
         <div class="summary-box">
             <p>Total Hours Worked</p>
-            <h2>{{ "%.1f"|format(hours_worked) }}</h2>
+            <h2>{{ hours_worked|hours_minutes }}</h2>
             <p>hours</p>
         </div>
         
@@ -115,7 +115,7 @@
                     {% for project in projects_data %}
                     <tr>
                         <td>{{ project.name }}</td>
-                        <td style="text-align: right;"><strong>{{ "%.1f"|format(project.hours) }}</strong></td>
+                        <td style="text-align: right;"><strong>{{ project.hours|hours_minutes }}</strong></td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -132,9 +132,8 @@
     </div>
     
     <div class="footer">
-        <p>TimeTracker - Time Tracking & Project Management</p>
+        <p>EvilTime - Time Tracking & Project Management</p>
         <p>To manage your notification preferences, visit your user settings.</p>
     </div>
 </body>
 </html>
-

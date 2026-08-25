@@ -26,7 +26,6 @@ class User(UserMixin, db.Model):
     theme_preference = db.Column(db.String(10), default=None, nullable=True)  # 'light' | 'dark' | None=system
     preferred_language = db.Column(db.String(8), default=None, nullable=True)  # e.g., 'en', 'de'
     # Admin update popup: normalized semver of last "don't show again" GitHub release
-    dismissed_release_version = db.Column(db.String(64), nullable=True)
     oidc_sub = db.Column(db.String(255), nullable=True)
     oidc_issuer = db.Column(db.String(255), nullable=True)
     # Authentication source: local password, OIDC, or LDAP (synced on login where applicable)
@@ -94,6 +93,14 @@ class User(UserMixin, db.Model):
         db.String(10), default="daily", nullable=False
     )  # 'daily' | 'weekly': overtime by daily cap vs weekly cap
     standard_hours_per_week = db.Column(db.Float, nullable=True)  # Used when overtime_calculation_mode is 'weekly'
+    # Project used by one-click and Slack ``/in`` when no project name is supplied.
+    # This is deliberately user-configured: EvilTime never hardcodes a catch-all project.
+    default_project_id = db.Column(
+        db.Integer,
+        db.ForeignKey("projects.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
 
     # Per-user overrides for working time limits (null = use global Settings)
     daily_hour_limit_override = db.Column(db.Float, nullable=True)
@@ -183,11 +190,6 @@ class User(UserMixin, db.Model):
     ui_show_team_chat = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide Team Chat
     ui_show_client_portal = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide Client Portal
     ui_show_kiosk = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide Kiosk Mode
-    ui_show_donate = db.Column(db.Boolean, default=True, nullable=False)  # Show/hide donate/support UI
-
-    # Support UX: count of report generations (exports + custom report views) for stats in support modal
-    support_stats_reports_generated = db.Column(db.Integer, default=0, nullable=False)
-
     # GitHub login for the GitHubConnector integration (links a TimeTracker
     # user to a GitHub account so webhook events such as "issue assigned"
     # can act on the right account). Optional, not unique – a single GitHub
@@ -215,6 +217,7 @@ class User(UserMixin, db.Model):
         lazy="dynamic",
         backref=db.backref("favorited_by", lazy="dynamic"),
     )
+    default_project = db.relationship("Project", foreign_keys=[default_project_id])
     roles = db.relationship("Role", secondary="user_roles", lazy="joined", backref=db.backref("users", lazy="dynamic"))
     client = db.relationship(
         "Client",
@@ -410,6 +413,11 @@ class User(UserMixin, db.Model):
             "time_format": resolved_time,
             "timezone": resolved_timezone,
             "standard_hours_per_day": float(getattr(self, "standard_hours_per_day", 8.0) or 8.0),
+            "standard_hours_per_week": (
+                float(self.standard_hours_per_week) if self.standard_hours_per_week is not None else None
+            ),
+            "default_project_id": self.default_project_id,
+            "default_project_name": self.default_project.name if self.default_project else None,
             "overtime_include_weekends": getattr(self, "overtime_include_weekends", True),
         }
 

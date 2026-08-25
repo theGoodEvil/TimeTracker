@@ -44,7 +44,7 @@
                     </svg>
                 </div>
                 <div class="min-w-0">
-                    <p class="text-3xl font-bold text-text-light dark:text-text-dark" id="productivityTodayHours">{{ '%.1f'|format(summary.today_hours or 0) }}</p>
+                    <p class="text-3xl font-bold text-text-light dark:text-text-dark" id="productivityTodayHours">{{ (summary.today_hours or 0)|hours_minutes }}</p>
                     <p class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('today') }}</p>
                 </div>
             </div>
@@ -61,8 +61,8 @@
                 <i class="fas fa-calendar-week text-emerald-500" aria-hidden="true"></i>
             </div>
             <p class="text-3xl font-bold text-text-light dark:text-text-dark">
-                <span id="productivityWeekHours">{{ '%.1f'|format(summary.week_hours or 0) }}</span>
-                <span class="text-base font-medium text-text-muted-light dark:text-text-muted-dark"> / <span id="productivityWeekGoal">{{ '%.0f'|format(summary.week_goal_hours or 0) }}</span> h</span>
+                <span id="productivityWeekHours">{{ (summary.week_hours or 0)|hours_minutes }}</span>
+                <span class="text-base font-medium text-text-muted-light dark:text-text-muted-dark"> / <span id="productivityWeekGoal">{{ (summary.week_goal_hours or 0)|hours_minutes }}</span></span>
             </p>
             <p class="text-xs text-text-muted-light dark:text-text-muted-dark mb-3">{{ _('this week') }}</p>
             <div class="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden flex">
@@ -72,25 +72,6 @@
             <p class="mt-2 text-xs text-text-muted-light dark:text-text-muted-dark">
                 <span id="productivityBillablePct">{{ summary.billable_percent_week or 0 }}</span>% {{ _('billable') }}
             </p>
-        </div>
-
-        {# Workday vs project (today) #}
-        <div class="bg-card-light dark:bg-card-dark p-5 rounded-xl border border-emerald-200 dark:border-emerald-800 shadow-sm sm:col-span-2 lg:col-span-1">
-            <div class="flex items-center justify-between mb-3">
-                <h3 class="text-sm font-medium text-text-muted-light dark:text-text-muted-dark uppercase tracking-wide">{{ _('Workday vs projects') }}</h3>
-                <i class="fas fa-briefcase text-emerald-500" aria-hidden="true"></i>
-            </div>
-            <div class="grid grid-cols-2 gap-3 text-center">
-                <div>
-                    <p class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('At work today') }}</p>
-                    <p class="text-2xl font-bold text-emerald-700 dark:text-emerald-300" id="productivityWorkdayToday">{{ '%.1f'|format(summary.workday_today_hours or 0) }}</p>
-                </div>
-                <div>
-                    <p class="text-xs text-text-muted-light dark:text-text-muted-dark">{{ _('On projects today') }}</p>
-                    <p class="text-2xl font-bold text-blue-700 dark:text-blue-300">{{ '%.1f'|format(summary.today_hours or 0) }}</p>
-                </div>
-            </div>
-            <p class="text-xs text-text-muted-light dark:text-text-muted-dark mt-2 text-center">{{ _('Shown separately — not summed') }}</p>
         </div>
 
         {# Streak #}
@@ -287,9 +268,9 @@
 
     function fmtHours(h) {
         h = Number(h) || 0;
-        if (h >= 100) { return Math.round(h) + 'h'; }
-        if (h >= 10) { return h.toFixed(1) + 'h'; }
-        return h.toFixed(2).replace(/\.?0+$/, '') + 'h';
+        var totalMinutes = Math.round(Math.abs(h) * 60);
+        var sign = h < 0 ? '-' : '';
+        return sign + Math.floor(totalMinutes / 60) + ':' + String(totalMinutes % 60).padStart(2, '0') + 'h';
     }
 
     function fmtMinutes(mins) {
@@ -674,15 +655,15 @@
         var activeBadge = document.getElementById('productivityActiveTimerBadge');
 
         var todayHours = Number(s.today_hours) || 0;
-        if (todayHoursEl) { todayHoursEl.textContent = todayHours.toFixed(1); }
+        if (todayHoursEl) { todayHoursEl.textContent = fmtHours(todayHours); }
 
         if (arc) {
             var ratio = STANDARD_HOURS > 0 ? Math.min(1, todayHours / STANDARD_HOURS) : 0;
             arc.setAttribute('stroke-dashoffset', String(100 - Math.round(ratio * 100)));
         }
 
-        if (weekHoursEl) { weekHoursEl.textContent = (Number(s.week_hours) || 0).toFixed(1); }
-        if (weekGoalEl) { weekGoalEl.textContent = String(Math.round(Number(s.week_goal_hours) || 0)); }
+        if (weekHoursEl) { weekHoursEl.textContent = fmtHours(Number(s.week_hours) || 0); }
+        if (weekGoalEl) { weekGoalEl.textContent = fmtHours(Number(s.week_goal_hours) || 0); }
 
         var goalPct = Math.max(0, Math.min(100, Number(s.week_goal_percent) || 0));
         var billPct = Math.max(0, Math.min(100, Number(s.billable_percent_week) || 0));
@@ -726,7 +707,7 @@
 
         var longestSessionEl = document.getElementById('productivityLongestSession');
         if (longestSessionEl) {
-            longestSessionEl.textContent = (Number(focus.longest_session_hours) || 0).toFixed(2) + 'h';
+            longestSessionEl.textContent = fmtHours(Number(focus.longest_session_hours) || 0);
         }
         var entriesPerDayEl = document.getElementById('productivityEntriesPerDay');
         if (entriesPerDayEl) {
@@ -809,7 +790,7 @@
             state.refreshTimer = null;
         }
         var hasActive = !!(state.data && state.data.summary && state.data.summary.active_timer);
-        var interval = hasActive ? 60 * 1000 : 5 * 60 * 1000;
+        var interval = hasActive ? 30 * 1000 : 5 * 60 * 1000;
         state.refreshTimer = setTimeout(function () {
             if (document.visibilityState === 'visible') {
                 refresh();
@@ -835,6 +816,13 @@
 
     renderAll();
     scheduleAutoRefresh();
+    setInterval(function () {
+        var summary = state.data && state.data.summary;
+        if (!summary || !summary.active_timer || summary.active_timer.paused) { return; }
+        summary.today_hours = (Number(summary.today_hours) || 0) + (1 / 3600);
+        summary.week_hours = (Number(summary.week_hours) || 0) + (1 / 3600);
+        renderSummary();
+    }, 1000);
 })();
 </script>
 {% endblock %}

@@ -34,6 +34,8 @@ class Project(db.Model):
     archived_reason = db.Column(db.Text, nullable=True)
     # Gantt chart bar color (hex e.g. #3b82f6)
     color = db.Column(db.String(7), nullable=True)
+    icon_filename = db.Column(db.String(255), nullable=True)
+    icon_emoji = db.Column(db.String(32), nullable=True)
 
     # Relationships
     time_entries = db.relationship("TimeEntry", backref="project", lazy="dynamic", cascade="all, delete-orphan")

@@ -43,7 +43,7 @@
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-lg">
             <div class="text-sm text-gray-600 dark:text-gray-400">{{ _('Total Unpaid Hours') }}</div>
-            <div id="summaryTotalHours" class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ "%.2f"|format(summary.total_unpaid_hours) }}</div>
+            <div id="summaryTotalHours" class="text-2xl font-bold text-blue-600 dark:text-blue-400">{{ summary.total_unpaid_hours|hours_minutes }}</div>
         </div>
         <div class="bg-green-50 dark:bg-green-900/20 p-4 rounded-lg">
             <div class="text-sm text-gray-600 dark:text-gray-400">{{ _('Estimated Amount') }}</div>
@@ -89,7 +89,7 @@
                             {% endif %}
                         </td>
                         <td class="p-3" data-label="{{ _('Total Hours') }}">
-                            <span class="font-semibold">{{ "%.2f"|format(data.total_hours) }}</span> {{ _('hours') }}
+                            <span class="font-semibold">{{ data.total_hours|hours_minutes }}</span>
                         </td>
                         <td class="p-3" data-label="{{ _('Estimated Amount') }}">
                             <span class="font-semibold text-green-600 dark:text-green-400">{{ "%.2f"|format(data.estimated_amount) }}</span>
@@ -99,7 +99,7 @@
                                 {% for project in data.projects %}
                                 <div class="text-sm">
                                     <span class="font-medium">{{ project.project.name }}</span>
-                                    <span class="text-gray-600 dark:text-gray-400">: {{ "%.2f"|format(project.hours) }}h</span>
+                                    <span class="text-gray-600 dark:text-gray-400">: {{ project.hours|hours_minutes }}</span>
                                     {% if project.rate > 0 %}
                                     <span class="text-gray-500 dark:text-gray-500">@ {{ "%.2f"|format(project.rate) }}/h</span>
                                     {% endif %}
@@ -131,7 +131,7 @@
                                                 <td class="p-2">{{ entry.project.name if entry.project else 'No Project' }}</td>
                                                 <td class="p-2">{{ entry.task.name if entry.task else '-' }}</td>
                                                 <td class="p-2">{{ entry.start_time|user_date if entry.start_time else '-' }}</td>
-                                                <td class="p-2">{{ "%.2f"|format(entry.duration_hours) }}h</td>
+                                                <td class="p-2">{{ entry.duration_hours|hours_minutes }}</td>
                                                 <td class="p-2">{{ entry.notes or '-' }}</td>
                                             </tr>
                                             {% endfor %}
@@ -212,7 +212,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     
     function updateSummary(summary) {
-        document.getElementById('summaryTotalHours').textContent = summary.total_unpaid_hours.toFixed(2);
+        document.getElementById('summaryTotalHours').textContent = window.formatHoursMinutes(summary.total_unpaid_hours);
         document.getElementById('summaryEstimatedAmount').textContent = summary.total_estimated_amount.toFixed(2);
         document.getElementById('summaryClientsCount').textContent = summary.clients_count;
     }
@@ -238,7 +238,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const projectsHtml = data.projects.map(proj => 
                 `<div class="text-sm">
                     <span class="font-medium">${escapeHtml(proj.project_name)}</span>
-                    <span class="text-gray-600 dark:text-gray-400">: ${proj.hours.toFixed(2)}h</span>
+                    <span class="text-gray-600 dark:text-gray-400">: ${window.formatHoursMinutes(proj.hours)}</span>
                     ${proj.rate > 0 ? `<span class="text-gray-500 dark:text-gray-500">@ ${proj.rate.toFixed(2)}/h</span>` : ''}
                 </div>`
             ).join('');
@@ -253,7 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${data.client_email ? `<div class="text-sm text-gray-600 dark:text-gray-400">${escapeHtml(data.client_email)}</div>` : ''}
                     </td>
                     <td class="p-3">
-                        <span class="font-semibold">${data.total_hours.toFixed(2)}</span> hours
+                        <span class="font-semibold">${window.formatHoursMinutes(data.total_hours)}</span>
                     </td>
                     <td class="p-3">
                         <span class="font-semibold text-green-600 dark:text-green-400">${data.estimated_amount.toFixed(2)}</span>
@@ -285,7 +285,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 <td class="p-2">${escapeHtml(entry.project)}</td>
                                                 <td class="p-2">${entry.task ? escapeHtml(entry.task) : '-'}</td>
                                                 <td class="p-2">${entry.start_time ? new Date(entry.start_time).toLocaleDateString() : '-'}</td>
-                                                <td class="p-2">${entry.duration_hours.toFixed(2)}h</td>
+                                                <td class="p-2">${window.formatHoursMinutes(entry.duration_hours)}</td>
                                                 <td class="p-2">${entry.notes ? escapeHtml(entry.notes) : '-'}</td>
                                             </tr>
                                         `).join('')}
@@ -358,4 +358,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

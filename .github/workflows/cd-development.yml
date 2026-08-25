@@ -213,17 +213,6 @@ jobs:
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "📦 Building version: $VERSION"
       
-      - name: Inject donate-hide public key (optional)
-        env:
-          DONATE_HIDE_PUBLIC_KEY_PEM: ${{ secrets.DONATE_HIDE_PUBLIC_KEY_PEM }}
-        run: |
-          if [ -n "$DONATE_HIDE_PUBLIC_KEY_PEM" ]; then
-            echo "✅ DONATE_HIDE_PUBLIC_KEY_PEM set — writing donate_hide_public.pem for Docker build"
-            echo "$DONATE_HIDE_PUBLIC_KEY_PEM" > donate_hide_public.pem
-          else
-            echo "⚠️  DONATE_HIDE_PUBLIC_KEY_PEM not set — Support visibility verification disabled in image"
-          fi
-      
       - name: Build and push Docker image
         uses: docker/build-push-action@ca052bb54ab0790a636c9b5f226502c73d547a25  # v5
         with:
@@ -401,4 +390,3 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "---" >> $GITHUB_STEP_SUMMARY
           echo "💡 **Tip:** This workflow runs on PRs to RC branches. Documentation and test-only changes are skipped." >> $GITHUB_STEP_SUMMARY
-

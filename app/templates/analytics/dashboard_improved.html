@@ -414,7 +414,7 @@ class EnhancedAnalyticsDashboard {
                     plugins: { legend: { display: false }, tooltip: {
                         mode: 'index', intersect: false,
                         backgroundColor: 'rgba(255,255,255,0.9)', titleColor: '#111827', bodyColor: '#6b7280', borderColor: '#e5e7eb', borderWidth: 1, padding: 12,
-                        callbacks: { label: (c) => `${c.parsed.y.toFixed(1)}h` }
+                        callbacks: { label: (c) => window.formatHoursMinutes(c.parsed.y) }
                     }},
                     scales: { y: { beginAtZero: true, title: { display: true, text: i18n_analytics.hours_label || 'Hours' }, grid: { color: '#f3f4f6' } }, x: { title: { display: true, text: i18n_analytics.date_label || 'Date' }, grid: { display: false }, ticks: { maxRotation: 45, minRotation: 45 } } },
                     interaction: { intersect: false, mode: 'index' }
@@ -439,7 +439,7 @@ class EnhancedAnalyticsDashboard {
                 plugins: { legend: { position: 'bottom' }, tooltip: {
                     backgroundColor: 'rgba(255,255,255,0.9)', titleColor: '#111827', bodyColor: '#6b7280', borderColor: '#e5e7eb', borderWidth: 1, padding: 12,
                     callbacks: { label: (ctx) => {
-                        const label = ctx.label || ''; const value = ctx.parsed || 0; const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total>0 ? ((value/total)*100).toFixed(1) : 0; return `${label}: ${value.toFixed(1)}h (${pct}%)`;
+                        const label = ctx.label || ''; const value = ctx.parsed || 0; const total = ctx.dataset.data.reduce((a,b)=>a+b,0); const pct = total>0 ? ((value/total)*100).toFixed(1) : 0; return `${label}: ${window.formatHoursMinutes(value)} (${pct}%)`;
                     } }
                 }}
             }});
@@ -803,4 +803,3 @@ class EnhancedAnalyticsDashboard {
 document.addEventListener('DOMContentLoaded', () => { new EnhancedAnalyticsDashboard(); });
 </script>
 {% endblock %}
-

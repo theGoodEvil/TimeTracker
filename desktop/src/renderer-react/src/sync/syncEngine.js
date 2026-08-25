@@ -1,6 +1,6 @@
 import Dexie from 'dexie';
 
-const db = new Dexie('TimeTrackerDesktop');
+const db = new Dexie('EvilTimeDesktop');
 
 db.version(1).stores({
   projects: 'id,name,status,updated_at',

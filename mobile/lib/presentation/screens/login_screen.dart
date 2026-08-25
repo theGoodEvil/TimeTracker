@@ -98,7 +98,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
       );
       if (!infoResult.ok) {
         setState(() {
-          _error = infoResult.message ?? 'Could not reach TimeTracker server';
+          _error = infoResult.message ?? 'Could not reach EvilTime server';
           _isLoading = false;
         });
         return;
@@ -137,7 +137,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         setState(() {
           if (status == 401) {
             _error =
-                'Login succeeded, but the server rejected the session (401 Unauthorized). Check that the Server URL points to the correct TimeTracker instance.';
+                'Login succeeded, but the server rejected the session (401 Unauthorized). Check that the Server URL points to the correct EvilTime instance.';
           } else {
             _error =
                 'Login succeeded, but the server returned HTTP ${status ?? '—'} while validating the connection.';
@@ -354,13 +354,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                       child: Image.asset(
                         'assets/icon/app_icon.png',
                         fit: BoxFit.contain,
-                        semanticLabel: 'TimeTracker logo',
+                        semanticLabel: 'EvilTime logo',
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   Text(
-                    'TimeTracker',
+                    'EvilTime',
                     style: Theme.of(context).textTheme.headlineLarge,
                     textAlign: TextAlign.center,
                   ),

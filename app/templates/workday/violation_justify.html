@@ -7,8 +7,8 @@
 <div class="bg-card-light dark:bg-card-dark border border-border-light dark:border-border-dark rounded-xl p-6 max-w-xl">
     <dl class="text-sm mb-4 space-y-1">
         <div><dt class="inline font-medium">{{ _('Period') }}:</dt> {{ violation.period_start }}{% if violation.period_end != violation.period_start %} – {{ violation.period_end }}{% endif %} ({{ violation.period_type }})</div>
-        <div><dt class="inline font-medium">{{ _('Limit') }}:</dt> {{ "%.1f"|format(violation.limit_hours) }}h</div>
-        <div><dt class="inline font-medium">{{ _('Actual') }}:</dt> {{ "%.1f"|format(violation.actual_hours) }}h (+{{ "%.1f"|format(violation.hours_over) }}h)</div>
+        <div><dt class="inline font-medium">{{ _('Limit') }}:</dt> {{ violation.limit_hours|hours_minutes }}</div>
+        <div><dt class="inline font-medium">{{ _('Actual') }}:</dt> {{ violation.actual_hours|hours_minutes }} ({{ violation.hours_over|hours_minutes(true) }})</div>
     </dl>
     <form method="POST" action="{{ url_for('workday.violation_justify', violation_id=violation.id) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">

@@ -32,7 +32,6 @@ from .custom_report import CustomReportConfig
 from .deal import Deal
 from .deal_activity import DealActivity
 from .deleted_username import DeletedUsername
-from .donation_interaction import DonationInteraction
 from .expense import Expense
 from .expense_category import ExpenseCategory
 from .expense_gps import MileageTrack
@@ -94,6 +93,7 @@ from .team_chat import ChatChannel, ChatChannelMember, ChatMessage, ChatReadRece
 from .time_entry import TimeEntry
 from .time_entry_approval import ApprovalPolicy, ApprovalStatus, TimeEntryApproval
 from .time_entry_template import TimeEntryTemplate
+from .timer_event import TimerEvent
 from .time_off import CompanyHoliday, LeaveType, TimeOffRequest, TimeOffRequestStatus
 from .timesheet_period import TimesheetPeriod, TimesheetPeriodStatus
 from .timesheet_policy import TimesheetPolicy
@@ -114,6 +114,7 @@ __all__ = [
     "UserSmartNotificationDismissal",
     "Project",
     "TimeEntry",
+    "TimerEvent",
     "Task",
     "Settings",
     "Invoice",
@@ -245,7 +246,6 @@ __all__ = [
     "CustomFieldDefinition",
     "SalesmanEmailMapping",
     "Issue",
-    "DonationInteraction",
     "ClientNotification",
     "ClientNotificationPreferences",
     "NotificationType",

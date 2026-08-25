@@ -78,10 +78,10 @@
                 <select id="sync_direction" name="sync_direction"
                         class="w-full px-3 py-2 border border-border-light dark:border-border-dark rounded-lg bg-card-light dark:bg-card-dark">
                     <option value="github_to_timetracker" {% if current_config.get('sync_direction', 'github_to_timetracker') == 'github_to_timetracker' %}selected{% endif %}>
-                        {{ _('GitHub → TimeTracker (Import only)') }}
+                        {{ _('GitHub → EvilTime (Import only)') }}
                     </option>
                     <option value="timetracker_to_github" {% if current_config.get('sync_direction') == 'timetracker_to_github' %}selected{% endif %}>
-                        {{ _('TimeTracker → GitHub (Export only)') }}
+                        {{ _('EvilTime → GitHub (Export only)') }}
                     </option>
                     <option value="bidirectional" {% if current_config.get('sync_direction') == 'bidirectional' %}selected{% endif %}>
                         {{ _('Bidirectional (Two-way sync)') }}

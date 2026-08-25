@@ -16,7 +16,7 @@
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-sm font-medium text-green-600 dark:text-green-400 mb-1">{{ _('Total Hours') }}</p>
-                <p class="text-3xl font-bold text-green-900 dark:text-green-100">{{ "%.1f"|format(total_hours) }}</p>
+                <p class="text-3xl font-bold text-green-900 dark:text-green-100">{{ total_hours|hours_minutes }}</p>
                 <p class="text-xs text-green-600/70 dark:text-green-400/70 mt-1">{{ _('Hours tracked') }}</p>
             </div>
             <div class="bg-green-500/10 dark:bg-green-400/10 p-4 rounded-full">

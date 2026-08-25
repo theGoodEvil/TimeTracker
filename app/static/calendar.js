@@ -944,7 +944,7 @@ class Calendar {
         } else {
             const startStr = item.start ? formatDate(item.start) : '—';
             const endStr = item.end ? formatDate(item.end) : '—';
-            const duration = (props.duration_hours != null) ? Number(props.duration_hours).toFixed(2) : '—';
+            const duration = (props.duration_hours != null) ? window.formatHoursMinutes(props.duration_hours) : '—';
             bodyEl.innerHTML = `
                 <div class="event-detail-row"><div class="event-detail-label">Project</div><div class="event-detail-value">${this.escapeHtml(props.project_name || '')}</div></div>
                 ${props.task_name ? `<div class="event-detail-row"><div class="event-detail-label">Task</div><div class="event-detail-value">${this.escapeHtml(props.task_name)}</div></div>` : ''}
@@ -1010,4 +1010,3 @@ document.addEventListener('DOMContentLoaded', () => {
         
     }
 });
-

@@ -426,10 +426,9 @@ class TestActivityFeedDateParams:
 
 
 class TestActivityWidget:
-    """Tests for the activity feed widget on dashboard"""
+    """The focused EvilTime dashboard leaves the activity feed on its own page."""
 
-    def test_dashboard_includes_activities(self, authenticated_client, test_user, test_project):
-        """Test that the dashboard includes recent activities"""
+    def test_dashboard_focuses_on_project_time(self, authenticated_client, test_user, test_project):
         with authenticated_client.application.app_context():
             # Create some activities
             Activity.log(
@@ -443,5 +442,5 @@ class TestActivityWidget:
 
         response = authenticated_client.get("/dashboard")
         assert response.status_code == 200
-        assert b"Recent Activity" in response.data
-        assert b"Test activity" in response.data
+        assert b"Recent project time" in response.data
+        assert b"Test activity" not in response.data

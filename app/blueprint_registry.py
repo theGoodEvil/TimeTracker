@@ -93,6 +93,7 @@ def register_all_blueprints(app, logger=None):
     from app.routes.leads import leads_bp
     from app.routes.link_templates import link_templates_bp
     from app.routes.main import main_bp
+    from app.routes.mcp import mcp_bp
     from app.routes.mileage import mileage_bp
     from app.routes.payments import payments_bp
     from app.routes.per_diem import per_diem_bp
@@ -156,6 +157,7 @@ def register_all_blueprints(app, logger=None):
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(main_bp)
+    app.register_blueprint(mcp_bp)
     app.register_blueprint(projects_bp)
     app.register_blueprint(timer_bp)
     app.register_blueprint(workday_bp)

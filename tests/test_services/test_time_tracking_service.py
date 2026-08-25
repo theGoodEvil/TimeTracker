@@ -119,6 +119,7 @@ class TestStopTimer:
         active_timer.id = 1
         active_timer.user_id = 1
         active_timer.end_time = None
+        active_timer.paused_at = None
         active_timer.calculate_duration = Mock()
         mock_time_entry_repo.get_active_timer.return_value = active_timer
 
@@ -143,6 +144,37 @@ class TestStopTimer:
         # Assertions
         assert result["success"] is False
         assert result["error"] == "no_active_timer"
+
+
+class TestSwitchTimer:
+    """Tests for atomic project switching."""
+
+    def test_validation_failure_leaves_current_timer_running(
+        self, service, mock_time_entry_repo, mock_project_repo, sample_project
+    ):
+        active_timer = Mock(spec=TimeEntry)
+        active_timer.id = 7
+        active_timer.user_id = 1
+        active_timer.end_time = None
+        active_timer.paused_at = None
+        mock_time_entry_repo.get_active_timer.return_value = active_timer
+        mock_project_repo.get_by_id.return_value = sample_project
+        validation_error = {
+            "success": False,
+            "message": "A description is required",
+            "error": "description_required",
+        }
+
+        with (
+            patch.object(service, "_is_locked_period", return_value=False),
+            patch("app.services.time_tracking_service.Settings.get_settings", return_value=Mock()),
+            patch("app.services.time_tracking_service.validate_time_entry_requirements", return_value=validation_error),
+        ):
+            result = service.switch_timer(user_id=1, project_id=1)
+
+        assert result == validation_error
+        assert active_timer.end_time is None
+        mock_time_entry_repo.create_timer.assert_not_called()
 
 
 class TestCreateManualEntry:

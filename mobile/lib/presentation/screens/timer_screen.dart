@@ -2,12 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:timetracker_mobile/core/theme/app_tokens.dart';
 import 'package:timetracker_mobile/core/config/app_config.dart';
-import 'package:timetracker_mobile/presentation/providers/attendance_provider.dart';
 import 'package:timetracker_mobile/presentation/providers/projects_provider.dart';
 import 'package:timetracker_mobile/presentation/screens/login_screen.dart';
 import 'package:timetracker_mobile/utils/auth/auth_service.dart';
 import 'package:timetracker_mobile/presentation/widgets/timer_widget.dart';
-import 'package:timetracker_mobile/presentation/widgets/workday_card.dart';
 
 class TimerScreen extends ConsumerStatefulWidget {
   const TimerScreen({super.key});
@@ -22,7 +20,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(projectsProvider.notifier).loadProjects();
-      ref.read(attendanceProvider.notifier).refresh();
     });
   }
 
@@ -45,7 +42,6 @@ class _TimerScreenState extends ConsumerState<TimerScreen> {
         padding: EdgeInsets.all(AppSpacing.md),
         child: Column(
           children: [
-            WorkdayCard(),
             SizedBox(height: AppSpacing.md),
             TimerWidget(),
           ],

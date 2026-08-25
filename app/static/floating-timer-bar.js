@@ -92,13 +92,7 @@
         }
 
         startTimer() {
-            const startBtn = document.querySelector('#openStartTimer');
-            if (startBtn) {
-                startBtn.click();
-            } else {
-                const url = this.bar?.dataset?.manualUrl || '/timer/manual';
-                window.location.href = url;
-            }
+            if (window.evilTimeTimerControl) window.evilTimeTimerControl.open();
         }
 
         async stopTimer() {
@@ -167,9 +161,9 @@
             if (this.timerData) {
                 const isPaused = this.timerData.paused;
                 const pulseClass = isPaused ? 'bg-amber-500' : 'bg-green-500 animate-pulse';
-                const clickHandler = isPaused ? 'window.floatingTimerBar.resumeTimer()' : 'window.floatingTimerBar.stopTimer()';
+                const clickHandler = 'window.evilTimeTimerControl.open()';
                 this.bar.innerHTML = `
-                    <button type="button" class="${baseClass} relative" onclick="${clickHandler}" title="${title}" aria-label="${escapeHtml(actionLabel)} – ${escapeHtml(this.getLabel())}">
+                    <button type="button" class="${baseClass} relative" onclick="${clickHandler}" title="${title}" aria-label="${escapeHtml(this.getLabel())} – ${escapeHtml(actionLabel)}">
                         <span class="absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${pulseClass}" aria-hidden="true"></span>
                         <i class="fas fa-${isPaused ? 'pause' : 'stopwatch'} text-base"></i>
                         <span class="floating-timer-bar__elapsed sr-only" data-timer-elapsed>${this.timerData.duration_formatted || '00:00:00'}</span>

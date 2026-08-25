@@ -1,5 +1,5 @@
 import os
-from datetime import date, datetime, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from functools import lru_cache
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError, available_timezones
 
@@ -258,6 +258,18 @@ def local_now():
     return now_in_app_timezone()
 
 
+def to_app_timezone_naive(dt):
+    """Return a datetime in the app's timezone and database storage format.
+
+    Datetime columns use app-local naive values. RFC3339/API inputs may carry an
+    offset, so convert those instants before dropping timezone information.
+    Already-naive values are assumed to follow the storage convention.
+    """
+    if dt is None or dt.tzinfo is None:
+        return dt
+    return dt.astimezone(get_timezone_obj()).replace(tzinfo=None)
+
+
 def _localize_with_timezone(dt, tz):
     """Localize a naive datetime with the given zoneinfo timezone, handling edge cases.
 
@@ -269,6 +281,19 @@ def _localize_with_timezone(dt, tz):
 
     # Use fold=1 to prefer standard time for ambiguous datetimes
     return dt.replace(tzinfo=tz, fold=1)
+
+
+def user_day_bounds_app_naive(user=None, day=None):
+    """Return app-local naive bounds for one user-local calendar day."""
+    resolved_day = day or now_in_user_timezone(user).date()
+    user_tz = get_timezone_for_user(user)
+    app_tz = get_timezone_obj()
+    start_local = _localize_with_timezone(datetime.combine(resolved_day, time.min), user_tz)
+    end_local = _localize_with_timezone(datetime.combine(resolved_day + timedelta(days=1), time.min), user_tz)
+    return (
+        start_local.astimezone(app_tz).replace(tzinfo=None),
+        end_local.astimezone(app_tz).replace(tzinfo=None),
+    )
 
 
 def convert_app_datetime_to_user(dt, user=None):

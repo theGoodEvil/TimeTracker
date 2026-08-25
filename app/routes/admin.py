@@ -21,14 +21,12 @@ from flask import (
 from flask_babel import gettext as _
 from flask_login import current_user, login_required
 from sqlalchemy import text
-from sqlalchemy.exc import ProgrammingError
 from werkzeug.utils import secure_filename
 
 import app as app_module
 from app import db, limiter
 from app.config.analytics_defaults import get_analytics_config
 from app.models import (
-    DonationInteraction,
     Invoice,
     Project,
     Quote,
@@ -1072,19 +1070,6 @@ def delete_user(user_id):
         flash(_("Cannot delete user with existing time entries"), "error")
         return redirect(url_for("admin.list_users"))
 
-    # Remove donation_interactions for this user so delete succeeds (FK / optional table)
-    try:
-        DonationInteraction.query.filter_by(user_id=user.id).delete()
-    except ProgrammingError as e:
-        error_str = str(e.orig) if hasattr(e, "orig") else str(e)
-        if "donation_interactions" in error_str and "does not exist" in error_str:
-            current_app.logger.warning(
-                "donation_interactions table missing during user delete (user_id=%s); continuing.",
-                user.id,
-            )
-        else:
-            raise
-
     username = user.username
     from app.utils.deleted_usernames import reserve_deleted_username
 
@@ -1347,7 +1332,6 @@ def settings():
             ZoneInfo(timezone)  # This will raise an exception if timezone is invalid
         except (ZoneInfoNotFoundError, KeyError):
             flash(_("Invalid timezone: %(timezone)s", timezone=timezone), "error")
-            system_instance_id = Settings.get_system_instance_id()
             return render_template(
                 "admin/settings.html",
                 settings=settings_obj,
@@ -1355,7 +1339,6 @@ def settings():
                 kiosk_settings=kiosk_settings,
                 peppol_env_enabled=peppol_env_enabled,
                 ai_config=ai_config,
-                system_instance_id=system_instance_id,
             )
 
         # Update basic settings
@@ -1394,7 +1377,6 @@ def settings():
         is_valid_pattern, pattern_error = validate_invoice_pattern(invoice_number_pattern_form)
         if not is_valid_pattern:
             flash(_("Invalid invoice number pattern: %(reason)s", reason=pattern_error), "error")
-            system_instance_id = Settings.get_system_instance_id()
             return render_template(
                 "admin/settings.html",
                 settings=settings_obj,
@@ -1402,7 +1384,6 @@ def settings():
                 kiosk_settings=kiosk_settings,
                 peppol_env_enabled=peppol_env_enabled,
                 ai_config=ai_config,
-                system_instance_id=system_instance_id,
             )
         # #region agent log
         try:
@@ -1442,7 +1423,6 @@ def settings():
         is_valid_quote_pattern, quote_pattern_error = validate_invoice_pattern(quote_number_pattern_form)
         if not is_valid_quote_pattern:
             flash(_("Invalid quote number pattern: %(reason)s", reason=quote_pattern_error), "error")
-            system_instance_id = Settings.get_system_instance_id()
             return render_template(
                 "admin/settings.html",
                 settings=settings_obj,
@@ -1450,7 +1430,6 @@ def settings():
                 kiosk_settings=kiosk_settings,
                 peppol_env_enabled=peppol_env_enabled,
                 ai_config=ai_config,
-                system_instance_id=system_instance_id,
             )
         settings_obj.quote_prefix = quote_prefix_form
         settings_obj.quote_number_pattern = quote_number_pattern_form
@@ -1637,7 +1616,6 @@ def settings():
 
         if not safe_commit("admin_update_settings"):
             flash(_("Could not update settings due to a database error. Please check server logs."), "error")
-            system_instance_id = Settings.get_system_instance_id()
             return render_template(
                 "admin/settings.html",
                 settings=settings_obj,
@@ -1645,7 +1623,6 @@ def settings():
                 kiosk_settings=kiosk_settings,
                 peppol_env_enabled=peppol_env_enabled,
                 ai_config=ai_config,
-                system_instance_id=system_instance_id,
             )
         # #region agent log
         try:
@@ -1683,7 +1660,6 @@ def settings():
         "kiosk_default_movement_type": getattr(settings_obj, "kiosk_default_movement_type", "adjustment"),
     }
 
-    system_instance_id = Settings.get_system_instance_id()
     ai_config = settings_obj.get_ai_config()
     return render_template(
         "admin/settings.html",
@@ -1692,7 +1668,6 @@ def settings():
         kiosk_settings=kiosk_settings,
         peppol_env_enabled=peppol_env_enabled,
         ai_config=ai_config,
-        system_instance_id=system_instance_id,
     )
 
 
@@ -1848,39 +1823,6 @@ def admin_peppol_setup_wizard_send_test():
     except Exception as e:
         current_app.logger.exception("Peppol wizard test send failed")
         return jsonify({"ok": False, "error": f"Failed to send invoice via Peppol: {e}"}), 500
-
-
-@admin_bp.route("/admin/settings/verify-donate-hide-code", methods=["POST"])
-@login_required
-@admin_or_permission_required("manage_settings")
-def admin_verify_donate_hide_code():
-    """Verify code (Ed25519 or HMAC) and set system-wide donate_ui_hidden=True."""
-    from app.utils.donate_hide_code import system_id_log_prefix, verify_supporter_code
-
-    settings_obj = Settings.get_settings()
-    if getattr(settings_obj, "donate_ui_hidden", False):
-        return jsonify({"success": True})
-
-    data = request.get_json() or {}
-    code = (data.get("code") or "").strip()
-    system_id = Settings.get_system_instance_id()
-    sid_prefix = system_id_log_prefix(system_id)
-    valid, reason = verify_supporter_code(
-        code,
-        system_id,
-        public_key_pem=current_app.config.get("DONATE_HIDE_PUBLIC_KEY_PEM") or "",
-        secret=current_app.config.get("DONATE_HIDE_UNLOCK_SECRET") or "",
-    )
-    if not valid:
-        current_app.logger.warning("License verify failed: %s (system_id_prefix=%s)", reason, sid_prefix)
-        return jsonify({"error": _("Invalid code.")}), 400
-
-    settings_obj.donate_ui_hidden = True
-    if safe_commit(db.session):
-        current_app.logger.info("License activated (system_id_prefix=%s)", sid_prefix)
-        return jsonify({"success": True})
-    current_app.logger.warning("License verify failed: save_error (system_id_prefix=%s)", sid_prefix)
-    return jsonify({"error": _("Error saving settings")}), 500
 
 
 @admin_bp.route("/admin/pdf-layout", methods=["GET", "POST"])
@@ -2855,7 +2797,7 @@ def pdf_layout_default():
     )
 
 
-@admin_bp.route("/admin/pdf-layout/preview", methods=["POST"])
+@admin_bp.route("/admin/pdf-layout/preview", methods=["GET", "POST"])
 @limiter.limit("60 per minute")
 @login_required
 @admin_or_permission_required("manage_settings")
@@ -5530,7 +5472,7 @@ def test_email():
     current_app.logger.info(f"[EMAIL TEST API] Test email request from user {current_user.username} to {recipient}")
 
     # Send test email
-    sender_name = current_user.username or "TimeTracker Admin"
+    sender_name = current_user.username or "EvilTime Admin"
     success, message = send_test_email(recipient, sender_name)
 
     # Log the test

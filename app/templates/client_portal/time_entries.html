@@ -120,7 +120,7 @@
                     <td class="py-4 px-6">
                         <span class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-semibold bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400">
                             <i class="fas fa-clock mr-1.5 text-xs"></i>
-                            {{ "%.2f"|format(entry.duration_hours) }}h
+                            {{ entry.duration_hours|hours_minutes }}
                         </span>
                     </td>
                     <td class="py-4 px-6">
@@ -151,7 +151,7 @@
                 <div class="flex items-center space-x-2">
                     <i class="fas fa-clock text-green-500"></i>
                     <span class="text-sm font-medium text-text-light dark:text-text-dark">
-                        {{ _('Total hours') }}: <span class="font-bold text-green-600 dark:text-green-400">{{ "%.2f"|format(time_entries|sum(attribute='duration_hours')) }}h</span>
+                        {{ _('Total hours') }}: <span class="font-bold text-green-600 dark:text-green-400">{{ (time_entries|sum(attribute='duration_hours'))|hours_minutes }}</span>
                     </span>
                 </div>
             </div>

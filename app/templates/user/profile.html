@@ -43,7 +43,7 @@
                 </div>
                 <div class="ml-4">
                     <p class="text-sm text-gray-600 dark:text-gray-400">{{ _('Total Hours') }}</p>
-                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ "%.1f"|format(total_hours) }}</p>
+                    <p class="text-2xl font-bold text-gray-900 dark:text-white">{{ total_hours|hours_minutes }}</p>
                 </div>
             </div>
         </div>
@@ -156,4 +156,3 @@
     </div>
 </div>
 {% endblock %}
-

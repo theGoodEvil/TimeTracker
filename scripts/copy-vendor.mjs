@@ -58,6 +58,11 @@ const ASSETS = [
 
   ['animejs/lib/anime.min.js', 'animejs/anime.min.js'],
 
+  // Full searchable emoji data for the project icon picker. The component
+  // renders native system glyphs; only its English/German metadata is served.
+  ['emoji-picker-element-data/en/cldr-native/data.json', 'emoji-picker-data/en.json'],
+  ['emoji-picker-element-data/de/cldr-native/data.json', 'emoji-picker-data/de.json'],
+
   // Inter was previously @import-ed from fonts.bunny.net inside input.css, which meant
   // every page load reached out to a third party. @font-face rules in input.css now
   // point at these local files instead.

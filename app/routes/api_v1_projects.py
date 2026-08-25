@@ -23,13 +23,13 @@ api_v1_projects_bp = Blueprint("api_v1_projects", __name__, url_prefix="/api/v1"
 def list_projects():
     """List all projects."""
     from app.services import ProjectService
-    from app.utils.scope_filter import get_allowed_project_ids
+    from app.utils.scope_filter import get_clockable_project_ids
 
     status = request.args.get("status", "active")
     client_id = request.args.get("client_id", type=int)
     page = request.args.get("page", 1, type=int)
     per_page = min(request.args.get("per_page", 50, type=int), 100)
-    scope_project_ids = get_allowed_project_ids(g.api_user)
+    scope_project_ids = get_clockable_project_ids(g.api_user)
 
     project_service = ProjectService()
     result = project_service.list_projects(
@@ -58,14 +58,14 @@ def list_projects():
 def get_project(project_id):
     """Get a specific project."""
     from app.services import ProjectService
-    from app.utils.scope_filter import user_can_access_project
+    from app.utils.scope_filter import user_can_clock_project
 
     project_service = ProjectService()
     result = project_service.get_project_with_details(project_id=project_id, include_time_entries=False)
 
     if not result:
         return not_found_response("Project", project_id)
-    if not user_can_access_project(g.api_user, project_id):
+    if not user_can_clock_project(g.api_user, project_id):
         return forbidden_response("You do not have access to this project")
 
     return jsonify({"project": result.to_dict()})

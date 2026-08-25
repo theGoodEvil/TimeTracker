@@ -2,10 +2,10 @@
 <p>You have exceeded your <strong>daily</strong> working time limit.</p>
 <ul>
     <li><strong>Date:</strong> {{ violation.period_start }}</li>
-    <li><strong>Limit:</strong> {{ "%.1f"|format(violation.limit_hours) }} hours</li>
-    <li><strong>Actual:</strong> {{ "%.1f"|format(violation.actual_hours) }} hours</li>
-    <li><strong>Over by:</strong> {{ "%.1f"|format(violation.hours_over) }} hours</li>
+    <li><strong>Limit:</strong> {{ violation.limit_hours|hours_minutes }}</li>
+    <li><strong>Actual:</strong> {{ violation.actual_hours|hours_minutes }}</li>
+    <li><strong>Over by:</strong> {{ violation.hours_over|hours_minutes }}</li>
 </ul>
-<p>Please provide a brief justification in TimeTracker:</p>
+<p>Please provide a brief justification in EvilTime:</p>
 <p><a href="{{ justify_url }}">Submit justification</a></p>
-<p style="color:#64748b;font-size:0.875rem;">— TimeTracker</p>
+<p style="color:#64748b;font-size:0.875rem;">— EvilTime</p>

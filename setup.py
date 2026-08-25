@@ -1,12 +1,12 @@
 """
-Setup configuration for TimeTracker application.
+Setup configuration for EvilTime.
 This allows the app to be installed as a package for testing.
 """
 
 from setuptools import setup, find_packages
 
 setup(
-    name='timetracker',
+    name='eviltime',
     version='5.11.4',
     packages=find_packages(),
     include_package_data=True,

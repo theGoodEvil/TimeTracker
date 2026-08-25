@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from app.utils.timezone import (
     convert_app_datetime_to_user,
@@ -22,6 +23,22 @@ except Exception:
 # markdown only honors this subset. Anything outside it (e.g. `\,`, `\:`)
 # leaks through to the rendered HTML as a literal backslash + char.
 _PYMD_ESCAPABLE = r"\\`*_{}()\[\]#+\-.!"
+
+
+def format_hours_minutes(value, show_plus=False):
+    """Format decimal hours as a clock-style duration (for example ``-19:54h``).
+
+    Decimal hours are quantities, not ``hours.minutes``.  Rounding via Decimal
+    avoids binary floating-point surprises at minute boundaries.
+    """
+    try:
+        hours = Decimal(str(value or 0))
+    except (InvalidOperation, TypeError, ValueError):
+        hours = Decimal(0)
+    total_minutes = int((abs(hours) * 60).quantize(Decimal("1"), rounding=ROUND_HALF_UP))
+    whole_hours, minutes = divmod(total_minutes, 60)
+    sign = "-" if hours < 0 else ("+" if show_plus and hours > 0 else "")
+    return f"{sign}{whole_hours}:{minutes:02d}h"
 
 
 def _normalize_toastui_markdown(text):
@@ -58,6 +75,10 @@ def _normalize_toastui_markdown(text):
 
 def register_template_filters(app):
     """Register custom template filters for the application"""
+
+    @app.template_filter("hours_minutes")
+    def hours_minutes_filter(value, show_plus=False):
+        return format_hours_minutes(value, show_plus=show_plus)
 
     @app.template_filter("local_datetime")
     def local_datetime_filter(utc_dt, format_str=None):

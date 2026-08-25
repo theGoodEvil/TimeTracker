@@ -17,13 +17,13 @@ export function buildDiagnostics(serverUrl, result) {
   } else if (code === 'TLS') {
     checks.push('The certificate is not trusted. Use a real certificate or explicitly trust your local host.');
   } else if (code === 'SETUP_REQUIRED') {
-    checks.push('Open this server in a browser and complete TimeTracker setup first.');
+    checks.push('Open this server in a browser and complete EvilTime setup first.');
   } else if (code === 'NOT_TIMETRACKER') {
     checks.push('Do not include /api/v1/info in the desktop field; enter the base URL only.');
   } else if (code === 'UNAUTHORIZED') {
     checks.push('Check username and password, then sign in again.');
   } else {
-    checks.push('Confirm the TimeTracker web app is open in a browser on the same URL.');
+    checks.push('Confirm the EvilTime web app is open in a browser on the same URL.');
   }
 
   return {

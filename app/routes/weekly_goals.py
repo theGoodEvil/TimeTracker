@@ -6,7 +6,7 @@ from flask_login import current_user, login_required
 from sqlalchemy import func
 
 from app import db, log_event, track_event
-from app.models import TimeEntry, WeeklyTimeGoal
+from app.models import TimeEntry, User, WeeklyTimeGoal
 from app.utils.db import safe_commit
 from app.utils.module_helpers import module_enabled
 
@@ -15,48 +15,68 @@ weekly_goals_bp = Blueprint("weekly_goals", __name__)
 
 @weekly_goals_bp.route("/goals")
 @login_required
-@module_enabled("weekly_goals")
 def index():
-    """Display weekly goals overview page"""
+    """Display EvilTime's expected/actual calendar-week ledger."""
     current_app.logger.info(f"GET /goals user={current_user.username}")
 
-    # Get current week goal
-    current_goal = WeeklyTimeGoal.get_current_week_goal(current_user.id)
+    from app.services.weekly_work_service import WeeklyWorkService
 
-    # Get all goals for the user, ordered by week
-    all_goals = (
-        WeeklyTimeGoal.query.filter_by(user_id=current_user.id)
-        .order_by(WeeklyTimeGoal.week_start_date.desc())
-        .limit(12)
-        .all()
-    )  # Show last 12 weeks
+    target_user = current_user
+    requested_user_id = request.args.get("user_id", type=int)
+    if requested_user_id and requested_user_id != current_user.id:
+        if not current_user.is_admin:
+            flash(_("You do not have permission to view another user's weekly overview."), "error")
+            return redirect(url_for("weekly_goals.index"))
+        target_user = User.query.get_or_404(requested_user_id)
 
-    # Update status for all goals
-    for goal in all_goals:
-        goal.update_status()
-
-    # Calculate statistics
-    stats = {
-        "total_goals": len(all_goals),
-        "completed": sum(1 for g in all_goals if g.status == "completed"),
-        "failed": sum(1 for g in all_goals if g.status == "failed"),
-        "active": sum(1 for g in all_goals if g.status == "active"),
-        "completion_rate": 0,
-    }
-
-    if stats["total_goals"] > 0:
-        completed_or_failed = stats["completed"] + stats["failed"]
-        if completed_or_failed > 0:
-            stats["completion_rate"] = round((stats["completed"] / completed_or_failed) * 100, 1)
-
-    # Track page view
-    track_event(
-        user_id=current_user.id,
-        event_name="weekly_goals_viewed",
-        properties={"has_current_goal": current_goal is not None},
+    ledger_rows = WeeklyWorkService.rows(target_user, limit=None)
+    users = User.query.order_by(User.username).all() if current_user.is_admin else []
+    track_event(user_id=current_user.id, event_name="weekly_goals_viewed")
+    return render_template(
+        "weekly_goals/index.html",
+        ledger_rows=ledger_rows,
+        ledger_user=target_user,
+        ledger_users=users,
     )
 
-    return render_template("weekly_goals/index.html", current_goal=current_goal, goals=all_goals, stats=stats)
+
+@weekly_goals_bp.route("/work-weeks/adjust", methods=["POST"])
+@login_required
+def adjust_week():
+    """Create or amend a calendar-week schedule and actual-hours adjustment."""
+    from app.services.weekly_work_service import WeeklyWorkService
+
+    try:
+        week = datetime.strptime((request.form.get("week_start") or "").strip(), "%Y-%m-%d").date()
+        expected = float(request.form.get("expected_hours", ""))
+        adjustment_raw = (request.form.get("actual_hours_adjustment") or "").strip()
+        adjustment = float(adjustment_raw) if adjustment_raw else None
+        if not 0 <= expected <= 168 or (adjustment is not None and not -168 <= adjustment <= 168):
+            raise ValueError
+    except (TypeError, ValueError):
+        flash(_("Enter a valid week, expected hours from 0 to 168, and an adjustment from −168 to 168."), "error")
+        return redirect(request.referrer or url_for("weekly_goals.index"))
+
+    target_user = current_user
+    target_user_id = request.form.get("user_id", type=int)
+    if target_user_id and target_user_id != current_user.id:
+        if not current_user.is_admin:
+            flash(_("You do not have permission to change another user's weekly hours."), "error")
+            return redirect(url_for("weekly_goals.index"))
+        target_user = User.query.get_or_404(target_user_id)
+
+    WeeklyWorkService.upsert_adjustment(
+        target_user,
+        week,
+        expected,
+        actual_adjustment=adjustment,
+        notes=(request.form.get("notes") or "").strip() or None,
+    )
+    if safe_commit("weekly_work_adjustment", {"user_id": target_user.id, "week_start": week.isoformat()}):
+        flash(_("Calendar week updated."), "success")
+    else:
+        flash(_("Could not update the calendar week."), "error")
+    return redirect(request.referrer or url_for("weekly_goals.index"))
 
 
 @weekly_goals_bp.route("/goals/create", methods=["GET", "POST"])

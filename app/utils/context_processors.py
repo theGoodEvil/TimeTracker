@@ -1,13 +1,8 @@
-import json
-from datetime import datetime
-
-from flask import current_app, g, request, session, url_for
+from flask import current_app, g, request
 from flask_babel import get_locale
-from flask_babel import gettext as _
 from flask_login import current_user
 
 from app.models import Settings
-from app.utils.license_utils import is_license_activated
 from app.utils.timezone import (
     get_resolved_date_format_key,
     get_resolved_time_format_key,
@@ -44,7 +39,6 @@ def register_context_processors(app):
                     "resolved_date_format_key": resolved_date,
                     "resolved_time_format_key": resolved_time,
                     "resolved_week_start_day": resolved_week_start,
-                    "is_license_activated": is_license_activated(settings),
                     "ai_enabled": bool(ai_cfg.get("enabled")),
                 }
         except Exception as e:
@@ -56,8 +50,7 @@ def register_context_processors(app):
 
                 db.session.rollback()
             except Exception:
-                pass
-            pass
+                current_app.logger.debug("Could not roll back template settings session", exc_info=True)
 
         # Return defaults if settings not available (resolved keys still work without db)
         try:
@@ -79,7 +72,6 @@ def register_context_processors(app):
             "resolved_date_format_key": resolved_date,
             "resolved_time_format_key": resolved_time,
             "resolved_week_start_day": resolved_week_start,
-            "is_license_activated": False,
             "ai_enabled": ai_enabled,
         }
 
@@ -119,30 +111,13 @@ def register_context_processors(app):
         except Exception:
             pass
 
-        # Determine app version from setup.py (single source of truth)
+        # EvilTime has its own release sequence, independent from upstream.
         try:
-            import os
+            from app.version import get_eviltime_version
 
-            from app.config.analytics_defaults import get_version_from_setup
-
-            # Get version from setup.py
-            version_value = get_version_from_setup()
-
-            # If version is "unknown", fall back to environment variable for dev mode
-            if version_value == "unknown":
-                env_version = os.getenv("APP_VERSION")
-                if env_version:
-                    version_value = env_version
-                else:
-                    # Last resort: use "dev-0" for development
-                    version_value = "dev-0"
-
-            # Strip any leading 'v' prefix to avoid double 'v' in template (e.g., vv3.5.0)
-            if version_value and version_value.startswith("v"):
-                version_value = version_value[1:]
+            version_value = get_eviltime_version()
         except Exception:
-            # Fallback if anything goes wrong
-            version_value = "dev-0"
+            version_value = "5.11.4-evil"
 
         # Current locale code (e.g., 'en', 'de')
         try:
@@ -165,114 +140,12 @@ def register_context_processors(app):
         rtl_languages = current_app.config.get("RTL_LANGUAGES", set())
         is_rtl = short_locale in rtl_languages
 
-        support_purchase_url = current_app.config.get(
-            "SUPPORT_PURCHASE_URL", "https://timetracker.drytrix.com/support.html"
-        )
-
-        # User stats and support banner suppression for smart prompts (authenticated users only)
-        user_stats = None
-        support_banner_suppressed = False
-        support_ab_variant = "control"
-        if getattr(current_user, "is_authenticated", False):
-            try:
-                from app.models import DonationInteraction
-
-                user_stats = DonationInteraction.get_user_engagement_metrics(current_user.id)
-                support_banner_suppressed = DonationInteraction.has_recent_donation_click(current_user.id, days=30)
-                # Stable A/B variant per user for support CTA experiments (control | key_first | cta_alt)
-                support_ab_variant = ("control", "key_first", "cta_alt")[current_user.id % 3]
-            except Exception:
-                user_stats = {}
-                support_banner_suppressed = False
-
         is_admin_user = bool(
             getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False)
         )
 
-        support_ui_json = None
-        layout_support_prompt = None
-        support_usage_stats_modal = None
-        if getattr(current_user, "is_authenticated", False):
-            try:
-                from app.config.support_ui import (
-                    build_support_checkout_urls,
-                    get_long_session_minutes,
-                    get_social_proof_text,
-                )
-                from app.services.support_prompt_service import SupportPromptService
-                from app.services.usage_stats_service import UsageStatsService
-                from app.utils.license_utils import is_license_activated
-
-                settings_obj = Settings.get_settings()
-                is_supporter_instance = bool(settings_obj and is_license_activated(settings_obj))
-                ui_show_donate = bool(getattr(current_user, "ui_show_donate", True))
-
-                layout_support_prompt = SupportPromptService.consume_layout_prompt(
-                    session,
-                    ui_show_donate=ui_show_donate,
-                    is_supporter=is_supporter_instance,
-                    support_banner_suppressed=support_banner_suppressed,
-                )
-
-                usage_stats = UsageStatsService.get_for_user(current_user.id)
-                support_usage_stats_modal = usage_stats
-                checkout_urls = build_support_checkout_urls(current_app.config)
-                social_line = get_social_proof_text(current_app.config)
-                long_session_minutes = get_long_session_minutes()
-
-                if not session.get("support_session_started_at"):
-                    session["support_session_started_at"] = datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
-
-                lp_message = ""
-                lp_action = _("Support")
-                if layout_support_prompt:
-                    v = layout_support_prompt.get("variant")
-                    if v == SupportPromptService.VARIANT_AFTER_REPORT:
-                        lp_message = _(
-                            "That report was quick to generate. If TimeTracker saves you time, "
-                            "consider supporting its development."
-                        )
-
-                support_ui_json = json.dumps(
-                    {
-                        "urls": checkout_urls,
-                        "stats": usage_stats,
-                        "socialProofLine": social_line,
-                        "longSessionMinutes": long_session_minutes,
-                        "isSupporter": is_supporter_instance,
-                        "sessionStartedAt": session.get("support_session_started_at"),
-                        "shareUrl": url_for("main.about", _external=True),
-                        "trackUrl": url_for("main.track_support_event"),
-                        "softPromptUrl": url_for("main.request_soft_support_prompt"),
-                        "layoutPrompt": (
-                            {
-                                "variant": layout_support_prompt.get("variant"),
-                                "message": lp_message,
-                                "actionLabel": lp_action,
-                            }
-                            if layout_support_prompt
-                            else None
-                        ),
-                        "i18n": {
-                            "offlineNote": _("You appear to be offline. Reconnect to open donation or checkout links."),
-                            "shareSuccess": _("Link copied to clipboard"),
-                            "shareFail": _("Could not copy link"),
-                            "supportAction": _("Support"),
-                            "longSessionToast": _(
-                                "You have been using TimeTracker actively for a while. "
-                                "If it helps your work, consider supporting its development."
-                            ),
-                        },
-                    },
-                    ensure_ascii=False,
-                )
-            except Exception:
-                support_ui_json = None
-                layout_support_prompt = None
-                support_usage_stats_modal = None
-
         return {
-            "app_name": "Time Tracker",
+            "app_name": "EvilTime",
             "app_version": version_value,
             "is_admin_user": is_admin_user,
             "timezone": timezone_name,
@@ -284,13 +157,6 @@ def register_context_processors(app):
             "is_rtl": is_rtl,
             "available_languages": available_languages,
             "config": current_app.config,
-            "support_purchase_url": support_purchase_url,
-            "user_stats": user_stats,
-            "support_banner_suppressed": support_banner_suppressed,
-            "support_ab_variant": support_ab_variant,
-            "support_ui_json": support_ui_json,
-            "layout_support_prompt": layout_support_prompt,
-            "support_usage_stats_modal": support_usage_stats_modal,
         }
 
     @app.context_processor

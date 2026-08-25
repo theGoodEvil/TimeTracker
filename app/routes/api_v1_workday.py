@@ -1,9 +1,13 @@
-"""REST API v1 endpoints for workday sessions."""
+"""Compatibility endpoints backed by EvilTime project timers.
+
+Older desktop/mobile clients call these workday URLs. They now operate on the
+same project timer as the rest of EvilTime so a second attendance clock can no
+longer diverge from project time.
+"""
 
 from flask import g, request
 
 from app.routes.api_v1 import api_v1_bp
-from app.services.workday_session_service import WorkdaySessionService
 from app.utils.api_auth import require_api_token
 from app.utils.api_responses import error_response, success_response
 
@@ -11,11 +15,13 @@ from app.utils.api_responses import error_response, success_response
 @api_v1_bp.route("/workday/status", methods=["GET"])
 @require_api_token("read:time_entries")
 def api_workday_status():
-    session = WorkdaySessionService().get_active_session(g.api_user.id)
+    timer = g.api_user.active_timer
     return success_response(
         data={
-            "active": session is not None,
-            "session": session.to_dict() if session else None,
+            "active": timer is not None,
+            "session": timer.to_dict() if timer else None,
+            "timer": timer.to_dict() if timer else None,
+            "paused": bool(timer and timer.is_paused),
         }
     )
 
@@ -25,17 +31,31 @@ def api_workday_status():
 def api_workday_start():
     data = request.get_json(silent=True) or {}
     notes = (data.get("notes") or "").strip() or None
-    source = (data.get("source") or "mobile").strip() or "mobile"
+    project_id = data.get("project_id") or g.api_user.default_project_id
+    if not project_id:
+        return error_response(
+            message="Choose a project or configure a default project in EvilTime settings",
+            status_code=400,
+            error_code="project_required",
+        )
 
-    result = WorkdaySessionService().start_workday(g.api_user.id, notes=notes, source=source)
+    from app.services.time_tracking_service import TimeTrackingService
+    from app.utils.scope_filter import user_can_clock_project
+
+    if not user_can_clock_project(g.api_user, int(project_id)):
+        return error_response(message="You do not have access to this project", status_code=403)
+    result = TimeTrackingService().start_timer(g.api_user.id, int(project_id), notes=notes)
     if not result["success"]:
         return error_response(
             message=result.get("message", "Could not start workday"),
             status_code=400,
             error_code=result.get("error"),
         )
+    from app.utils.realtime import emit_timer_state
+
+    emit_timer_state("timer_started", result["timer"])
     return success_response(
-        data={"session": result["session"].to_dict()},
+        data={"session": result["timer"].to_dict(), "timer": result["timer"].to_dict()},
         message=result["message"],
     )
 
@@ -58,15 +78,31 @@ def api_workday_end():
                 error_code="invalid_end_time",
             )
 
-    result = WorkdaySessionService().end_workday(g.api_user.id, notes=notes, at_time=at_time)
+    from app.services.time_tracking_service import TimeTrackingService
+
+    result = TimeTrackingService().stop_timer(g.api_user.id, end_time=at_time)
+    if not result["success"] and result.get("error") == "no_active_timer":
+        from app.services.workday_session_service import WorkdaySessionService
+
+        legacy = WorkdaySessionService().get_active_session(g.api_user.id)
+        if legacy:
+            legacy_result = WorkdaySessionService().end_workday(g.api_user.id, notes=notes, at_time=at_time)
+            if legacy_result["success"]:
+                return success_response(
+                    data={"session": legacy_result["session"].to_dict(), "legacy": True},
+                    message="Legacy attendance session closed",
+                )
     if not result["success"]:
         return error_response(
             message=result.get("message", "Could not end workday"),
             status_code=400,
             error_code=result.get("error"),
         )
+    from app.utils.realtime import emit_timer_state
+
+    emit_timer_state("timer_stopped", result["entry"])
     return success_response(
-        data={"session": result["session"].to_dict()},
+        data={"session": result["entry"].to_dict(), "timer": result["entry"].to_dict()},
         message=result["message"],
     )
 
@@ -74,6 +110,7 @@ def api_workday_end():
 @api_v1_bp.route("/workday/auto-closed/<int:session_id>/resolve", methods=["POST"])
 @require_api_token("write:time_entries")
 def api_resolve_auto_closed_workday(session_id):
+    from app.services.workday_session_service import WorkdaySessionService
     from app.services.workday_session_service import parse_workday_end_time
 
     data = request.get_json(silent=True) or {}

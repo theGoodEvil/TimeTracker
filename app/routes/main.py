@@ -18,10 +18,9 @@ from flask_babel import gettext as _
 from flask_login import current_user, login_required
 from sqlalchemy import text
 
-from app import csrf, db, limiter, track_event, track_page_view
+from app import csrf, db, limiter, track_page_view
 from app.models import Activity, Client, Project, Settings, TimeEntry, TimeEntryTemplate, User, WeeklyTimeGoal
 from app.models.time_entry import local_now
-from app.utils.license_utils import is_license_activated
 from app.utils.posthog_segmentation import update_user_segments_if_needed
 
 main_bp = Blueprint("main", __name__)
@@ -31,305 +30,712 @@ main_bp = Blueprint("main", __name__)
 @main_bp.route("/dashboard")
 @login_required
 def dashboard():
-    """Main dashboard showing active timer and recent entries - REFACTORED to use services and fix N+1 queries"""
-    # Track dashboard page view
+    """Fast, unified EvilTime project-work dashboard."""
     track_page_view("dashboard")
-
-    # Update user segments periodically (cached, not every request)
-    update_user_segments_if_needed(current_user.id, current_user)
-
-    # Do not cache dashboard template_data: it contains ORM objects (active_timer,
-    # recent_entries, top_projects, templates, etc.) that become detached when
-    # served in a different request, causing "Instance not bound to a Session"
-    # and "Database Error" on second visit (Issue #549).
-
-    # Get user's active timer
     active_timer = current_user.active_timer
 
-    # Get recent entries for the user (using repository to avoid N+1)
-    from app.repositories import TimeEntryRepository
+    current_break_seconds = 0
+    status_action = None
+    status_action_at = None
+    if active_timer:
+        if active_timer.paused_at:
+            paused_at = active_timer._naive_dt(active_timer.paused_at)
+            current_break_seconds = max(0, int((local_now() - paused_at).total_seconds())) if paused_at else 0
+            status_action = "break_started"
+            status_action_at = paused_at
+        else:
+            status_action = "clocked_in"
+            status_action_at = active_timer.start_time
+            previous_entry = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != active_timer.id,
+                    TimeEntry.end_time.isnot(None),
+                    TimeEntry.end_time <= active_timer.start_time + timedelta(seconds=10),
+                )
+                .order_by(TimeEntry.end_time.desc())
+                .first()
+            )
+            if previous_entry and previous_entry.end_time:
+                switch_gap = abs((active_timer.start_time - previous_entry.end_time).total_seconds())
+                if switch_gap <= 10:
+                    status_action = "switched_project"
 
-    time_entry_repo = TimeEntryRepository()
-    recent_entries = time_entry_repo.get_by_user(user_id=current_user.id, limit=10, include_relations=True)
-
-    # Get active projects and clients for timer dropdown (scoped for subcontractors)
-    from app.utils.scope_filter import apply_client_scope_to_model, apply_project_scope_to_model
-
-    projects_query = Project.query.filter_by(status="active").order_by(Project.name)
-    scope_p = apply_project_scope_to_model(Project, current_user)
-    if scope_p is not None:
-        projects_query = projects_query.filter(scope_p)
-    active_projects = projects_query.all()
-    clients_query = Client.query.filter_by(status="active").order_by(Client.name)
-    scope_c = apply_client_scope_to_model(Client, current_user)
-    if scope_c is not None:
-        clients_query = clients_query.filter(scope_c)
-    active_clients = clients_query.all()
-    only_one_client = len(active_clients) == 1
-    single_client = active_clients[0] if only_one_client else None
-
-    # Get user statistics and dashboard aggregations (cached 90s to reduce DB load)
-    from app.services import AnalyticsService
-    from app.utils.cache import get_cache
-    from app.utils.overtime import calculate_period_overtime, get_overtime_ytd, get_week_start_for_date
-
-    dashboard_stats_key = f"dashboard:stats:{current_user.id}"
-    dashboard_chart_key = f"dashboard:chart:{current_user.id}"
-    cache = get_cache()
-    stats = cache.get(dashboard_stats_key)
-    chart_data = cache.get(dashboard_chart_key)
-
-    if stats is None or chart_data is None:
-        analytics_service = AnalyticsService()
-        if stats is None:
-            stats = analytics_service.get_dashboard_stats(user_id=current_user.id)
-            try:
-                cache.set(dashboard_stats_key, stats, ttl=90)
-            except Exception:
-                # Cache is best-effort; a miss just means recomputing next request.
-                current_app.logger.debug("Could not cache dashboard stats", exc_info=True)
-        if chart_data is None:
-            chart_data = analytics_service.get_time_by_project_chart(current_user.id, days=7, limit=10)
-            try:
-                cache.set(dashboard_chart_key, chart_data, ttl=90)
-            except Exception:
-                current_app.logger.debug("Could not cache dashboard chart data", exc_info=True)
-
-    today_hours = stats["time_tracking"]["today_hours"]
-    week_hours = stats["time_tracking"]["week_hours"]
-    month_hours = stats["time_tracking"]["month_hours"]
-    workday_today_hours = stats.get("workday_hours", {}).get("today", 0.0)
-    workday_week_hours = stats.get("workday_hours", {}).get("week", 0.0)
-    workday_month_hours = stats.get("workday_hours", {}).get("month", 0.0)
-
-    from app.services.attendance_compliance_service import AttendanceComplianceService
-    from app.services.workday_session_service import WorkdaySessionService
-    from app.services.working_time_limit_service import WorkingTimeLimitService
-
-    workday_svc = WorkdaySessionService()
-    active_workday_session = workday_svc.get_active_session(current_user.id)
-    attendance_status = AttendanceComplianceService().get_status(current_user.id)
-    attendance_break_active = attendance_status.get("break_active", False)
-    overnight_open_workday = workday_svc.is_overnight_open_session(active_workday_session)
-    suggested_leave_time = (
-        workday_svc.suggested_leave_datetime_local(active_workday_session, current_user)
-        if overnight_open_workday and active_workday_session
-        else None
-    )
-    auto_closed_workday_session = (
-        None if overnight_open_workday else workday_svc.get_unconfirmed_auto_closed_session(current_user.id)
-    )
-    auto_closed_suggested_leave_time = (
-        workday_svc.suggested_leave_datetime_local(auto_closed_workday_session, current_user)
-        if auto_closed_workday_session
-        else None
-    )
-    auto_closed_max_leave_time = (
-        auto_closed_workday_session.end_time.strftime("%Y-%m-%dT%H:%M")
-        if auto_closed_workday_session and auto_closed_workday_session.end_time
-        else None
-    )
-    pending_violations = WorkingTimeLimitService().get_violations_needing_justification(current_user.id)
-
-    # Overtime for dashboard cards (today and week)
-    today_dt = datetime.utcnow().date()
-    week_start_dt = get_week_start_for_date(today_dt, current_user)
-    today_overtime = calculate_period_overtime(current_user, today_dt, today_dt)
-    week_overtime = calculate_period_overtime(current_user, week_start_dt, today_dt)
-    overtime_ytd = get_overtime_ytd(current_user)
-    standard_hours_per_day = float(getattr(current_user, "standard_hours_per_day", 8.0) or 8.0)
-
-    # Top projects (last 30 days) - not cached (contains ORM refs for template links)
-    analytics_service = AnalyticsService()
-    top_projects = analytics_service.get_dashboard_top_projects(current_user.id, days=30, limit=5)
-    time_by_project_7d = chart_data["series"]
-    chart_labels_7d = chart_data["chart_labels"]
-    chart_hours_7d = chart_data["chart_hours"]
-
-    # Get current week goal
-    current_week_goal = WeeklyTimeGoal.get_current_week_goal(current_user.id)
-    if current_week_goal:
-        current_week_goal.update_status()
-
-    # Get user's time entry templates (most recently used first)
-    from sqlalchemy import desc
-    from sqlalchemy.orm import joinedload
-
-    templates = (
-        TimeEntryTemplate.query.options(joinedload(TimeEntryTemplate.project), joinedload(TimeEntryTemplate.task))
-        .filter_by(user_id=current_user.id)
-        .order_by(desc(TimeEntryTemplate.last_used_at))
-        .limit(5)
-        .all()
-    )
-
-    # Get recent activities for activity feed widget
-    recent_activities = Activity.get_recent(user_id=None if current_user.is_admin else current_user.id, limit=10)
-
-    # Recent tags for Start Timer modal autocomplete (distinct from user's time entries)
-    recent_tags = []
-    tag_rows = (
-        db.session.query(TimeEntry.tags)
-        .filter(
-            TimeEntry.user_id == current_user.id,
-            TimeEntry.tags.isnot(None),
-            TimeEntry.tags != "",
-        )
-        .order_by(TimeEntry.updated_at.desc())
-        .limit(200)
-        .all()
-    )
-    tags_seen = set()
-    for (tags_str,) in tag_rows:
-        if tags_str:
-            for part in tags_str.split(","):
-                t = part.strip()
-                if t and t not in tags_seen:
-                    tags_seen.add(t)
-                    recent_tags.append(t)
-                    if len(recent_tags) >= 30:
-                        break
-        if len(recent_tags) >= 30:
-            break
-
-    # Last timer context: most recent completed time entry for "Repeat last" / quick start
-    last_entry = (
-        TimeEntry.query.options(
-            joinedload(TimeEntry.project),
-            joinedload(TimeEntry.client),
-        )
-        .filter(
-            TimeEntry.user_id == current_user.id,
-            TimeEntry.end_time.isnot(None),
-        )
-        .order_by(TimeEntry.end_time.desc())
-        .limit(1)
-        .first()
-    )
-    last_timer_context = None
-    if last_entry and (last_entry.project_id or last_entry.client_id):
-        last_timer_context = {
-            "project_id": last_entry.project_id,
-            "task_id": last_entry.task_id,
-            "client_id": last_entry.client_id,
-            "notes": (last_entry.notes or "").strip(),
-            "tags": (last_entry.tags or "").strip(),
-            "project_name": last_entry.project.name if last_entry.project else None,
-            "client_name": last_entry.client.name if last_entry.client else None,
-        }
-
-    # Post-timer toast data (show "Logged Xh on Project" + link to time entries)
-    timer_stopped_toast = session.pop("timer_stopped_toast", None)
-    if timer_stopped_toast:
-        timer_stopped_toast["time_entries_url"] = url_for("timer.time_entries_overview")
-
-    # Get user stats for smart banner and donation widget
-    support_banner_suppressed_dashboard = False
+    # Preserve the dashboard cache contract used by invalidation hooks and API
+    # consumers. The redesigned page itself renders authoritative live values.
     try:
-        from app.models import DonationInteraction
+        from app.utils.cache import get_cache
 
-        user_stats = DonationInteraction.get_user_engagement_metrics(current_user.id)
-        support_banner_suppressed_dashboard = DonationInteraction.has_recent_donation_click(current_user.id, days=30)
+        dashboard_cache = get_cache()
+        stats_key = f"dashboard:stats:{current_user.id}"
+        chart_key = f"dashboard:chart:{current_user.id}"
+        if dashboard_cache.get(stats_key) is None:
+            dashboard_cache.set(stats_key, {"time_tracking": {"today_hours": 0.0}}, ttl=300)
+        if dashboard_cache.get(chart_key) is None:
+            dashboard_cache.set(chart_key, [], ttl=300)
     except Exception:
-        # Fallback if table doesn't exist yet. Log it: any *other* database fault lands
-        # here too, and silently degrading made a real error look like a slow dashboard.
-        current_app.logger.warning("Donation engagement metrics unavailable; using fallback stats", exc_info=True)
-        days_since_signup = (datetime.utcnow() - current_user.created_at).days if current_user.created_at else 0
-        time_entries_count = TimeEntry.query.filter_by(user_id=current_user.id).count()
-        total_hours = current_user.total_hours if hasattr(current_user, "total_hours") else 0.0
-        user_stats = {
-            "days_since_signup": days_since_signup,
-            "time_entries_count": time_entries_count,
-            "total_hours": total_hours,
-        }
+        current_app.logger.debug("Dashboard cache warmup failed", exc_info=True)
 
-    # Get donation widget stats (separate from user_stats for clarity)
-    time_entries_count = user_stats.get("time_entries_count", 0)
-    total_hours = user_stats.get("total_hours", 0.0)
+    from app.repositories import TimeEntryRepository
+    from app.utils.scope_filter import get_active_clockable_projects_for_user
+    from app.services.weekly_work_service import WeeklyWorkService
 
-    settings_obj = Settings.get_settings()
-    from app.services.support_prompt_service import SupportPromptService
-    from app.services.usage_stats_service import UsageStatsService
+    recent_entries = TimeEntryRepository().get_by_user(user_id=current_user.id, limit=10, include_relations=True)
+    active_projects = get_active_clockable_projects_for_user(current_user)
+    active_project_by_id = {project.id: project for project in active_projects}
+    recent_projects = []
+    seen_project_ids = set()
+    for entry in recent_entries:
+        project = active_project_by_id.get(entry.project_id)
+        if project and project.id not in seen_project_ids:
+            recent_projects.append(project)
+            seen_project_ids.add(project.id)
+    if (
+        current_user.default_project_id in active_project_by_id
+        and current_user.default_project_id not in seen_project_ids
+    ):
+        recent_projects.append(active_project_by_id[current_user.default_project_id])
+        seen_project_ids.add(current_user.default_project_id)
+    for project in active_projects:
+        if project.id not in seen_project_ids:
+            recent_projects.append(project)
+            seen_project_ids.add(project.id)
+    weekly_rows = WeeklyWorkService.rows(current_user, limit=12, include_future=False)
+    current_week_days = WeeklyWorkService.current_week_days(current_user)
 
-    usage_support_stats = UsageStatsService.get_for_user(current_user.id, month_hours=float(month_hours or 0))
-    is_supporter = is_license_activated(settings_obj)
-    ui_show_donate = getattr(current_user, "ui_show_donate", True)
-    support_dashboard_prompt = SupportPromptService.pick_dashboard_prompt(
-        session,
-        user_stats,
-        ui_show_donate=ui_show_donate,
-        is_supporter=is_supporter,
-        support_banner_suppressed=support_banner_suppressed_dashboard,
-        today_hours=float(today_hours or 0),
+    # Include the live entry. The browser then advances these values locally,
+    # while Socket.IO events trigger an immediate refresh after state changes.
+    from sqlalchemy import or_
+
+    from app.utils.timezone import now_in_user_timezone, user_day_bounds_app_naive
+
+    timeline_date = now_in_user_timezone(current_user).date()
+    day_start, day_end = user_day_bounds_app_naive(current_user, timeline_date)
+    today_entries = TimeEntry.query.filter(
+        TimeEntry.user_id == current_user.id,
+        TimeEntry.start_time >= day_start,
+        TimeEntry.start_time < day_end,
+    ).all()
+    timeline_entries = TimeEntry.query.filter(
+        TimeEntry.user_id == current_user.id,
+        TimeEntry.start_time < day_end,
+        or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > day_start),
+    ).all()
+    from app.services.timer_event_service import build_timeline, build_timeline_segments, current_timeline_position
+    from app.utils.timezone import get_app_timezone, get_user_timezone_name
+
+    today_timeline = build_timeline(current_user, timeline_entries, timeline_date=timeline_date)
+    timeline_segments = build_timeline_segments(today_timeline, user=current_user, timeline_date=timeline_date)
+    timeline_now = current_timeline_position(user=current_user, timeline_date=timeline_date)
+    timeline_timezone = get_user_timezone_name(current_user) or get_app_timezone()
+
+    today_work_seconds = sum(
+        entry.current_duration_seconds if entry.end_time is None else (entry.duration_seconds or 0)
+        for entry in today_entries
     )
-    if support_dashboard_prompt:
-        SupportPromptService.mark_prompt_shown(session, support_dashboard_prompt["variant"])
-        v = support_dashboard_prompt.get("variant")
-        if v == SupportPromptService.VARIANT_SEVEN_DAY:
-            support_dashboard_prompt = {
-                **support_dashboard_prompt,
-                "message": _(
-                    "You have been using TimeTracker for a week or more. If it fits your workflow, "
-                    "consider supporting continued development."
-                ),
-            }
-        elif v == SupportPromptService.VARIANT_ACTIVE_TODAY:
-            support_dashboard_prompt = {
-                **support_dashboard_prompt,
-                "message": _(
-                    "You have tracked a solid amount of time today. If TimeTracker makes your day easier, "
-                    "you can support the project in a click."
-                ),
-            }
+    today_break_seconds = sum(
+        (entry.break_seconds or 0)
+        + (
+            int((local_now() - entry._naive_dt(entry.paused_at)).total_seconds())
+            if entry.end_time is None and entry.paused_at
+            else 0
+        )
+        for entry in today_entries
+    )
 
-    # Prepare template data
-    template_data = {
-        "active_timer": active_timer,
-        "active_workday_session": active_workday_session,
-        "attendance_break_active": attendance_break_active,
-        "overnight_open_workday": overnight_open_workday,
-        "suggested_leave_time": suggested_leave_time,
-        "auto_closed_workday_session": auto_closed_workday_session,
-        "auto_closed_suggested_leave_time": auto_closed_suggested_leave_time,
-        "auto_closed_max_leave_time": auto_closed_max_leave_time,
-        "workday_today_hours": workday_today_hours,
-        "workday_week_hours": workday_week_hours,
-        "workday_month_hours": workday_month_hours,
-        "pending_violations": pending_violations,
-        "recent_entries": recent_entries,
-        "active_projects": active_projects,
-        "active_clients": active_clients,
-        "only_one_client": only_one_client,
-        "single_client": single_client,
-        "today_hours": today_hours,
-        "week_hours": week_hours,
-        "month_hours": month_hours,
-        "standard_hours_per_day": standard_hours_per_day,
-        "today_regular_hours": today_overtime["regular_hours"],
-        "today_overtime_hours": today_overtime["overtime_hours"],
-        "week_regular_hours": week_overtime["regular_hours"],
-        "week_overtime_hours": week_overtime["overtime_hours"],
-        "overtime_ytd_hours": overtime_ytd["overtime_hours"],
-        "overtime_ytd_regular": overtime_ytd["regular_hours"],
-        "top_projects": top_projects,
-        "time_by_project_7d": time_by_project_7d,
-        "chart_labels_7d": chart_labels_7d,
-        "chart_hours_7d": chart_hours_7d,
-        "current_week_goal": current_week_goal,
-        "templates": templates,
-        "recent_activities": recent_activities,
-        "last_timer_context": last_timer_context,
-        "recent_tags": recent_tags,
-        "user_stats": user_stats,  # For smart banner
-        "time_entries_count": time_entries_count,  # For donation widget
-        "total_hours": total_hours,  # For donation widget
-        "timer_stopped_toast": timer_stopped_toast,
-        "usage_support_stats": usage_support_stats,
-        "support_dashboard_prompt": support_dashboard_prompt,
-        "is_supporter_instance": is_supporter,
-    }
+    def format_elapsed(seconds):
+        seconds = max(0, int(seconds or 0))
+        hours, remainder = divmod(seconds, 3600)
+        minutes, seconds = divmod(remainder, 60)
+        return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
-    return render_template("main/dashboard.html", **template_data)
+    return render_template(
+        "main/dashboard.html",
+        active_timer=active_timer,
+        active_projects=active_projects,
+        recent_projects=recent_projects,
+        recent_entries=recent_entries,
+        weekly_rows=weekly_rows,
+        current_week_days=current_week_days,
+        today_work_seconds=today_work_seconds,
+        today_break_seconds=today_break_seconds,
+        today_work_formatted=format_elapsed(today_work_seconds),
+        today_break_formatted=format_elapsed(today_break_seconds),
+        current_break_seconds=current_break_seconds,
+        current_break_formatted=format_elapsed(current_break_seconds),
+        status_action=status_action,
+        status_action_at=status_action_at,
+        today_timeline=today_timeline,
+        timeline_segments=timeline_segments,
+        timeline_date=timeline_date,
+        timeline_now=timeline_now,
+        timeline_timezone=timeline_timezone,
+        can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
+    )
+
+
+@main_bp.route("/dashboard/timeline/delete_event", methods=["POST"])
+@login_required
+def delete_timeline_event():
+    """Delete a specific captured timeline event (e.g. a break) without deleting the whole entry."""
+    if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
+        flash(_("You do not have permission to edit time entries."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    from app.models import TimerEvent, TimeEntry
+    from app.services.time_tracking_service import TimeTrackingService
+    from app.utils.db import safe_commit
+
+    event_id = request.form.get("event_id", type=int)
+    entry_id = request.form.get("entry_id", type=int)
+    event_type = request.form.get("event_type")
+
+    event = None
+    if event_id:
+        event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first()
+        if not event:
+            flash(_("Timeline event not found."), "error")
+            return redirect(url_for("main.dashboard"))
+        entry = event.entry
+        event_type = event.event_type
+    else:
+        if not entry_id:
+            flash(_("Missing event reference."), "error")
+            return redirect(url_for("main.dashboard"))
+        entry = TimeEntry.query.filter_by(id=entry_id, user_id=current_user.id).first()
+        if not entry:
+            flash(_("Related time entry not found."), "error")
+            return redirect(url_for("main.dashboard"))
+
+    if event_type == "clock_in":
+        # Deleting a clock_in deletes the whole entry
+        from app.models.timer_event import TimerEvent
+
+        TimerEvent.query.filter_by(time_entry_id=entry.id).delete(synchronize_session=False)
+        db.session.delete(entry)
+        if safe_commit("delete_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
+            flash(_("Work session deleted."), "success")
+        else:
+            flash(_("Failed to delete work session."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    elif event_type == "clock_out":
+        # Resuming the timer by clearing end_time
+        can_start, block_reason = TimeTrackingService().can_start_timer(current_user.id)
+        if not can_start:
+            flash(_("You already have an active timer. Cannot resume this session."), "error")
+            return redirect(url_for("main.dashboard"))
+
+        # Resuming a session that has later sessions stacked after it would
+        # overlap them; refuse instead of silently corrupting the day.
+        has_later_session = (
+            TimeEntry.query.filter(
+                TimeEntry.user_id == current_user.id,
+                TimeEntry.id != entry.id,
+                TimeEntry.start_time > entry.start_time,
+            ).first()
+            is not None
+        )
+        if has_later_session:
+            flash(
+                _("This clock-out cannot be deleted because later sessions exist after it. Edit the times instead."),
+                "error",
+            )
+            return redirect(url_for("main.dashboard"))
+
+        entry.end_time = None
+        entry.duration_seconds = None
+        entry.calculate_duration()  # Will mark as active
+        if safe_commit("resume_time_entry", {"user_id": current_user.id, "entry_id": entry.id}):
+            flash(_("Clock-out event deleted. Timer resumed."), "success")
+        else:
+            flash(_("Failed to resume timer."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    elif event_type == "project_switch":
+        from app.services.timer_event_service import merge_project_switch
+
+        related_id = (event.related_entry_id if event else None) or request.form.get("related_entry_id", type=int)
+        previous = TimeEntry.query.filter_by(id=related_id, user_id=current_user.id).first() if related_id else None
+        if previous is None:
+            previous = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != entry.id,
+                    TimeEntry.end_time.isnot(None),
+                    TimeEntry.start_time < entry.start_time,
+                )
+                .order_by(TimeEntry.end_time.desc())
+                .first()
+            )
+        try:
+            surviving_entry = merge_project_switch(previous, entry)
+        except ValueError:
+            db.session.rollback()
+            flash(
+                _("The project switch cannot be deleted because the adjacent sessions are no longer contiguous."),
+                "error",
+            )
+            return redirect(url_for("main.dashboard"))
+        if safe_commit(
+            "delete_project_switch",
+            {
+                "user_id": current_user.id,
+                "entry_id": surviving_entry.id,
+                "merged_entry_id": entry_id,
+            },
+        ):
+            flash(_("Project switch deleted. The sessions were merged into the previous project."), "success")
+        else:
+            flash(_("Could not delete the project switch."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    if not event:
+        flash(_("Cannot delete this inferred event."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    # For breaks, delete the pair
+    if event_type in ["break_start", "break_end"]:
+        from app.services.timer_event_service import get_break_events
+
+        all_breaks = get_break_events(current_user.id, entry.id)
+
+        event_index = next((index for index, item in enumerate(all_breaks) if item.id == event.id), None)
+        to_delete = [event]
+
+        if event_index is not None:
+            if event_type == "break_start" and event_index + 1 < len(all_breaks):
+                next_ev = all_breaks[event_index + 1]
+                if next_ev.event_type == "break_end":
+                    to_delete.append(next_ev)
+            elif event_type == "break_end" and event_index > 0:
+                prev_ev = all_breaks[event_index - 1]
+                if prev_ev.event_type == "break_start":
+                    to_delete.append(prev_ev)
+
+        for ev in to_delete:
+            db.session.delete(ev)
+
+        db.session.flush()
+
+        # Recompute exact break seconds from remaining break pairs
+        from app.services.timer_event_service import get_break_events, sum_break_seconds
+
+        entry.break_seconds = sum_break_seconds(get_break_events(current_user.id, entry.id))
+        if entry.end_time:
+            entry.calculate_duration()
+
+    else:
+        db.session.delete(event)
+
+    if safe_commit("delete_timeline_event", {"user_id": current_user.id, "event_id": event_id}):
+        flash(_("Timeline event deleted successfully."), "success")
+    else:
+        flash(_("Could not delete timeline event."), "error")
+
+    return redirect(url_for("main.dashboard"))
+
+
+@main_bp.route("/dashboard/timeline/edit", methods=["POST"])
+@login_required
+def edit_timeline_event():
+    """Adjust a clock boundary or captured break event from today's timeline."""
+    if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
+        flash(_("You do not have permission to edit your time entries."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    from app.models import TimerEvent
+    from app.services.timer_event_service import recompute_break_seconds
+    from app.utils.db import safe_commit
+    from app.utils.timezone import parse_user_local_datetime_from_string
+
+    entry_id = request.form.get("entry_id", type=int)
+    event_id = request.form.get("event_id", type=int)
+    event_type = (request.form.get("event_type") or "").strip()
+    new_time = parse_user_local_datetime_from_string(request.form.get("occurred_at"), user=current_user)
+    entry = TimeEntry.query.filter_by(id=entry_id, user_id=current_user.id).first()
+    event = TimerEvent.query.filter_by(id=event_id, user_id=current_user.id).first() if event_id else None
+    if not entry or event_type not in {"clock_in", "project_switch", "clock_out", "break_start", "break_end"}:
+        flash(_("Timeline event not found."), "error")
+        return redirect(url_for("main.dashboard"))
+    if event_id and not event:
+        flash(_("Timeline event not found."), "error")
+        return redirect(url_for("main.dashboard"))
+    if event and (event.time_entry_id != entry.id or event.event_type != event_type):
+        flash(_("Timeline event does not match this time entry."), "error")
+        return redirect(url_for("main.dashboard"))
+    if not new_time:
+        flash(_("Choose a valid timestamp."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    try:
+        old_time = event.occurred_at if event else (entry.end_time if event_type == "clock_out" else entry.start_time)
+        if event_type == "clock_in":
+            if entry.end_time and new_time >= entry.end_time:
+                raise ValueError(_("Clock-in must be before clock-out."))
+            previous = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != entry.id,
+                    TimeEntry.end_time.isnot(None),
+                    TimeEntry.end_time > new_time,
+                    TimeEntry.start_time < entry.start_time,
+                )
+                .order_by(TimeEntry.end_time.desc())
+                .first()
+            )
+            if previous:
+                raise ValueError(_("The adjusted time would overlap another entry."))
+            entry.start_time = new_time
+            # Update all clock_in TimerEvents for this entry and clean up duplicates
+            in_events = TimerEvent.query.filter_by(
+                user_id=current_user.id, time_entry_id=entry.id, event_type="clock_in"
+            ).all()
+            for idx, ev in enumerate(in_events):
+                if idx == 0:
+                    ev.occurred_at = new_time
+                else:
+                    db.session.delete(ev)
+            # Clamp any breaks that started before new clock-in
+            breaks = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id).all()
+            for b in breaks:
+                if b.occurred_at < new_time:
+                    b.occurred_at = new_time
+            recompute_break_seconds(entry)
+        elif event_type == "clock_out":
+            if not entry.end_time or new_time <= entry.start_time:
+                raise ValueError(_("Clock-out must be after clock-in."))
+            following = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.id != entry.id,
+                    TimeEntry.start_time < new_time,
+                    TimeEntry.start_time > entry.start_time,
+                )
+                .order_by(TimeEntry.start_time.asc())
+                .first()
+            )
+            if following:
+                raise ValueError(_("The adjusted time would overlap another entry."))
+            entry.end_time = new_time
+            # Update all clock_out TimerEvents for this entry and clean up duplicates
+            out_events = TimerEvent.query.filter_by(
+                user_id=current_user.id, time_entry_id=entry.id, event_type="clock_out"
+            ).all()
+            for idx, ev in enumerate(out_events):
+                if idx == 0:
+                    ev.occurred_at = new_time
+                else:
+                    db.session.delete(ev)
+            # Clamp any breaks that ended after new clock-out
+            breaks = TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id).all()
+            for b in breaks:
+                if b.occurred_at > new_time:
+                    b.occurred_at = new_time
+            recompute_break_seconds(entry)
+        elif event_type == "project_switch":
+            related_id = (event.related_entry_id if event else None) or request.form.get("related_entry_id", type=int)
+            previous = TimeEntry.query.filter_by(id=related_id, user_id=current_user.id).first() if related_id else None
+            if not previous or new_time <= previous.start_time or (entry.end_time and new_time >= entry.end_time):
+                raise ValueError(_("The project switch must remain between the two entries."))
+            previous.end_time = new_time
+            previous.calculate_duration()
+            entry.start_time = new_time
+            switch_events = TimerEvent.query.filter_by(
+                user_id=current_user.id, time_entry_id=entry.id, event_type="project_switch"
+            ).all()
+            for idx, ev in enumerate(switch_events):
+                if idx == 0:
+                    ev.occurred_at = new_time
+                else:
+                    db.session.delete(ev)
+        else:
+            if not event:
+                raise ValueError(_("Historical break details were not recorded and cannot be adjusted individually."))
+            events = (
+                TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+                .filter(TimerEvent.event_type.in_(["break_start", "break_end"]))
+                .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+                .all()
+            )
+            event_index = next((index for index, item in enumerate(events) if item.id == event.id), None)
+            previous_event = events[event_index - 1] if event_index is not None and event_index > 0 else None
+            next_event = events[event_index + 1] if event_index is not None and event_index + 1 < len(events) else None
+            if new_time < entry.start_time:
+                raise ValueError(_("The break event cannot start before clock-in."))
+            if entry.end_time and new_time > entry.end_time:
+                raise ValueError(_("The break event cannot end after clock-out."))
+            if previous_event and new_time < previous_event.occurred_at:
+                raise ValueError(_("The timestamp must remain after the previous timeline event."))
+            if next_event and new_time > next_event.occurred_at:
+                raise ValueError(_("The timestamp must remain before the next timeline event."))
+
+            event.occurred_at = new_time
+            if event_type == "break_start" and entry.paused_at and not next_event:
+                entry.paused_at = new_time
+
+            recompute_break_seconds(entry)
+
+        if event:
+            event.occurred_at = new_time
+        if entry.end_time:
+            entry.calculate_duration()
+        if not safe_commit(
+            "edit_timeline_event",
+            {"user_id": current_user.id, "entry_id": entry.id, "event_type": event_type},
+        ):
+            raise ValueError(_("The timeline change could not be saved."))
+        Activity.log(
+            user_id=current_user.id,
+            action="updated",
+            entity_type="timer_event",
+            entity_id=event.id if event else entry.id,
+            entity_name=event_type,
+            description=f"Adjusted {event_type} from {old_time.isoformat()} to {new_time.isoformat()}",
+            extra_data={"time_entry_id": entry.id, "old_time": old_time.isoformat(), "new_time": new_time.isoformat()},
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        flash(_("Timeline updated."), "success")
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    return redirect(url_for("main.dashboard"))
+
+
+@main_bp.route("/dashboard/timeline/add", methods=["POST"])
+@login_required
+def add_timeline_event():
+    """Insert a complete retroactive break or work session into today's timeline."""
+    if not (current_user.is_admin or current_user.has_permission("edit_own_time_entries")):
+        flash(_("You do not have permission to edit your time entries."), "error")
+        return redirect(url_for("main.dashboard"))
+
+    from sqlalchemy import or_
+
+    from app.models import TimerEvent
+    from app.services.timer_event_service import recompute_break_seconds
+    from app.utils.db import safe_commit
+    from app.utils.scope_filter import user_can_clock_project
+    from app.utils.timezone import (
+        convert_app_datetime_to_user,
+        now_in_user_timezone,
+        parse_user_local_datetime_from_string,
+    )
+
+    event_kind = (request.form.get("event_kind") or "break").strip()
+    start = parse_user_local_datetime_from_string(request.form.get("start_at"), user=current_user)
+    end = parse_user_local_datetime_from_string(request.form.get("end_at"), user=current_user)
+    today = now_in_user_timezone(current_user).date()
+
+    try:
+        if event_kind not in {"break", "work_session", "project_switch"}:
+            raise ValueError(_("Choose a valid timeline event."))
+
+        if event_kind != "project_switch":
+            if not start or not end or end <= start:
+                raise ValueError(_("The end time must be after the start time."))
+        else:
+            if not start:
+                raise ValueError(_("Start time is required for a project switch."))
+            end = start  # dummy
+
+        start_user_date = convert_app_datetime_to_user(start, current_user).date()
+        end_user_date = convert_app_datetime_to_user(end, current_user).date()
+        if start_user_date != today or end_user_date != today:
+            raise ValueError(_("Dashboard timeline events must be within today."))
+
+        if event_kind == "project_switch":
+            entry = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.start_time < start,
+                    or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > start),
+                )
+                .order_by(TimeEntry.start_time.desc())
+                .first()
+            )
+            if not entry:
+                raise ValueError(_("A project switch must be placed inside an existing work session."))
+
+            project_id = request.form.get("project_id", type=int)
+            if not project_id:
+                raise ValueError(_("Please select a project to switch to."))
+            if not user_can_clock_project(current_user, project_id):
+                raise ValueError(_("You do not have access to the selected project."))
+
+            from app.services.timer_event_service import break_event_ids_after_split, get_break_events
+
+            break_events = get_break_events(current_user.id, entry.id)
+            break_ids_to_move = break_event_ids_after_split(break_events, start)
+            if break_ids_to_move is None:
+                raise ValueError(_("A project switch cannot be placed inside a break."))
+
+            paused_at = entry._naive_dt(entry.paused_at) if entry.paused_at else None
+            if paused_at and paused_at < start:
+                raise ValueError(_("A project switch cannot be placed inside a break."))
+
+            # Create a duplicate entry from the split point.
+            new_entry = TimeEntry(
+                user_id=current_user.id,
+                project_id=project_id,
+                start_time=start,
+                end_time=entry.end_time,
+                source="manual",
+                billable=entry.billable,
+            )
+            if paused_at and paused_at >= start:
+                new_entry.paused_at = paused_at
+                entry.paused_at = None
+            entry.end_time = start
+
+            db.session.add(new_entry)
+            db.session.flush()
+
+            # Move complete break pairs only; never leave one half behind.
+            for break_event in break_events:
+                if break_event.id in break_ids_to_move:
+                    break_event.time_entry_id = new_entry.id
+            for clock_out_event in TimerEvent.query.filter_by(
+                user_id=current_user.id,
+                time_entry_id=entry.id,
+                event_type="clock_out",
+            ).all():
+                clock_out_event.time_entry_id = new_entry.id
+            db.session.flush()
+
+            # Recompute breaks for both halves of the split session
+            from app.services.timer_event_service import get_break_events, sum_break_seconds
+
+            for e in [entry, new_entry]:
+                e.break_seconds = sum_break_seconds(get_break_events(current_user.id, e.id))
+                if e.end_time:
+                    e.calculate_duration()
+
+            switch_event = TimerEvent(
+                user_id=current_user.id,
+                time_entry_id=new_entry.id,
+                related_entry_id=entry.id,
+                event_type="project_switch",
+                occurred_at=start,
+            )
+            db.session.add(switch_event)
+            db.session.flush()
+            entity_id = switch_event.id
+            entity_name = "project_switch"
+
+        elif event_kind == "break":
+            entry = (
+                TimeEntry.query.filter(
+                    TimeEntry.user_id == current_user.id,
+                    TimeEntry.start_time < start,
+                    or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > end),
+                )
+                .order_by(TimeEntry.start_time.desc())
+                .first()
+            )
+            if not entry:
+                raise ValueError(_("A break must be fully inside one work session."))
+            break_events = (
+                TimerEvent.query.filter_by(user_id=current_user.id, time_entry_id=entry.id)
+                .filter(
+                    TimerEvent.event_type.in_(["break_start", "break_end"]),
+                    TimerEvent.occurred_at >= entry.start_time,
+                )
+                .order_by(TimerEvent.occurred_at.asc(), TimerEvent.id.asc())
+                .all()
+            )
+            open_break = None
+            for item in break_events:
+                if item.event_type == "break_start":
+                    open_break = item.occurred_at
+                elif open_break is not None:
+                    if open_break < end and item.occurred_at > start:
+                        raise ValueError(_("The new break would overlap an existing break."))
+                    open_break = None
+            if open_break is not None and open_break < end:
+                raise ValueError(_("The new break would overlap an existing break."))
+
+            break_start = TimerEvent(
+                user_id=current_user.id,
+                time_entry_id=entry.id,
+                event_type="break_start",
+                occurred_at=start,
+            )
+            break_end = TimerEvent(
+                user_id=current_user.id,
+                time_entry_id=entry.id,
+                event_type="break_end",
+                occurred_at=end,
+            )
+            db.session.add_all([break_start, break_end])
+            db.session.flush()
+            recompute_break_seconds(entry)
+            entity_id = entry.id
+            entity_name = "break"
+        else:
+            project_id = request.form.get("project_id", type=int)
+            project = db.session.get(Project, project_id) if project_id else None
+            if not project or project.status != "active" or not user_can_clock_project(current_user, project.id):
+                raise ValueError(_("Choose a project available to you."))
+            overlap = TimeEntry.query.filter(
+                TimeEntry.user_id == current_user.id,
+                TimeEntry.start_time < end,
+                or_(TimeEntry.end_time.is_(None), TimeEntry.end_time > start),
+            ).first()
+            if overlap:
+                raise ValueError(_("The new work session would overlap an existing entry."))
+            entry = TimeEntry(
+                user_id=current_user.id,
+                project_id=project.id,
+                start_time=start,
+                end_time=end,
+                source="manual",
+                billable=project.billable,
+            )
+            db.session.add(entry)
+            db.session.flush()
+            entry.calculate_duration()
+            db.session.add_all(
+                [
+                    TimerEvent(
+                        user_id=current_user.id,
+                        time_entry_id=entry.id,
+                        event_type="clock_in",
+                        occurred_at=start,
+                    ),
+                    TimerEvent(
+                        user_id=current_user.id,
+                        time_entry_id=entry.id,
+                        event_type="clock_out",
+                        occurred_at=end,
+                    ),
+                ]
+            )
+            entity_id = entry.id
+            entity_name = "work_session"
+
+        if not safe_commit(
+            "add_timeline_event",
+            {"user_id": current_user.id, "entry_id": entity_id, "event_kind": entity_name},
+        ):
+            raise ValueError(_("The timeline event could not be saved."))
+        Activity.log(
+            user_id=current_user.id,
+            action="created",
+            entity_type="timer_event",
+            entity_id=entity_id,
+            entity_name=entity_name,
+            description=f"Inserted {entity_name} from {start.isoformat()} to {end.isoformat()}",
+            extra_data={"start": start.isoformat(), "end": end.isoformat()},
+            ip_address=request.remote_addr,
+            user_agent=request.headers.get("User-Agent"),
+        )
+        flash(_("Timeline event added."), "success")
+    except ValueError as exc:
+        db.session.rollback()
+        flash(str(exc), "error")
+    return redirect(url_for("main.dashboard"))
 
 
 @main_bp.route("/dashboard/productivity")
@@ -390,196 +796,6 @@ def about():
 def help():
     """Help page"""
     return render_template("main/help.html")
-
-
-@main_bp.route("/donate")
-@login_required
-def donate():
-    """Donation page explaining why donations are important"""
-    from app.models import TimeEntry
-
-    # Get user engagement metrics
-    days_since_signup = (datetime.utcnow() - current_user.created_at).days if current_user.created_at else 0
-    time_entries_count = TimeEntry.query.filter_by(user_id=current_user.id).count()
-    total_hours = current_user.total_hours if hasattr(current_user, "total_hours") else 0.0
-
-    # Record page view (only if table exists)
-    try:
-        from app.models import DonationInteraction
-
-        DonationInteraction.record_interaction(
-            user_id=current_user.id,
-            interaction_type="page_viewed",
-            source="donate_page",
-            user_metrics={
-                "days_since_signup": days_since_signup,
-                "time_entries_count": time_entries_count,
-                "total_hours": total_hours,
-            },
-        )
-    except Exception:
-        # Don't fail the page if tracking fails (e.g. table doesn't exist yet).
-        current_app.logger.debug("Could not record donate page view", exc_info=True)
-
-    return render_template(
-        "main/donate.html",
-        days_since_signup=days_since_signup,
-        time_entries_count=time_entries_count,
-        total_hours=total_hours,
-    )
-
-
-@main_bp.route("/donate/track-click", methods=["POST"])
-@login_required
-def track_donation_click():
-    """Track donation link clicks"""
-    try:
-        from app.models import DonationInteraction
-
-        data = request.get_json() or {}
-        source = data.get("source", "unknown")
-        variant = data.get("variant")
-
-        # Get user metrics
-        metrics = DonationInteraction.get_user_engagement_metrics(current_user.id)
-
-        # Record click (variant for A/B segmentation)
-        DonationInteraction.record_interaction(
-            user_id=current_user.id,
-            interaction_type="link_clicked",
-            source=source,
-            user_metrics=metrics,
-            variant=variant,
-        )
-
-        return jsonify({"success": True})
-    except Exception as e:
-        # Return success even if tracking fails (e.g., table doesn't exist yet)
-        return jsonify({"success": True, "note": "Tracking unavailable"})
-
-
-@main_bp.route("/donate/track-banner-dismissal", methods=["POST"])
-@login_required
-def track_banner_dismissal():
-    """Track banner dismissals"""
-    try:
-        from app.models import DonationInteraction
-
-        data = request.get_json() or {}
-        variant = data.get("variant")
-
-        # Get user metrics
-        metrics = DonationInteraction.get_user_engagement_metrics(current_user.id)
-
-        # Record dismissal (variant for A/B segmentation)
-        DonationInteraction.record_interaction(
-            user_id=current_user.id,
-            interaction_type="banner_dismissed",
-            source="banner",
-            user_metrics=metrics,
-            variant=variant,
-        )
-
-        return jsonify({"success": True})
-    except Exception as e:
-        # Return success even if tracking fails (e.g., table doesn't exist yet)
-        return jsonify({"success": True, "note": "Tracking unavailable"})
-
-
-@main_bp.route("/donate/track-impression", methods=["POST"])
-@login_required
-def track_support_impression():
-    """Track support banner impression (banner_impression -> cta_click funnel)."""
-    try:
-        from app.models import DonationInteraction
-
-        data = request.get_json() or {}
-        source = data.get("source", "banner")
-        variant = data.get("variant")
-
-        metrics = DonationInteraction.get_user_engagement_metrics(current_user.id)
-        DonationInteraction.record_interaction(
-            user_id=current_user.id,
-            interaction_type="banner_impression",
-            source=source,
-            user_metrics=metrics,
-            variant=variant,
-        )
-        return jsonify({"success": True})
-    except Exception:
-        return jsonify({"success": True, "note": "Tracking unavailable"})
-
-
-@main_bp.route("/donate/request-soft-prompt", methods=["POST"])
-@login_required
-def request_soft_support_prompt():
-    """Authorize a single long-session soft prompt (session rules enforced server-side)."""
-    from app.models import DonationInteraction, Settings
-    from app.services.support_prompt_service import SupportPromptService
-
-    data = request.get_json() or {}
-    kind = (data.get("kind") or "long_session").strip()
-    if kind != "long_session":
-        return jsonify({"show": False})
-
-    settings_obj = Settings.get_settings()
-    is_supporter = is_license_activated(settings_obj)
-    ui_show = getattr(current_user, "ui_show_donate", True)
-    try:
-        suppressed = DonationInteraction.has_recent_donation_click(current_user.id, days=30)
-    except Exception:
-        suppressed = False
-
-    if not SupportPromptService.long_session_prompt_allowed(
-        session,
-        ui_show_donate=ui_show,
-        is_supporter=is_supporter,
-        support_banner_suppressed=suppressed,
-    ):
-        return jsonify({"show": False})
-
-    SupportPromptService.mark_prompt_shown(session, SupportPromptService.VARIANT_LONG_SESSION)
-    return jsonify({"show": True, "variant": "long_session"})
-
-
-@main_bp.route("/donate/track-support-event", methods=["POST"])
-@login_required
-def track_support_event():
-    """Telemetry + DonationInteraction funnel for support UI (best-effort)."""
-    from app.models import DonationInteraction
-
-    data = request.get_json() or {}
-    event = (data.get("event") or "").strip()
-    variant = data.get("variant")
-    source = (data.get("source") or "support_ui").strip()
-
-    event_map = {
-        "modal_opened": ("support.modal_opened", "support_modal_opened"),
-        "donation_clicked": ("support.donation_clicked", "support_donation_clicked"),
-        "license_clicked": ("support.license_clicked", "support_license_clicked"),
-        "prompt_shown": ("support.prompt_shown", "support_prompt_shown"),
-        "prompt_dismissed": ("support.prompt_dismissed", "support_prompt_dismissed"),
-    }
-    if event not in event_map:
-        return jsonify({"success": False, "error": "unknown event"}), 400
-
-    analytics_name, interaction_type = event_map[event]
-    props = {"variant": variant, "source": source}
-    track_event(current_user.id, analytics_name, props)
-
-    try:
-        metrics = DonationInteraction.get_user_engagement_metrics(current_user.id)
-        DonationInteraction.record_interaction(
-            user_id=current_user.id,
-            interaction_type=interaction_type,
-            source=source,
-            user_metrics=metrics,
-            variant=variant,
-        )
-    except Exception:
-        current_app.logger.debug("Could not record donation interaction", exc_info=True)
-
-    return jsonify({"success": True})
 
 
 @main_bp.route("/debug/i18n")

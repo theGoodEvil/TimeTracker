@@ -428,8 +428,8 @@ class PWAEnhancements {
         if ('Notification' in window && Notification.permission === 'granted') {
             new Notification(title, {
                 body: body,
-                icon: '/static/images/timetracker-logo.svg',
-                badge: '/static/images/timetracker-logo.svg'
+                icon: '/static/images/eviltime-logo.png',
+                badge: '/static/images/eviltime-logo.png'
             });
         }
     }
@@ -443,4 +443,3 @@ if (document.readyState === 'loading') {
 } else {
     window.pwaEnhancements = new PWAEnhancements();
 }
-

@@ -350,7 +350,7 @@
 
 {% endblock %}
 
-{% block extra_js %}
+{% block scripts_extra %}
 <script src="{{ url_for('static', filename='vendor/fullcalendar/index.global.min.js') }}"></script>
 <script nonce="{{ csp_nonce() }}">
 document.addEventListener('DOMContentLoaded', function() {
@@ -885,7 +885,7 @@ document.addEventListener('DOMContentLoaded', function() {
         </div>
         <div class="event-detail-row">
           <div class="event-detail-label">{{ _("Duration") }}</div>
-          <div class="event-detail-value">${(props.duration_hours != null ? props.duration_hours : 0).toFixed(2)} {{ _("hours") }}</div>
+          <div class="event-detail-value">${window.formatHoursMinutes(props.duration_hours != null ? props.duration_hours : 0)}</div>
         </div>
         ${props.notes ? `<div class="event-detail-row"><div class="event-detail-label">{{ _("Notes") }}</div><div class="event-detail-value">${props.notes}</div></div>` : ''}
         ${props.tags ? `<div class="event-detail-row"><div class="event-detail-label">{{ _("Tags") }}</div><div class="event-detail-value">${props.tags}</div></div>` : ''}
@@ -1068,7 +1068,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="agenda-event-details">
                   <div class="agenda-event-title">${event.title}</div>
                   <div class="agenda-event-meta">
-                    ${event.extendedProps.duration_hours ? `${event.extendedProps.duration_hours.toFixed(2)} hours` : ''}
+                    ${event.extendedProps.duration_hours ? window.formatHoursMinutes(event.extendedProps.duration_hours) : ''}
                     ${event.extendedProps.billable ? '<span class="badge bg-success ms-2">Billable</span>' : '<span class="badge bg-secondary ms-2">Non-billable</span>'}
                   </div>
                 </div>
@@ -1206,7 +1206,7 @@ document.addEventListener('DOMContentLoaded', function() {
     
     const displayEl = document.getElementById('totalHoursDisplay');
     if (displayEl) {
-      displayEl.textContent = `${totalHours.toFixed(1)}h`;
+      displayEl.textContent = window.formatHoursMinutes(totalHours);
     }
   }
   
@@ -1311,7 +1311,7 @@ document.addEventListener('DOMContentLoaded', function() {
         day: 'numeric'
       });
       
-      hoursLabel.textContent = `${dayHours.toFixed(1)}h / ${capacity.toFixed(0)}h (${percentage.toFixed(0)}%)`;
+      hoursLabel.textContent = `${window.formatHoursMinutes(dayHours)} / ${window.formatHoursMinutes(capacity)} (${percentage.toFixed(0)}%)`;
     }
   }
   
