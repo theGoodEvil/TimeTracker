@@ -370,6 +370,45 @@ class SlackAttendanceConnector(BaseConnector):
         ok = self._post(channel, ":wave: EvilTime Slack project tracking test message.")
         return {"ok": bool(ok)}
 
+    @classmethod
+    def notify_user_action(cls, user, action: str, entity) -> None:
+        try:
+            connector = cls.for_global()
+            if not connector or not connector._is_ready():
+                return
+            channel = connector._cfg().get("attendance_channel_id")
+            if not channel:
+                return
+
+            display = getattr(user, "display_name", None) or user.username or "User"
+            now = datetime.now()
+
+            if action == "clock_in":
+                at = getattr(entity, "start_time", now)
+                project_name = entity.project.name if getattr(entity, "project", None) else "—"
+                text = f":white_check_mark: *{display}* clocked in to *{project_name}* at {connector._format_time(at)}"
+            elif action == "switch":
+                at = getattr(entity, "start_time", now)
+                project_name = entity.project.name if getattr(entity, "project", None) else "—"
+                text = f":white_check_mark: *{display}* switched to *{project_name}* at {connector._format_time(at)}"
+            elif action == "clock_out":
+                at = getattr(entity, "end_time", now)
+                project_name = entity.project.name if getattr(entity, "project", None) else "—"
+                text = f":door: *{display}* clocked out of *{project_name}* at {connector._format_time(at)}"
+            elif action == "start_break":
+                at = getattr(entity, "paused_at", now)
+                project_name = entity.project.name if getattr(entity, "project", None) else "—"
+                text = f":coffee: *{display}* started a break from *{project_name}* at {connector._format_time(at)}"
+            elif action == "end_break":
+                project_name = entity.project.name if getattr(entity, "project", None) else "—"
+                text = f":arrow_forward: *{display}* is back on *{project_name}*"
+            else:
+                return
+
+            connector._post(channel, text)
+        except Exception as exc:
+            logger.warning("Slack attendance notify_user_action failed: %s", exc)
+
     def _post(self, channel: Optional[str], text: str) -> bool:
         token = self._bot_token()
         if not (token and channel and text):
