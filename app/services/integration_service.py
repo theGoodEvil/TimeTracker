@@ -171,6 +171,10 @@ class IntegrationService:
             creds = IntegrationCredential.query.filter(IntegrationCredential.integration_id.in_(integration_ids)).all()
             cred_integration_ids = {c.integration_id for c in creds}
         for integration in integrations:
+            if integration.provider in ("github", "slack_connector", "slack_attendance"):
+                # These connectors manage their own is_active state based on config
+                continue
+
             has_credentials = integration.id in cred_integration_ids
 
             # Update is_active if it doesn't match credentials status
@@ -338,6 +342,9 @@ class IntegrationService:
         """Update integration is_active status based on credentials."""
         integration = Integration.query.get(integration_id)
         if not integration:
+            return
+
+        if integration.provider in ("github", "slack_connector", "slack_attendance"):
             return
 
         has_credentials = IntegrationCredential.query.filter_by(integration_id=integration_id).first() is not None

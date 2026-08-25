@@ -345,12 +345,6 @@ def start_timer():
         current_app.logger.warning("Socket emit failed for timer_started: %s", e)
 
     # Slack notify (fire-and-forget; never blocks timer flow)
-    try:
-        from app.integrations.slack_connector import SlackConnector
-
-        SlackConnector.notify_for_user(current_user, new_timer, event="start")
-    except Exception as e:
-        current_app.logger.debug("Slack notify failed: %s", e)
 
     # Invalidate dashboard cache so timer appears immediately
     try:
@@ -694,12 +688,6 @@ def stop_timer():
             current_app.logger.warning("Socket emit failed for timer_stopped: %s", e)
 
         # Slack notify (fire-and-forget; never blocks stop flow)
-        try:
-            from app.integrations.slack_connector import SlackConnector
-
-            SlackConnector.notify_for_user(current_user, active_timer, event="stop")
-        except Exception as e:
-            current_app.logger.debug("Slack notify failed: %s", e)
 
         # Invalidate dashboard cache so timer disappears immediately
         try:
