@@ -1,6 +1,6 @@
 """
 Routes for the new opt-in connectors (GitHub PAT, Google Calendar
-OAuth, Slack bot). Registered as an optional blueprint from
+OAuth, Slack attendance bot). Registered as an optional blueprint from
 ``app.blueprint_registry``.
 
 Endpoint groups
@@ -21,14 +21,9 @@ Google Calendar
     POST  /api/integrations/google/config    (login_required)
     GET   /api/integrations/google/status    (login_required)
 
-Slack
-    POST  /api/integrations/slack/events     (M2M, signature-verified)
-    POST  /api/integrations/slack/config     (login_required)
-    POST  /api/integrations/slack/test       (login_required)
-    GET   /api/integrations/slack/status     (login_required)
-
 Slack Attendance (workspace-level)
     POST  /api/integrations/slack/attendance          (M2M, signature-verified)
+    POST  /api/integrations/slack/interactions        (M2M, signature-verified)
     POST  /api/integrations/slack-attendance/config   (admin)
     POST  /api/integrations/slack-attendance/test     (admin)
     GET   /api/integrations/slack-attendance/status   (admin)
@@ -36,6 +31,7 @@ Slack Attendance (workspace-level)
 
 from __future__ import annotations
 
+import json
 import logging
 import secrets
 from typing import Any, Dict, Optional
@@ -48,7 +44,6 @@ from app.integrations.github_connector import PROVIDER_KEY as GH_PROVIDER
 from app.integrations.github_connector import GitHubConnector
 from app.integrations.google_calendar_connector import PROVIDER_KEY as GCAL_PROVIDER
 from app.integrations.google_calendar_connector import GoogleCalendarConnector
-from app.integrations.slack_attendance_connector import PROVIDER_KEY as SLACK_ATTENDANCE_PROVIDER
 from app.integrations.slack_attendance_connector import SlackAttendanceConnector
 from app.models import Integration
 from app.utils.db import safe_commit
@@ -70,7 +65,6 @@ def _ensure_integration(provider: str, *, user_id: Optional[int] = None) -> Inte
         name={
             GH_PROVIDER: "GitHub",
             GCAL_PROVIDER: "Google Calendar",
-            SLACK_PROVIDER: "Slack",
         }.get(provider, provider),
         provider=provider,
         user_id=user_id,
@@ -85,24 +79,6 @@ def _ensure_integration(provider: str, *, user_id: Optional[int] = None) -> Inte
 
 def _admin_required() -> bool:
     return bool(getattr(current_user, "is_authenticated", False) and getattr(current_user, "is_admin", False))
-
-
-def _ensure_global_integration(provider: str, name: str) -> Integration:
-    """Get-or-create a global Integration row keyed by provider."""
-    integration = Integration.query.filter_by(provider=provider, is_global=True).first()
-    if integration:
-        return integration
-    integration = Integration(
-        name=name,
-        provider=provider,
-        user_id=None,
-        is_global=True,
-        is_active=False,
-        config={},
-    )
-    db.session.add(integration)
-    safe_commit("connector_create_global_integration", {"provider": provider})
-    return integration
 
 
 # =====================================================================
@@ -297,26 +273,51 @@ def google_status():
 
 
 # =====================================================================
-# =====================================================================
 # Slack Attendance (workspace-level /in, /brb, /back, /out)
 # =====================================================================
+def _verified_slack_attendance_connector():
+    """Return the global connector when the request carries a valid Slack signature."""
+    raw_body = request.get_data() or b""
+    signature = request.headers.get("X-Slack-Signature")
+    timestamp = request.headers.get("X-Slack-Request-Timestamp")
+    connector = SlackAttendanceConnector.for_global()
+    if not connector or not connector.verify_signature(signature, timestamp, raw_body):
+        return None
+    return connector
+
+
 @integrations_webhooks_bp.route("/api/integrations/slack/attendance", methods=["POST"])
 @csrf.exempt
 def slack_attendance():
     """Receive workspace attendance slash commands (M2M, signature-verified)."""
-    raw_body = request.get_data() or b""
-    signature = request.headers.get("X-Slack-Signature")
-    timestamp = request.headers.get("X-Slack-Request-Timestamp")
-
-    connector = SlackAttendanceConnector.for_global()
-    if not connector or not connector.verify_signature(signature, timestamp, raw_body):
+    connector = _verified_slack_attendance_connector()
+    if connector is None:
         return jsonify({"ok": False, "error": "Invalid signature"}), 401
 
     form = request.form.to_dict()
-    result = connector.handle_slash_command(form)
+    result = connector.dispatch_slash_command(form)
+    if result is None:
+        # Acknowledged within Slack's 3 second window; the answer follows via response_url.
+        return "", 200
     status = int(result.get("status") or 200)
     body = result.get("body") or {}
     return jsonify(body), status
+
+
+@integrations_webhooks_bp.route("/api/integrations/slack/interactions", methods=["POST"])
+@csrf.exempt
+def slack_interactions():
+    """Receive Slack button clicks (overtime warning: extend / clock out)."""
+    connector = _verified_slack_attendance_connector()
+    if connector is None:
+        return jsonify({"ok": False, "error": "Invalid signature"}), 401
+    try:
+        payload = json.loads(request.form.get("payload") or "{}")
+    except ValueError:
+        return jsonify({"ok": False, "error": "Malformed payload"}), 400
+    if isinstance(payload, dict) and payload.get("type") == "block_actions":
+        connector.dispatch_interaction(payload)
+    return "", 200
 
 
 @integrations_webhooks_bp.route("/api/integrations/slack-attendance/config", methods=["POST"])
@@ -325,8 +326,9 @@ def slack_attendance_save_config():
     if not _admin_required():
         return jsonify({"ok": False, "error": "Admin only"}), 403
     payload = request.get_json(silent=True) or request.form.to_dict() or {}
-    integration = _ensure_global_integration(SLACK_ATTENDANCE_PROVIDER, "EvilTime Slack")
-    result = SlackAttendanceConnector.save_config(integration, payload)
+    # Same row the slash-command and interaction handlers resolve via for_global().
+    integration = SlackAttendanceConnector.get_or_create_global().integration
+    result = SlackAttendanceConnector.save_config(integration, payload, base_url=request.url_root)
     status = 200 if result.get("ok") else 400
     return jsonify(result), status
 
@@ -347,9 +349,10 @@ def slack_attendance_test():
 def slack_attendance_status():
     if not _admin_required():
         return jsonify({"ok": False, "error": "Admin only"}), 403
-    integration = Integration.query.filter_by(provider=SLACK_ATTENDANCE_PROVIDER, is_global=True).first()
-    if not integration:
+    connector = SlackAttendanceConnector.for_global()
+    if not connector:
         return jsonify({"ok": True, "connected": False})
+    integration = connector.integration
     cfg = integration.config or {}
     return jsonify(
         {
@@ -358,5 +361,9 @@ def slack_attendance_status():
             "attendance_channel_id": cfg.get("attendance_channel_id"),
             "has_signing_secret": bool(cfg.get("signing_secret")),
             "attendance_url": url_for("integrations_webhooks.slack_attendance", _external=True),
+            "interactions_url": url_for("integrations_webhooks.slack_interactions", _external=True),
+            "last_error": integration.last_error,
+            "last_delivery_status": integration.last_sync_status,
+            "last_delivery_at": integration.last_sync_at.isoformat() if integration.last_sync_at else None,
         }
     )

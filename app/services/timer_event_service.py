@@ -47,8 +47,23 @@ def record_timer_event(event_type, entry, *, occurred_at=None, related_entry_id=
     )
     db.session.add(event)
     if safe_commit("record_timer_event", {"entry_id": entry.id, "event_type": event_type}):
+        _announce_to_slack(event_type, entry)
         return event
     return None
+
+
+def _announce_to_slack(event_type, entry):
+    """Mirror a live timer transition to the Slack attendance channel.
+
+    Every web, API, kiosk, MCP and scheduler path records its transitions here,
+    so this is the single place Slack learns about work state changes.
+    """
+    try:
+        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
+
+        SlackAttendanceConnector.notify_timer_event(event_type, entry)
+    except Exception:
+        pass
 
 
 def get_break_events(user_id, entry_id):

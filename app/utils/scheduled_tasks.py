@@ -715,6 +715,29 @@ def register_scheduled_tasks(scheduler, app=None):
         )
         logger.info("Registered working time limits check task")
 
+        def process_auto_clock_out_with_app():
+            app_instance = app
+            if app_instance is None:
+                try:
+                    app_instance = current_app._get_current_object()
+                except RuntimeError:
+                    logger.error("No app instance available for auto clock-out")
+                    return
+            with app_instance.app_context():
+                process_auto_clock_out()
+
+        scheduler.add_job(
+            func=process_auto_clock_out_with_app,
+            trigger="interval",
+            minutes=1,
+            id="process_auto_clock_out",
+            name="Warn at daily working hours and auto clock-out",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+        logger.info("Registered auto clock-out task")
+
         # Base telemetry heartbeat (daily) – always-on minimal install footprint
         def send_base_telemetry_heartbeat_with_app():
             app_instance = app
@@ -1051,6 +1074,21 @@ def process_missed_clock_in():
     except Exception as e:
         logger.error("Error in process_missed_clock_in: %s", e)
         return 0
+
+
+def process_auto_clock_out():
+    """Warn users at their daily hours and stop timers left running past the grace period."""
+    from app.services.auto_clock_out_service import AutoClockOutService
+
+    try:
+        counts = AutoClockOutService().run()
+        if counts.get("warned") or counts.get("clocked_out"):
+            logger.info("Auto clock-out: %s", counts)
+        return counts
+    except Exception as e:
+        db.session.rollback()
+        logger.error("Error in process_auto_clock_out: %s", e)
+        return {}
 
 
 def check_working_time_limits():

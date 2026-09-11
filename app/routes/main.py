@@ -149,6 +149,10 @@ def dashboard():
         minutes, seconds = divmod(remainder, 60)
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
 
+    from app.services.auto_clock_out_service import AutoClockOutService
+
+    auto_clock_out = AutoClockOutService().status(current_user, active_timer)
+
     return render_template(
         "main/dashboard.html",
         active_timer=active_timer,
@@ -171,6 +175,7 @@ def dashboard():
         timeline_now=timeline_now,
         timeline_timezone=timeline_timezone,
         can_edit_timeline=(current_user.is_admin or current_user.has_permission("edit_own_time_entries")),
+        auto_clock_out=auto_clock_out,
     )
 
 

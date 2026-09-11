@@ -497,13 +497,6 @@ def api_start_timer():
         },
     )
 
-
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "clock_in", new_timer)
-    except Exception as e:
-        pass
-
     return jsonify(
         {
             "success": True,
@@ -535,13 +528,6 @@ def api_stop_timer():
         "timer_stopped",
         {"user_id": current_user.id, "timer_id": entry.id, "duration": entry.duration_formatted},
     )
-
-
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "clock_out", entry)
-    except Exception as e:
-        pass
 
     return jsonify({"success": True, "duration": entry.duration_formatted, "duration_hours": entry.duration_hours})
 
@@ -576,11 +562,6 @@ def api_pause_current_timer():
     if not result.get("success"):
         return jsonify({"error": result.get("message", _("Could not start break."))}), 400
     socketio.emit("timer_paused", {"user_id": current_user.id, "timer_id": result["entry"].id})
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "start_break", result["entry"])
-    except Exception as e:
-        pass
     return jsonify({"success": True, "timer": result["entry"].to_dict()})
 
 
@@ -591,11 +572,6 @@ def api_resume_current_timer():
     if not result.get("success"):
         return jsonify({"error": result.get("message", _("Could not end break."))}), 400
     socketio.emit("timer_resumed", {"user_id": current_user.id, "timer_id": result["entry"].id})
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "end_break", result["entry"])
-    except Exception as e:
-        pass
     return jsonify({"success": True, "timer": result["entry"].to_dict()})
 
 

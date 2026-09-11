@@ -10,7 +10,9 @@ EvilTime is a self-hosted project time-tracking system. It keeps attendance and 
 - Teams can create their own catch-all project for internal or general work; no project name is hardcoded.
 - Each user can choose a default project in **My Settings → Work tracking**.
 - Starting a timer without an explicit project uses that default when it is available and active.
-- Timer heartbeat and idle handling preserve healthy project timers instead of stopping them after a short period of browser inactivity.
+- Timers are never stopped because a browser tab went idle. They end when the user clocks out, or through the automatic clock-out below.
+- Automatic clock-out: when a user's standard hours per day are reached, they get a reminder on the dashboard, as a browser notification, and in Slack, and can extend the day by 15 minutes, 30 minutes, or 1 hour. Without a reaction within 15 minutes the timer stops at the moment the hours were reached. Users can turn this off under **My Settings → Overtime**.
+- Slack workspace integration: employees clock in, switch projects, take breaks, and clock out with `/in`, `/switch`, `/brb`, `/back`, and `/out`. Changes made on the website, kiosk, API, or MCP are announced in the same Slack channel. See [`docs/integrations/SLACK_ATTENDANCE.md`](docs/integrations/SLACK_ATTENDANCE.md).
 - Weekly time can be reviewed and corrected while keeping the underlying project entries visible.
 - Weekly expected hours are schedule changes: set them once in the weekly overview and later weeks inherit them until the next change. Administrators can manage the same ledger for each user.
 - Browser notifications can remind a user when a 30-minute break is over.
@@ -22,54 +24,38 @@ EvilTime is a self-hosted project time-tracking system. It keeps attendance and 
 
 EvilTime also retains the broader project, task, client, reporting, invoicing, API, authentication, and administration capabilities inherited from the upstream application.
 
-## Run with Docker
+## Production deployment (Coolify)
 
-The main Compose stack builds EvilTime locally and starts PostgreSQL, the application, and an nginx HTTPS proxy.
+Production runs on [Coolify](https://coolify.io) and is deployed from the **`coolify`** branch. There is no
+command-line deployment; everything is configured in the Coolify dashboard.
 
-### Requirements
+| Coolify setting | Value |
+|-----------------|-------|
+| Repository | `https://github.com/theGoodEvil/TimeTracker` |
+| Branch | `coolify` |
+| Build pack | Docker Compose |
+| Compose file | `docker-compose.example.yml` (builds the image from this repository and starts PostgreSQL) |
+| Domain | Assigned to the `app` service, container port `8080` |
 
-- Docker Engine 20.10 or newer
-- Docker Compose v2
-- Git
-- About 2 GB of available memory
+Set these environment variables in Coolify before the first deploy:
 
-### Start the production-style stack
+- `SECRET_KEY` — required; generate one with `python -c "import secrets; print(secrets.token_hex(32))"` and never
+  change it afterwards (sessions and CSRF tokens depend on it).
+- `ADMIN_USERNAMES` — the first name becomes the initial administrator.
+- `TZ` — timezone for timestamps (default `Europe/Brussels`).
+- For HTTPS through Coolify's proxy: `SESSION_COOKIE_SECURE=true`, `REMEMBER_COOKIE_SECURE=true`,
+  `CSRF_COOKIE_SECURE=true`, and `PREFERRED_URL_SCHEME=https`.
 
-```bash
-git clone git@git.domisbu.de:Domi2803/EvilTime.git
-cd EvilTime
-cp env.example .env
-python -c "import secrets; print(secrets.token_hex(32))"
-```
+The application container runs database migrations during startup, and data lives in the `db_data`, `app_data`,
+and `app_uploads` volumes.
 
-Copy the generated value into `.env` as `SECRET_KEY`. Review at least `TZ`, `ADMIN_USERNAMES`, `AUTH_METHOD`, the PostgreSQL credentials, and the cookie/CSRF settings before exposing the service to a network.
+## Run locally with Docker
 
-Then build and start it:
-
-```bash
-docker compose up -d --build
-docker compose ps
-```
-
-Open `https://localhost`. The bundled certificate is self-signed, so a browser warning is expected for a local installation. The application container runs database migrations during startup.
-
-Follow startup logs with:
+For an isolated SQLite test instance on plain HTTP (requires Docker Engine 20.10+ and Docker Compose v2):
 
 ```bash
-docker compose logs -f app
-```
-
-Stop the stack without deleting its database volumes:
-
-```bash
-docker compose down
-```
-
-### Quick local Docker test
-
-For an isolated SQLite test instance on plain HTTP:
-
-```bash
+git clone https://github.com/theGoodEvil/TimeTracker.git
+cd TimeTracker
 docker compose -f docker/docker-compose.local-test.yml up --build
 ```
 
@@ -115,15 +101,13 @@ The first username in `ADMIN_USERNAMES` is the initial administrator. With local
 
 ## Updating an installation
 
-Back up the database and uploaded files first, then rebuild from the new revision:
+1. Merge the changes into `main`, then merge `main` into `coolify` and push.
+2. Coolify builds and deploys the new revision (automatically when auto-deploy is enabled for the resource,
+   otherwise with **Deploy** in the Coolify dashboard).
+3. Watch the deployment and application logs in Coolify. Pending Alembic migrations are applied on startup.
 
-```bash
-git pull --ff-only
-docker compose up -d --build
-docker compose logs -f app
-```
-
-The startup process applies pending Alembic migrations. Persistent data is stored in Docker volumes; do not use `docker compose down -v` unless you intentionally want to delete it.
+Back up the database before deploying changes that include migrations. Do not delete the resource's volumes unless
+you intentionally want to remove all data.
 
 ## EvilTime versions
 
@@ -147,6 +131,7 @@ npm run build:assets
 ## Configuration and documentation
 
 - [`env.example`](env.example) documents the principal environment variables.
+- [`docs/integrations/SLACK_ATTENDANCE.md`](docs/integrations/SLACK_ATTENDANCE.md) explains the Slack app setup, the automatic clock-out, and troubleshooting.
 - [`docs/`](docs/) contains the inherited administration, security, API, backup, and deployment guides.
 - [`CHANGELOG.md`](CHANGELOG.md) contains the upstream release history and project changes.
 - [`UNINSTALL.md`](UNINSTALL.md) explains how to remove an installation and its data.
@@ -157,7 +142,7 @@ Some inherited documents still use the original TimeTracker name where they desc
 
 EvilTime is a fork of [DRYTRIX/TimeTracker](https://github.com/DRYTRIX/TimeTracker). We are grateful to the original maintainers and contributors for the application this work builds upon.
 
-EvilTime-specific changes are maintained in [Domi2803/EvilTime](https://git.domisbu.de/Domi2803/EvilTime).
+EvilTime-specific changes are maintained in [theGoodEvil/TimeTracker](https://github.com/theGoodEvil/TimeTracker).
 
 ## License
 

@@ -162,10 +162,19 @@
         socket.on('connect', function () {
           socket.emit('join_user_room', { user_id: userId });
         });
-        ['timer_started', 'timer_stopped', 'timer_paused', 'timer_resumed'].forEach(function (eventName) {
+        ['timer_started', 'timer_stopped', 'timer_paused', 'timer_resumed', 'overtime_extended'].forEach(function (eventName) {
           socket.on(eventName, function (data) {
             if (!data || Number(data.user_id) === userId) window.location.reload();
           });
+        });
+        socket.on('overtime_warning', function (data) {
+          if (data && Number(data.user_id) !== userId) return;
+          try {
+            if ('Notification' in window && Notification.permission === 'granted' && data) {
+              new Notification(data.title || 'EvilTime', { body: data.message || '', tag: 'eviltime-overtime' });
+            }
+          } catch (_) {}
+          window.location.reload();
         });
       } catch (_) {}
     }

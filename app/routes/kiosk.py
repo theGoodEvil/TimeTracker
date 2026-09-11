@@ -498,6 +498,10 @@ def kiosk_start_timer():
         db.session.add(new_timer)
         db.session.commit()
 
+        from app.services.timer_event_service import record_timer_event
+
+        record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
+
         log_event("timer.started", user_id=current_user.id, project_id=project_id, task_id=task_id)
 
         return jsonify({"success": True, "timer_id": new_timer.id, "message": _("Timer started successfully")})
@@ -518,10 +522,9 @@ def kiosk_stop_timer():
         return jsonify({"error": "No active timer"}), 400
 
     try:
-        from app.models.time_entry import local_now
-
-        active_timer.end_time = local_now()
-        db.session.commit()
+        result = TimeTrackingService().stop_timer(current_user.id, entry_id=active_timer.id)
+        if not result.get("success"):
+            return jsonify({"error": result.get("message", _("Could not stop timer"))}), 400
 
         log_event("timer.stopped", user_id=current_user.id, timer_id=active_timer.id)
 

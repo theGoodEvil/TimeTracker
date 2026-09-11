@@ -94,6 +94,7 @@ from .time_entry import TimeEntry
 from .time_entry_approval import ApprovalPolicy, ApprovalStatus, TimeEntryApproval
 from .time_entry_template import TimeEntryTemplate
 from .timer_event import TimerEvent
+from .auto_clock_out_state import AutoClockOutState
 from .time_off import CompanyHoliday, LeaveType, TimeOffRequest, TimeOffRequestStatus
 from .timesheet_period import TimesheetPeriod, TimesheetPeriodStatus
 from .timesheet_policy import TimesheetPolicy
@@ -115,6 +116,7 @@ __all__ = [
     "Project",
     "TimeEntry",
     "TimerEvent",
+    "AutoClockOutState",
     "Task",
     "Settings",
     "Invoice",

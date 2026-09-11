@@ -443,6 +443,19 @@
                 </div>
             </div>
                 
+            <div class="mt-4">
+                <label for="auto_clock_out_enabled" class="flex items-center min-h-[44px] cursor-pointer rounded-lg px-2 -mx-2 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                    <input type="checkbox" id="auto_clock_out_enabled" name="auto_clock_out_enabled"
+                           {% if getattr(user, 'auto_clock_out_enabled', true) %}checked{% endif %}
+                           class="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary dark:bg-gray-700 dark:border-gray-600 flex-shrink-0">
+                    <span class="ml-3 text-sm text-gray-700 dark:text-gray-300">
+                        {{ _('Automatically clock out after my standard hours per day') }}
+                        <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                            {{ _('When your standard hours (%(hours)s) are reached you get a reminder in EvilTime and Slack. Extend your day within 15 minutes, otherwise you are clocked out at the moment the hours were reached.', hours=((user.standard_hours_per_day or 8))|hours_minutes) }}
+                        </span>
+                    </span>
+                </label>
+            </div>
             <div class="flex items-center bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md mt-4" id="overtime-how-daily" style="display: {% if getattr(user, 'overtime_calculation_mode', 'daily') != 'weekly' %}block{% else %}none{% endif %};">
                 <div>
                     <p class="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">

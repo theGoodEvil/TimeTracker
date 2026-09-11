@@ -255,6 +255,9 @@ def start_timer():
     ):
         flash(_("Could not start timer due to a database error. Please check server logs."), "error")
         return redirect(url_for("main.dashboard"))
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
     current_app.logger.info(
         "Started new timer id=%s for user=%s project_id=%s client_id=%s task_id=%s",
         new_timer.id,
@@ -344,12 +347,6 @@ def start_timer():
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_started: %s", e)
 
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "clock_in", new_timer)
-    except Exception as e:
-        pass
-
     # Invalidate dashboard cache so timer appears immediately
     try:
         from app.utils.cache import invalidate_dashboard_for_user
@@ -358,12 +355,6 @@ def start_timer():
         current_app.logger.debug("Invalidated dashboard cache for user %s", current_user.id)
     except Exception as e:
         current_app.logger.warning("Failed to invalidate dashboard cache: %s", e)
-    
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "clock_in", new_timer)
-    except Exception as e:
-        pass
 
     if task:
         flash(f"Timer started for {project.name} - {task.name}", "success")
@@ -430,6 +421,9 @@ def start_timer_from_template(template_id):
     if not safe_commit("start_timer_from_template", {"template_id": template_id}):
         flash(_("Could not start timer due to a database error. Please check server logs."), "error")
         return redirect(url_for("time_entry_templates.list_templates"))
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
 
     from app.telemetry.otel_setup import business_span
 
@@ -518,6 +512,9 @@ def start_timer_for_project(project_id):
     ):
         flash(_("Could not start timer due to a database error. Please check server logs."), "error")
         return redirect(url_for("main.dashboard"))
+    from app.services.timer_event_service import record_timer_event
+
+    record_timer_event("clock_in", new_timer, occurred_at=new_timer.start_time)
     current_app.logger.info(
         "Started new timer id=%s for user=%s project_id=%s task_id=%s",
         new_timer.id,
@@ -552,12 +549,6 @@ def start_timer_for_project(project_id):
         )
     except Exception as e:
         current_app.logger.warning("Socket emit failed for timer_started (GET): %s", e)
-
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "clock_in", new_timer)
-    except Exception as e:
-        pass
 
     # Invalidate dashboard cache so timer appears immediately
     try:
@@ -607,11 +598,6 @@ def switch_timer():
         },
         room=f"user_{current_user.id}",
     )
-    try:
-        from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-        SlackAttendanceConnector.notify_user_action(current_user, "switch", timer)
-    except Exception as e:
-        pass
     flash(_("Switched to %(project)s", project=project.name), "success")
     return redirect(url_for("main.dashboard"))
 
@@ -708,12 +694,6 @@ def stop_timer():
         except Exception as e:
             current_app.logger.warning("Socket emit failed for timer_stopped: %s", e)
 
-        try:
-            from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-            SlackAttendanceConnector.notify_user_action(current_user, "clock_out", active_timer)
-        except Exception as e:
-            pass
-
         # Invalidate dashboard cache so timer disappears immediately
         try:
             from app.utils.cache import invalidate_dashboard_for_user
@@ -767,11 +747,6 @@ def pause_timer():
             {"user_id": current_user.id, "timer_id": active_timer.id, "paused_at": active_timer.paused_at.isoformat()},
             room=f"user_{current_user.id}",
         )
-        try:
-            from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-            SlackAttendanceConnector.notify_user_action(current_user, "start_break", active_timer)
-        except Exception as e:
-            pass
         flash(_("Timer paused"), "success")
     except ValueError as e:
         flash(_(str(e)), "error")
@@ -806,11 +781,6 @@ def resume_timer():
             {"user_id": current_user.id, "timer_id": active_timer.id, "break_seconds": active_timer.break_seconds or 0},
             room=f"user_{current_user.id}",
         )
-        try:
-            from app.integrations.slack_attendance_connector import SlackAttendanceConnector
-            SlackAttendanceConnector.notify_user_action(current_user, "end_break", active_timer)
-        except Exception as e:
-            pass
         flash(_("Timer resumed"), "success")
     except ValueError as e:
         flash(_(str(e)), "error")
@@ -866,6 +836,25 @@ def adjust_timer():
 
     if request.headers.get("X-Requested-With") == "XMLHttpRequest":
         return jsonify({"success": True, "start_time": active_timer.start_time.isoformat()})
+    return redirect(url_for("main.dashboard"))
+
+
+@timer_bp.route("/timer/extend-workday", methods=["POST"])
+@login_required
+def extend_workday():
+    """Approve overtime so auto clock-out waits until the extended daily hours."""
+    from app.services.auto_clock_out_service import AutoClockOutService
+
+    minutes = request.form.get("minutes", type=int)
+    if minutes is None and request.is_json:
+        minutes = (request.get_json(silent=True) or {}).get("minutes")
+    result = AutoClockOutService().extend(current_user, minutes)
+    if request.headers.get("X-Requested-With") == "XMLHttpRequest" or request.is_json:
+        return jsonify(result), (200 if result.get("success") else 400)
+    if result.get("success"):
+        flash(_("Work time extended by %(minutes)s minutes.", minutes=minutes), "success")
+    else:
+        flash(_(result.get("message") or "Could not extend your work time."), "error")
     return redirect(url_for("main.dashboard"))
 
 

@@ -171,8 +171,18 @@ def settings():
             if email:
                 current_user.email = email
 
-            slack_user_id = request.form.get("slack_user_id", "").strip()
+            slack_user_id = request.form.get("slack_user_id", "").strip().upper()
             if slack_user_id:
+                # Slack member IDs look like U0123ABCD (W… on Enterprise Grid), not display names.
+                if not re.match(r"^[UW][A-Z0-9]{6,20}$", slack_user_id):
+                    flash(
+                        _(
+                            "That is not a Slack member ID. In Slack open your profile, choose ⋮ → "
+                            "“Copy member ID” and paste the value starting with U."
+                        ),
+                        "error",
+                    )
+                    return redirect(url_for("user.settings"))
                 existing = User.query.filter(
                     User.slack_user_id == slack_user_id,
                     User.id != current_user.id,
@@ -278,6 +288,7 @@ def settings():
                     return redirect(url_for("user.settings"))
             if hasattr(current_user, "overtime_include_weekends"):
                 current_user.overtime_include_weekends = request.form.get("overtime_include_weekends") == "on"
+            current_user.auto_clock_out_enabled = "auto_clock_out_enabled" in request.form
             overtime_mode = request.form.get("overtime_calculation_mode")
             if overtime_mode in ("daily", "weekly"):
                 current_user.overtime_calculation_mode = overtime_mode

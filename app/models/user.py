@@ -93,6 +93,9 @@ class User(UserMixin, db.Model):
         db.String(10), default="daily", nullable=False
     )  # 'daily' | 'weekly': overtime by daily cap vs weekly cap
     standard_hours_per_week = db.Column(db.Float, nullable=True)  # Used when overtime_calculation_mode is 'weekly'
+    # Stop the running timer once the day's standard hours (plus approved extensions)
+    # are worked and the overtime reminder went unanswered for 15 minutes.
+    auto_clock_out_enabled = db.Column(db.Boolean, default=True, nullable=False, server_default=db.true())
     # Project used by one-click and Slack ``/in`` when no project name is supplied.
     # This is deliberately user-configured: EvilTime never hardcodes a catch-all project.
     default_project_id = db.Column(

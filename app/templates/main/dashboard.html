@@ -31,6 +31,28 @@
     </a>
   </header>
 
+  {% if auto_clock_out and auto_clock_out.warning_active %}
+  <section id="eviltime-overtime-warning" role="alert" class="rounded-2xl border border-rose-300 bg-rose-50 p-4 shadow-sm dark:border-rose-500/40 dark:bg-rose-950/40 sm:p-5">
+    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+      <div class="flex items-start gap-3">
+        <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400"><i class="fas fa-business-time"></i></span>
+        <div>
+          <h2 class="font-semibold text-rose-900 dark:text-rose-100">{{ _('Daily working time reached') }}</h2>
+          <p class="mt-0.5 text-sm text-rose-800 dark:text-rose-200">
+            {{ _('You have worked %(hours)s today. You will be clocked out automatically at %(time)s unless you extend.', hours=(auto_clock_out.limit_seconds / 3600)|hours_minutes, time=auto_clock_out.deadline_at|user_time) }}
+          </p>
+        </div>
+      </div>
+      <div class="flex flex-wrap gap-2">
+        {% for minutes in auto_clock_out.extension_choices %}
+        <form method="POST" action="{{ url_for('timer.extend_workday') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="minutes" value="{{ minutes }}"><button class="btn btn-primary btn-sm"><i class="fas fa-plus"></i>{{ (minutes / 60)|hours_minutes }}</button></form>
+        {% endfor %}
+        <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm"><i class="fas fa-stop"></i>{{ _('Clock out now') }}</button></form>
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
   <div class="grid gap-4 lg:grid-cols-12">
     <section class="relative overflow-hidden rounded-2xl border {% if is_paused %}border-amber-300/70 dark:border-amber-500/30{% elif active_timer %}border-emerald-300/70 dark:border-emerald-500/30{% else %}border-slate-200 dark:border-slate-700{% endif %} bg-white shadow-sm dark:bg-slate-900 lg:col-span-8">
       <div class="absolute inset-y-0 left-0 w-1 {% if is_paused %}bg-amber-500{% elif active_timer %}bg-emerald-500{% else %}bg-slate-300 dark:bg-slate-700{% endif %}"></div>
@@ -80,6 +102,11 @@
               {% endif %}
               <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm"><i class="fas fa-stop"></i>{{ _('Clock out') }}</button></form>
             </div>
+            {% if auto_clock_out and auto_clock_out.enabled and auto_clock_out.limit_reached_at %}
+            <p class="mt-2 text-xs text-slate-500" title="{{ _('Change this in Settings → Overtime') }}">
+              <i class="fas fa-hourglass-half mr-1"></i>{{ _('Daily hours (%(hours)s) reached at %(time)s', hours=(auto_clock_out.limit_seconds / 3600)|hours_minutes, time=auto_clock_out.limit_reached_at|user_time) }}{% if auto_clock_out.extension_minutes %} · {{ _('extended by %(hours)s', hours=(auto_clock_out.extension_minutes / 60)|hours_minutes) }}{% endif %}
+            </p>
+            {% endif %}
           {% else %}
             <form method="POST" action="{{ url_for('timer.start_timer') }}" class="flex gap-2">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
