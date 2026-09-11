@@ -250,3 +250,45 @@ def test_dashboard_shows_expected_clock_out_time(app, authenticated_client, eigh
     assert response.status_code == 200
     assert b"eviltime-overtime-warning" not in response.data
     assert b"fa-hourglass-half" in response.data
+
+
+def test_extension_reports_end_time_counted_from_reminder(app, eight_hour_user, project):
+    from app.models.time_entry import local_now
+
+    now = local_now()
+    entry = start_entry(eight_hour_user, project, now - timedelta(hours=8, minutes=5))
+    AutoClockOutService().process_entry(entry, now=now)
+
+    result = AutoClockOutService().extend(eight_hour_user, 15)
+    # Hours were reached 5 minutes ago; +15 min counts from then, so 10 minutes remain.
+    assert abs((result["ends_at"] - (now + timedelta(minutes=10))).total_seconds()) < 5
+
+
+def test_warning_uses_the_agreed_wording(app, eight_hour_user, project):
+    from unittest.mock import patch
+
+    service = AutoClockOutService()
+    entry = start_entry(eight_hour_user, project, at(9))
+    with patch.object(service, "_emit") as emit:
+        service.process_entry(entry, now=at(17, 1))
+    payload = [c.args[2] for c in emit.call_args_list if c.args[1] == "overtime_warning"][0]
+    assert payload["message"] == (
+        "You have worked 8:00h today. You will be clocked out automatically. "
+        "You have until 17:16 to extend if absolutely necessary."
+    )
+
+
+def test_warning_uses_each_users_own_daily_hours(app, eight_hour_user, project):
+    from unittest.mock import patch
+
+    eight_hour_user.standard_hours_per_day = 5.0
+    db.session.commit()
+    service = AutoClockOutService()
+    entry = start_entry(eight_hour_user, project, at(9))
+
+    assert service.process_entry(entry, now=at(13, 59)) is None
+    with patch.object(service, "_emit") as emit:
+        assert service.process_entry(entry, now=at(14, 0)) == "warned"
+    payload = [c.args[2] for c in emit.call_args_list if c.args[1] == "overtime_warning"][0]
+    assert payload["message"].startswith("You have worked 5:00h today.")
+    assert "until 14:15" in payload["message"]

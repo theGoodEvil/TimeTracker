@@ -422,3 +422,26 @@ class TestSlackDeferredResponses:
             headers={"X-Slack-Signature": "v0=bad", "X-Slack-Request-Timestamp": str(int(time.time()))},
         )
         assert response.status_code == 401
+
+
+class TestBreakReminderButton:
+    def test_end_break_button_resumes_timer(self, app, slack_attendance_integration, linked_user):
+        with app.app_context(), patch(
+            "app.integrations.slack_attendance_connector.requests.post", return_value=_SlackResponse({"ok": True})
+        ):
+            connector = SlackAttendanceConnector.for_global()
+            connector.handle_slash_command(_slash_form("/in"))
+            connector.handle_slash_command(_slash_form("/brb"))
+
+            body = connector.handle_interaction(
+                {"user": {"id": "U_SLACK_1"}, "actions": [{"action_id": "eviltime_end_break"}]}
+            )
+            assert body["replace_original"] is True
+            assert "Welcome back" in body["text"]
+            assert User.query.get(linked_user.id).active_timer.paused_at is None
+
+            again = connector.handle_interaction(
+                {"user": {"id": "U_SLACK_1"}, "actions": [{"action_id": "eviltime_end_break"}]}
+            )
+            assert "Welcome back" not in again["text"]
+            connector.handle_slash_command(_slash_form("/out"))

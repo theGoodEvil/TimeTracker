@@ -77,12 +77,20 @@ Invite the bot to the attendance channel (`/invite @YourBot`). Private channels 
 Every employee has a **standard hours per day** (Settings → Overtime). When the hours worked that day reach it:
 
 1. The employee gets a reminder on the dashboard, as a browser notification, and as a Slack DM with
-   **+0:15 h / +0:30 h / +1:00 h / Clock out now** buttons.
-2. Extending adds the approved overtime to the day; the reminder repeats when the extended time is reached.
-3. Without a reaction for **15 minutes**, the timer is stopped. The entry ends at the moment the standard hours were
-   reached, so unconfirmed overtime is not recorded. The channel and the employee are notified.
+   **+0:15 h / +0:30 h / +1:00 h / Clock out now** buttons. They have **15 minutes** to react.
+2. **Clock out now** records the time the button is pressed.
+3. **Extending** adds the time to the moment of the reminder: reminder at 17:00, +0:15 h → work time runs until 17:15,
+   regardless of when within the 15 minutes the button is pressed. A new reminder follows at 17:15.
+4. **No reaction**: the timer is stopped after 15 minutes and the work time is recorded until the reminder (17:00),
+   e.g. when someone left without clocking out. The channel and the employee are notified.
 
 Breaks do not count as worked time. Employees can turn the automatic clock-out off in Settings → Overtime.
+
+## Break reminder
+
+After **30 minutes** of break, Slack-linked employees get a DM "Are you well rested? Feel free to get back to work any
+time." with an **End break** button, in addition to the browser notification on the dashboard. It is on by default;
+each employee can turn it off in **Settings → Profile** below the Slack user ID.
 
 ## Endpoints
 
@@ -115,5 +123,5 @@ EvilTime resolves Slack users in this order:
 | `/in` says "already clocked in … since yesterday" | A timer was left running. Clock out with `/out`; the automatic clock-out prevents this going forward. |
 | Website changes do not appear in Slack | Check the error on the EvilTime Slack card. `not_in_channel` → invite the bot. `invalid_auth`/`token_revoked` → paste a new token. |
 | Slack shows `dispatch_failed` | The request URL is unreachable from the internet (DNS, TLS, reverse proxy). |
-| Buttons in the reminder show an error | Interactivity is not enabled or points to the wrong URL (step 4). |
+| Buttons in the reminders show an error | Interactivity is not enabled or points to the wrong URL (step 4). |
 | "Your Slack account is not linked" | The member ID in Settings is wrong, or the Slack email differs from the EvilTime email. |

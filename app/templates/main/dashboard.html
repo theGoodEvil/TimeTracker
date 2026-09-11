@@ -39,7 +39,7 @@
         <div>
           <h2 class="font-semibold text-rose-900 dark:text-rose-100">{{ _('Daily working time reached') }}</h2>
           <p class="mt-0.5 text-sm text-rose-800 dark:text-rose-200">
-            {{ _('You have worked %(hours)s today. You will be clocked out automatically at %(time)s unless you extend.', hours=(auto_clock_out.limit_seconds / 3600)|hours_minutes, time=auto_clock_out.deadline_at|user_time) }}
+            {{ _('You have worked %(hours)s today. You will be clocked out automatically. You have until %(time)s to extend if absolutely necessary.', hours=(auto_clock_out.limit_seconds / 3600)|hours_minutes, time=auto_clock_out.deadline_at|user_time) }}
           </p>
         </div>
       </div>
@@ -102,7 +102,7 @@
               {% endif %}
               <form method="POST" action="{{ url_for('timer.stop_timer') }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-danger btn-sm"><i class="fas fa-stop"></i>{{ _('Clock out') }}</button></form>
             </div>
-            {% if auto_clock_out and auto_clock_out.enabled and auto_clock_out.limit_reached_at %}
+            {% if auto_clock_out and auto_clock_out.enabled and auto_clock_out.limit_reached_at and not auto_clock_out.warning_active %}
             <p class="mt-2 text-xs text-slate-500" title="{{ _('Change this in Settings → Overtime') }}">
               <i class="fas fa-hourglass-half mr-1"></i>{{ _('Daily hours (%(hours)s) reached at %(time)s', hours=(auto_clock_out.limit_seconds / 3600)|hours_minutes, time=auto_clock_out.limit_reached_at|user_time) }}{% if auto_clock_out.extension_minutes %} · {{ _('extended by %(hours)s', hours=(auto_clock_out.extension_minutes / 60)|hours_minutes) }}{% endif %}
             </p>

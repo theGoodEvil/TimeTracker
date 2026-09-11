@@ -56,7 +56,7 @@
     const key = 'eviltime-break-finished:' + activeTimer.id + ':' + activeTimer.paused_at;
     try { if (localStorage.getItem(key)) return; localStorage.setItem(key, String(Date.now())); } catch(e) {}
     const title = window.i18n?.messages?.breakFinishedTitle || 'Break is over';
-    const message = window.i18n?.messages?.breakFinishedMessage || 'Your 30-minute break is over.';
+    const message = window.i18n?.messages?.breakFinishedMessage || 'Are you well rested? Feel free to get back to work any time.';
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
         if ('serviceWorker' in navigator) {

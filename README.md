@@ -11,11 +11,11 @@ EvilTime is a self-hosted project time-tracking system. It keeps attendance and 
 - Each user can choose a default project in **My Settings → Work tracking**.
 - Starting a timer without an explicit project uses that default when it is available and active.
 - Timers are never stopped because a browser tab went idle. They end when the user clocks out, or through the automatic clock-out below.
-- Automatic clock-out: when a user's standard hours per day are reached, they get a reminder on the dashboard, as a browser notification, and in Slack, and can extend the day by 15 minutes, 30 minutes, or 1 hour. Without a reaction within 15 minutes the timer stops at the moment the hours were reached. Users can turn this off under **My Settings → Overtime**.
+- Automatic clock-out: when a user's standard hours per day are reached, they get a reminder on the dashboard, as a browser notification, and in Slack, and have 15 minutes to react: extending adds 15 minutes, 30 minutes, or 1 hour counted from the reminder; clocking out records the time of pressing; without a reaction the work time is recorded until the reminder. Users can turn this off under **My Settings → Overtime**.
 - Slack workspace integration: employees clock in, switch projects, take breaks, and clock out with `/in`, `/switch`, `/brb`, `/back`, and `/out`. Changes made on the website, kiosk, API, or MCP are announced in the same Slack channel. See [`docs/integrations/SLACK_ATTENDANCE.md`](docs/integrations/SLACK_ATTENDANCE.md).
 - Weekly time can be reviewed and corrected while keeping the underlying project entries visible.
 - Weekly expected hours are schedule changes: set them once in the weekly overview and later weeks inherit them until the next change. Administrators can manage the same ledger for each user.
-- Browser notifications can remind a user when a 30-minute break is over.
+- After a 30-minute break, a browser notification and a Slack message remind the user that they can get back to work.
 - Projects can use an emoji or uploaded PNG icon for one-click recent-project actions on the dashboard.
 - The dashboard includes a fixed-day event timeline for clock-ins, project switches, breaks, and clock-outs. Events can be edited, dragged, or inserted retroactively.
 - Every user can create a private MCP connection for timer control, projects, reporting, and retry-safe historical imports.

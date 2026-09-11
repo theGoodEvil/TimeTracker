@@ -152,12 +152,20 @@ class AutoClockOutService:
             return {"success": False, "message": "Could not save the extension.", "error": "database_error"}
 
         limit = self.limit_seconds(user, state)
+        # The extension counts from the reminder: 8:00 h reached at 17:00 + 15 min -> ends 17:15.
+        ends_at = None
+        if entry is not None and entry.paused_at is None:
+            now = local_now()
+            worked = self.worked_seconds(user, work_date, now)
+            if worked < limit:
+                ends_at = now + timedelta(seconds=limit - worked)
         self._emit(user.id, "overtime_extended", {"limit_seconds": limit, "extension_minutes": state.extension_minutes})
         return {
             "success": True,
             "message": "Work time extended.",
             "limit_seconds": limit,
             "extension_minutes": state.extension_minutes,
+            "ends_at": ends_at,
         }
 
     # ------------------------------------------------------------------
@@ -357,11 +365,20 @@ class AutoClockOutService:
         except Exception:
             return None
 
+    @staticmethod
+    def warning_message(limit_seconds: int, deadline_local: str) -> str:
+        from app.utils.template_filters import format_hours_minutes
+
+        return (
+            f"You have worked {format_hours_minutes(limit_seconds / 3600)} today. "
+            f"You will be clocked out automatically. You have until {deadline_local} to extend if absolutely necessary."
+        )
+
     def _notify_warning(self, user, entry, state, limit) -> None:
         from app.utils.timezone import convert_app_datetime_to_user
 
         deadline_local = convert_app_datetime_to_user(state.deadline_at, user).strftime("%H:%M")
-        hours = f"{limit // 3600}:{(limit % 3600) // 60:02d} h"
+        message = self.warning_message(limit, deadline_local)
         self._emit(
             user.id,
             "overtime_warning",
@@ -371,20 +388,14 @@ class AutoClockOutService:
                 "deadline_at": state.deadline_at.isoformat(),
                 "deadline_local": deadline_local,
                 "title": "Daily working time reached",
-                "message": f"You have worked {hours} today. You will be clocked out at {deadline_local} unless you extend.",
+                "message": message,
             },
         )
-        self._push(
-            user,
-            "Daily working time reached",
-            f"You have worked {hours} today. Extend before {deadline_local} or you will be clocked out.",
-        )
+        self._push(user, "Daily working time reached", message)
         connector = self._slack()
         if connector:
             try:
-                connector.send_overtime_warning(
-                    user, limit_seconds=limit, deadline_at=state.deadline_at, extension_choices=EXTENSION_CHOICES
-                )
+                connector.send_overtime_warning(user, message=message, extension_choices=EXTENSION_CHOICES)
             except Exception:
                 logger.warning("Slack overtime warning failed for user %s", user.id, exc_info=True)
 
@@ -395,10 +406,14 @@ class AutoClockOutService:
             emit_timer_state("timer_stopped", entry)
         except Exception:
             logger.debug("Socket emit timer_stopped failed", exc_info=True)
+        from app.utils.timezone import convert_app_datetime_to_user
+
+        ended_local = convert_app_datetime_to_user(entry.end_time, user).strftime("%H:%M")
         self._push(
             user,
             "Automatically clocked out",
-            f"Your daily working time of {limit // 3600}:{(limit % 3600) // 60:02d} h was reached.",
+            f"No reaction to the reminder: your work time was recorded until {ended_local} "
+            f"({limit // 3600}:{(limit % 3600) // 60:02d} h).",
         )
         connector = self._slack()
         if connector:

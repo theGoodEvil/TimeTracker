@@ -731,7 +731,7 @@ def register_scheduled_tasks(scheduler, app=None):
             trigger="interval",
             minutes=1,
             id="process_auto_clock_out",
-            name="Warn at daily working hours and auto clock-out",
+            name="Auto clock-out and break reminders",
             replace_existing=True,
             max_instances=1,
             coalesce=True,
@@ -1077,18 +1077,27 @@ def process_missed_clock_in():
 
 
 def process_auto_clock_out():
-    """Warn users at their daily hours and stop timers left running past the grace period."""
+    """Warn at daily hours, stop timers left running past the grace period, and send break reminders."""
     from app.services.auto_clock_out_service import AutoClockOutService
 
+    from app.services.break_reminder_service import BreakReminderService
+
+    counts = {}
     try:
         counts = AutoClockOutService().run()
         if counts.get("warned") or counts.get("clocked_out"):
             logger.info("Auto clock-out: %s", counts)
-        return counts
     except Exception as e:
         db.session.rollback()
         logger.error("Error in process_auto_clock_out: %s", e)
-        return {}
+    try:
+        reminders = BreakReminderService().run()
+        if reminders.get("sent"):
+            logger.info("Break reminders: %s", reminders)
+    except Exception as e:
+        db.session.rollback()
+        logger.error("Error in break reminders: %s", e)
+    return counts
 
 
 def check_working_time_limits():

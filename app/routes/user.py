@@ -289,6 +289,7 @@ def settings():
             if hasattr(current_user, "overtime_include_weekends"):
                 current_user.overtime_include_weekends = request.form.get("overtime_include_weekends") == "on"
             current_user.auto_clock_out_enabled = "auto_clock_out_enabled" in request.form
+            current_user.slack_break_reminder_enabled = "slack_break_reminder_enabled" in request.form
             overtime_mode = request.form.get("overtime_calculation_mode")
             if overtime_mode in ("daily", "weekly"):
                 current_user.overtime_calculation_mode = overtime_mode

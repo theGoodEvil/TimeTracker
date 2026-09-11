@@ -201,6 +201,8 @@ class User(UserMixin, db.Model):
 
     # Slack user ID for workspace attendance slash commands (/in, /out, etc.).
     slack_user_id = db.Column(db.String(50), nullable=True, unique=True, index=True)
+    # Slack DM after a 30-minute break ("Are you well rested?").
+    slack_break_reminder_enabled = db.Column(db.Boolean, default=True, nullable=False, server_default=db.true())
 
     # Custom theme preferences (see app/services/theme_service.py).
     # theme_name picks one of the built-in themes; the remaining four

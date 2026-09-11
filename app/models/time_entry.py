@@ -38,6 +38,8 @@ class TimeEntry(db.Model):
     # Best-effort liveness telemetry. Heartbeats never stop a persisted timer.
     last_heartbeat_at = db.Column(db.DateTime, nullable=True, index=True)
     idle_notified_at = db.Column(db.DateTime, nullable=True)
+    # When the "break is over" Slack reminder was sent; one reminder per break (compared with paused_at).
+    break_reminder_sent_at = db.Column(db.DateTime, nullable=True)
     created_at = db.Column(db.DateTime, default=local_now, nullable=False)
     updated_at = db.Column(db.DateTime, default=local_now, onupdate=local_now, nullable=False)
 

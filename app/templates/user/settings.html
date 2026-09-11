@@ -75,6 +75,14 @@
                     <p class="text-xs text-gray-500 dark:text-gray-400 mt-1">
                         {{ _('Optional. Link your Slack account for /in, /brb, /back, /out attendance commands. Your profile email is matched automatically when possible.') }}
                     </p>
+                    <label for="slack_break_reminder_enabled" class="mt-3 flex items-center min-h-[44px] cursor-pointer rounded-lg px-2 -mx-2 hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                        <input type="checkbox" id="slack_break_reminder_enabled" name="slack_break_reminder_enabled"
+                               {% if getattr(user, 'slack_break_reminder_enabled', true) %}checked{% endif %}
+                               class="h-5 w-5 rounded border-gray-300 text-primary focus:ring-primary dark:bg-gray-700 dark:border-gray-600 flex-shrink-0">
+                        <span class="ml-3 text-sm text-gray-700 dark:text-gray-300">
+                            {{ _('Send me a Slack message after a 30-minute break') }}
+                        </span>
+                    </label>
                 </div>
             </div>
             </div>
@@ -451,7 +459,7 @@
                     <span class="ml-3 text-sm text-gray-700 dark:text-gray-300">
                         {{ _('Automatically clock out after my standard hours per day') }}
                         <span class="block text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                            {{ _('When your standard hours (%(hours)s) are reached you get a reminder in EvilTime and Slack. Extend your day within 15 minutes, otherwise you are clocked out at the moment the hours were reached.', hours=((user.standard_hours_per_day or 8))|hours_minutes) }}
+                            {{ _('When your standard hours (%(hours)s) are reached you get a reminder in EvilTime and Slack. Within 15 minutes you can extend your time (counted from the reminder) or clock out, which records the time you press. Without a reaction, your work time is recorded until the reminder.', hours=((user.standard_hours_per_day or 8))|hours_minutes) }}
                         </span>
                     </span>
                 </label>

@@ -26157,8 +26157,8 @@ msgstr "Browser-Benachrichtigung nach 30 Minuten Pause erhalten."
 msgid "Break is over"
 msgstr "Pause ist vorbei"
 
-msgid "Your 30-minute break is over. End the break when you are ready to continue."
-msgstr "Ihre 30-minütige Pause ist vorbei. Beenden Sie die Pause, wenn Sie weiterarbeiten möchten."
+msgid "Are you well rested? Feel free to get back to work any time."
+msgstr "Gut erholt? Sie können jederzeit weiterarbeiten."
 
 msgid "Project icon"
 msgstr "Projekt-Icon"

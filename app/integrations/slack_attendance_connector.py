@@ -67,6 +67,9 @@ TIMER_EVENT_ACTIONS = {
 
 ACTION_EXTEND = "eviltime_extend"
 ACTION_CLOCK_OUT = "eviltime_clock_out"
+ACTION_END_BREAK = "eviltime_end_break"
+
+BREAK_OVER_MESSAGE = "Are you well rested? Feel free to get back to work any time."
 
 # Hints shown to admins for the Slack API errors that silently drop messages.
 SLACK_ERROR_HINTS = {
@@ -482,7 +485,7 @@ class SlackAttendanceConnector(BaseConnector):
             logger.debug("Socket emit %s failed: %s", event, exc)
 
     # ------------------------------------------------------------------
-    # Interactive buttons (overtime warning)
+    # Interactive buttons (overtime warning, break reminder)
     # ------------------------------------------------------------------
     def dispatch_interaction(self, payload: Dict[str, Any]) -> None:
         response_url = (payload.get("response_url") or "").strip()
@@ -519,9 +522,11 @@ class SlackAttendanceConnector(BaseConnector):
             result = AutoClockOutService().extend(user, minutes)
             if not result.get("success"):
                 return self._replacement(f":warning: {result.get('message') or 'Could not extend your work time.'}")
+            ends_at = result.get("ends_at")
+            until = f" until *{self._format_time(ends_at, user)}*" if ends_at else ""
             return self._replacement(
-                f":white_check_mark: Work time extended by {format_hours(minutes * 60)}. "
-                f"You will be asked again after {format_hours(result['limit_seconds'])}."
+                f":white_check_mark: Work time extended by {format_hours(minutes * 60)}{until} "
+                f"({format_hours(result['limit_seconds'])} in total). You will get another reminder then."
             )
 
         if action_id == ACTION_CLOCK_OUT:
@@ -532,20 +537,25 @@ class SlackAttendanceConnector(BaseConnector):
             self._emit(emit_timer_state, "timer_stopped", entry)
             return self._replacement(f":door: Clocked out at {self._format_time(entry.end_time, user)}.")
 
+        if action_id == ACTION_END_BREAK:
+            result = TimeTrackingService().resume_timer(user.id)
+            if not result.get("success"):
+                return self._replacement(
+                    f":information_source: {result.get('message') or 'You are not on a break right now.'}"
+                )
+            self._emit(emit_timer_state, "timer_resumed", result["entry"])
+            return self._replacement(":arrow_forward: Welcome back! Your break has ended.")
+
         return {}
 
     # ------------------------------------------------------------------
     # Auto clock-out notifications
     # ------------------------------------------------------------------
-    def send_overtime_warning(self, user, *, limit_seconds: int, deadline_at, extension_choices) -> bool:
+    def send_overtime_warning(self, user, *, message: str, extension_choices) -> bool:
         """DM the user that their daily hours are reached, with extend buttons."""
         if not self._is_ready() or not getattr(user, "slack_user_id", None):
             return False
-        deadline = self._format_time(deadline_at, user)
-        text = (
-            f":alarm_clock: You have reached your daily working time of *{format_hours(limit_seconds)}*. "
-            f"You will be clocked out automatically at *{deadline}* unless you extend."
-        )
+        text = f":alarm_clock: {message}"
         buttons = [
             {
                 "type": "button",
@@ -574,6 +584,27 @@ class SlackAttendanceConnector(BaseConnector):
             )
         return self._post_async(user.slack_user_id, text, blocks=blocks)
 
+    def send_break_over_reminder(self, user, entry) -> bool:
+        """DM the user that their break has lasted long enough, with an End break button."""
+        if not self._is_ready() or not getattr(user, "slack_user_id", None):
+            return False
+        text = f":coffee: {BREAK_OVER_MESSAGE}"
+        blocks = [
+            {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+            {
+                "type": "actions",
+                "elements": [
+                    {
+                        "type": "button",
+                        "action_id": ACTION_END_BREAK,
+                        "text": {"type": "plain_text", "text": "End break"},
+                        "style": "primary",
+                    }
+                ],
+            },
+        ]
+        return self._post_async(user.slack_user_id, text, blocks=blocks)
+
     def send_auto_clock_out_notice(self, user, entry, *, limit_seconds: int) -> None:
         display = self._display_name(user)
         at = self._format_time(entry.end_time, user)
@@ -588,7 +619,7 @@ class SlackAttendanceConnector(BaseConnector):
             self._post_async(
                 user.slack_user_id,
                 f":door: You were automatically clocked out at *{at}* after {format_hours(limit_seconds)} of work. "
-                "If you are still working, clock in again with `/in` and extend your time when asked.",
+                "If you are still working, clock in again with `/in` when absolutely necessary.",
             )
 
     # ------------------------------------------------------------------
